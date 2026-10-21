@@ -52,7 +52,11 @@ schemas, or config change).
 1. **Docs-first:** Read `docs/product-roadmap.md` and the relevant PRD/plan before feature
    work; follow `docs/documentation-standard.md` for doc maintenance and the session-close
    checklist.
-2. _Add project conventions here (imports, typing, module layout, naming, …)._
+2. **Doc numbering:** a feature's PRD, plan, and workflow doc share one four-digit feature
+   number (`docs/prd/0001-[feature]-prd.md` ↔ `docs/plan/0001-[feature]-plan.md`). The PRD
+   claims the next unused number; the plan reuses it. `0000` is the system foundation.
+   Full rules: "Naming Convention" in `docs/documentation-standard.md`.
+3. _Add project conventions here (imports, typing, module layout, naming, …)._
 
 ## Domain Rules
 

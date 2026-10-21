@@ -44,7 +44,7 @@ See [CLAUDE.md](CLAUDE.md) for the full policy and
 ## Docs-First Workflow
 
 1. Set the product direction in `docs/product-roadmap.md`.
-2. For each feature, write `docs/prd/[feature]-prd.md`, then `docs/plan/[feature]-plan.md`,
+2. For each feature, write `docs/prd/NNNN-[feature]-prd.md`, then `docs/plan/NNNN-[feature]-plan.md`,
    starting from `docs/templates/`.
 3. Implement against the PRD and plan. When the code diverges from the plan, add an entry
    to `docs/decisions/NNNN-title.md`. Don't rewrite the PRD or plan to match.

@@ -34,7 +34,7 @@ _How phases are defined: by user base milestones, capability tiers, infrastructu
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
-| `docs/[feature]-prd.md` | `src/[module]/` | draft / in-progress / shipped | |
+| `docs/prd/NNNN-[feature]-prd.md` | `src/[module]/` | draft / in-progress / shipped | |
 
 ### Phase 2: [Name]
 

@@ -36,7 +36,7 @@ _How the component registers or connects to the application (router includes, de
 
 | Document | Type | Relationship |
 |---|---|---|
-| `docs/[feature]-prd.md` | Intent | Product goals behind the structures documented here |
-| `docs/[feature]-plan.md` | Plan | Planned architecture these structures realize |
-| `docs/[feature]-workflow.md` | Workflow | Runtime behavior that uses these structures |
+| `docs/prd/NNNN-[feature]-prd.md` | Intent | Product goals behind the structures documented here |
+| `docs/plan/NNNN-[feature]-plan.md` | Plan | Planned architecture these structures realize |
+| `docs/NNNN-[feature]-workflow.md` | Workflow | Runtime behavior that uses these structures |
 | `docs/decisions/NNNN-*.md` | Decision log | Structural changes that diverged from the plan |
