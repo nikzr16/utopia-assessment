@@ -49,9 +49,15 @@ the user's session token; the RPC takes no actor parameter.
 ### 2. Create order — `create_order`
 
 **Input:** Branch, customer name / phone / address, problem description, service type, quoted price, optional scheduled date, admin notes, optional technician.
-**Actions:** Admin only. Validates required fields, branch, active service type, technician. Inserts the order with the next order number.
+**Actions:** Admin only. Validates required fields, branch, active service type, technician, Malaysian phone, and quoted price (RM 0 – 100,000, 2 decimals; since 0001). Stores the phone normalised (`60…`). Inserts the order with the next order number.
 **Output:** Status `new`, or `assigned` when a technician was chosen. Audit `created`. Technician notified when assigned.
 **On failure:** Plain-language error; nothing written.
+
+### 2a. Edit details — `update_order` (0001)
+
+Admin only, while `new`, `assigned`, or `acknowledged`; audited as `updated`
+with old and new values; the assigned technician gets an `order_updated`
+notification. Details: `docs/0001-admin-order-portal-workflow.md`.
 
 ### 3. Assign or reassign — `transition_order(…, 'assigned', …, technician)`
 
@@ -103,6 +109,7 @@ All reads require a signed-in user with an active staff profile (row-level secur
 - `order_summary` view: order plus branch, service type, technician, extra charges, final amount, amount paid, balance, payment status. Technicians see only their own orders; other roles see all.
 - `technician_jobs()`: the signed-in technician's `order_summary` rows.
 - `current_staff()`: the signed-in user's staff profile with branch name.
+- `list_orders(...)`, `technician_options()` (0001): Admin portal list and technician dropdown, under RLS.
 - `notifications` table: each user sees only their own; `mark_notification_read` sets `read_at` for the recipient only.
 
 ## Error States
@@ -156,3 +163,4 @@ All reads require a signed-in user with an active staff profile (row-level secur
 | `docs/decisions/0003-reschedule-and-payment-guards.md` | Decision log | Reschedule and payment guards |
 | `docs/decisions/0004-real-authentication-replaces-mock-login.md` | Decision log | Real Supabase Auth replaces the mock login |
 | `docs/decisions/0005-auth-implementation-hardening.md` | Decision log | Confirmed-email linking, script and app safeguards |
+| `docs/0001-admin-order-portal-workflow.md` | Workflow | Admin portal built on these RPCs (edit, list, phone and price rules) |

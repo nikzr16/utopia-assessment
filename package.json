@@ -13,15 +13,20 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "react-router": "^7.18.4"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.11",
     "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "jsdom": "^26.1.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
