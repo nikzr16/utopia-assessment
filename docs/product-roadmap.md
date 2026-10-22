@@ -68,7 +68,7 @@ _Master list of all PRDs and their phase assignment. Duplicates the per-phase ta
 
 | PRD | Phase | Module | Status |
 |---|---|---|---|
-| | | | |
+| `docs/prd/0000-system-foundation-prd.md` | 1 – Foundation | `supabase/`, `src/domain/`, `src/features/session/` | shipped |
 
 ## Prioritization Log
 

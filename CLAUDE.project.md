@@ -12,28 +12,36 @@ When guidance conflicts:
 - Harness routing, capability placement, and validation rules in `CLAUDE.md`
   still apply.
 
-> **Template:** replace every `_italic placeholder_` below when you start a new
-> project from this harness. Delete sections that don't apply.
-
 ## Project Overview
 
-_One or two paragraphs: what the product is, who uses it, and the core problem it solves._
+A programmer assessment: an internal operations system for Sejuk Sejuk Service
+Sdn Bhd (fictional), an air-conditioner installation, servicing, and repair
+company with 5 branches and 40+ field technician teams. It digitises the
+service workflow: Order → Assignment → Service Completion → Manager / Finance
+Review. Admins use desktop, technicians use mobile, and managers get an AI
+assistant that answers operational questions from controlled queries.
+
+Source brief: `docs/prd/0000-programmer-assessment-brief.docx`. Feature
+numbers 0000–0006 follow the brief's modules (see `docs/product-roadmap.md`).
 
 ## Tech Stack
 
-- **Frontend:** _framework, language, styling_
-- **Backend:** _language, framework, runtime_
-- **Storage:** _database / files / external services_
-- **Packaging:** _package managers and lockfiles_
-- **Deployment:** _how and where it runs_
+- **Frontend:** React 19 + TypeScript, Vite 7, Tailwind CSS 4
+- **Backend:** Supabase Postgres; business rules live in SQL functions (RPCs); Supabase Auth (email + password) with row-level security
+- **Storage:** Supabase Postgres and Supabase Storage (attachments)
+- **Packaging:** npm with `package-lock.json`; Node 23 (Vitest pinned to 3.x until Node ≥ 24)
+- **Deployment:** Vercel (`main` = production, `dev` = integration)
 
 ## Repository Layout
 
-Full structural reference: `docs/reference/folder-structure.md` (create it from
-`docs/templates/reference-template.md`; keep it current when structure, routes,
-schemas, or config change).
+Full structural reference: `docs/reference/folder-structure.md` (keep it current
+when structure, routes, schemas, or config change).
 
-- **`_path/`** — _what lives here_
+- **`src/`** — React app: `domain/` (pure rules mirrored from the DB),
+  `features/` (per-feature UI), `components/` (shared UI), `lib/` (Supabase client)
+- **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
+- **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning)
+- **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `db/` PGlite database tests
 - **`docs/`** — docs-first source of truth: `docs/product-roadmap.md`,
   `docs/prd/`, `docs/plan/`, `docs/reference/`, `docs/decisions/`. `docs/draft/` is the
   user's personal scratch space — never read or act on it unless explicitly referenced.
@@ -42,10 +50,12 @@ schemas, or config change).
 
 | Purpose | Command | Notes |
 |---------|---------|-------|
-| Install deps | _command_ | |
-| Run locally | _command_ | |
-| Build | _command_ | |
-| Test | _command_ | |
+| Install deps | `npm install` | |
+| Run locally | `npm run dev` | Needs `.env.local` (see Environment And Secrets) |
+| Build | `npm run build` | `tsc -b` then `vite build` |
+| Typecheck | `npm run typecheck` | |
+| Test | `npm test` | Vitest; DB tests run on PGlite, no Docker or Supabase needed |
+| Create staff logins | `npm run auth:create-staff-logins` | Needs `SUPABASE_SECRET_KEY` + `STAFF_DEMO_PASSWORD` in `.env.local`; `-- --reset-passwords` to update |
 
 ## Code Conventions
 
@@ -56,19 +66,38 @@ schemas, or config change).
    number (`docs/prd/0001-[feature]-prd.md` ↔ `docs/plan/0001-[feature]-plan.md`). The PRD
    claims the next unused number; the plan reuses it. `0000` is the system foundation.
    Full rules: "Naming Convention" in `docs/documentation-standard.md`.
-3. _Add project conventions here (imports, typing, module layout, naming, …)._
+3. **Database is the rule authority:** all writes go through RPCs; the actor is
+   always the signed-in user (`auth.uid()` → `_require_actor()`), never a parameter.
+   Never write tables directly from the UI. Every new table needs RLS and explicit grants. A rule change means a new
+   migration, an update to the `src/domain/` mirror, and a passing `tests/db/parity.test.ts`.
+4. **Migrations are append-only** once committed: add a new timestamped file in
+   `supabase/migrations/` instead of editing an old one. Supabase-only statements
+   (roles, RLS, grants) stay guarded so migrations still run in PGlite.
+5. **Git:** feature branches `feature/NNNN-<slug>` off `dev`; Conventional Commits.
+   Do not push, merge, or squash unless the user asks.
+6. **Build the real thing:** where the brief allows a mock or shortcut (e.g. mock
+   login), implement the production-grade version.
 
 ## Domain Rules
 
-1. _Business rules, invariants, and data definitions the code must respect._
+1. Order lifecycle, roles, and permissions: `docs/prd/0000-system-foundation-prd.md`
+   and current behavior in `docs/0000-system-foundation-workflow.md`.
+2. Final amount = quoted price + extra charges; payment status is derived from
+   payments (never stored).
+3. Malaysia time (UTC+8), weeks Monday–Sunday, currency MYR.
+4. AI features read data only through controlled, whitelisted queries.
 
 ## Environment And Secrets
 
-- _Which `.env` files exist, what they configure, and where their `.example` copies live._
+- `.env.local` (git-ignored); template in `.env.example`.
+  - Browser: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (publishable or legacy
+    anon key). Without them the app shows a setup notice.
+  - Script only: `SUPABASE_SECRET_KEY` (`sb_secret_…`) and `STAFF_DEMO_PASSWORD`.
+    Never prefix these with `VITE_`; never read or print them in agent output.
 
 ## Testing And Definition Of Done
 
-- _Test command(s) that must pass for touched code._
+- `npm test`, `npm run typecheck`, and `npm run build` must pass for touched code.
 - Treat tests as part of implementation, not a follow-up task.
 - Never rewrite intent docs (PRDs/plans) during coding — record divergences in
   `docs/decisions/` instead.
@@ -79,5 +108,7 @@ schemas, or config change).
 
 ## Operational Notes
 
-- _Anything an agent should know to operate safely: generated data not to delete,
-  boundaries between components, where metrics/logs live, etc._
+- Hosted Supabase project (Singapore). Public sign-up must stay OFF; staff accounts
+  are created only by `npm run auth:create-staff-logins`.
+- Demo staff emails are `<name>@sejuk.example.com` (see `supabase/seed.sql`).
+- `docs/draft/` is local-only and partly ignored via `.git/info/exclude`.
