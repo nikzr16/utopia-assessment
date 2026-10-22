@@ -73,7 +73,7 @@ notification. Details: `docs/0001-admin-order-portal-workflow.md`.
 
 **Input:** Work done, extra charges (RM 0.00 – 100,000.00, at most 2 decimals; empty = 0; since 0002), remarks (required when extra charges > 0; since 0002).
 **Actions:** Assigned technician only, while `in_progress`. Upserts the completion record and moves the order to `job_done` in one transaction (a reworked job overwrites its completion record).
-**Output:** Status `job_done`. Audit `completion_submitted`. Managers of the order's branch notified.
+**Output:** Status `job_done`. Audit `completion_submitted`. Managers of the order's branch notified. The customer message is prepared in the same transaction (0003 trigger; `docs/0003-whatsapp-notification-workflow.md`).
 
 ### 6. Record payment — `record_payment`
 
@@ -176,4 +176,5 @@ All reads require a signed-in user with an active staff profile (row-level secur
 | `docs/decisions/0005-auth-implementation-hardening.md` | Decision log | Confirmed-email linking, script and app safeguards |
 | `docs/0001-admin-order-portal-workflow.md` | Workflow | Admin portal built on these RPCs (edit, list, phone and price rules) |
 | `docs/0002-technician-job-portal-workflow.md` | Workflow | Technician portal: job files, retry-safe payments, notifications |
+| `docs/0003-whatsapp-notification-workflow.md` | Workflow | Customer message prepared on Job Done |
 | `docs/decisions/0007-technician-job-portal-implementation-details.md` | Decision log | 0002 divergences from its plan |

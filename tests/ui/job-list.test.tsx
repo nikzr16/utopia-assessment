@@ -3,6 +3,7 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import * as messagesApi from '../../src/features/customer-messages/api'
 import * as api from '../../src/features/jobs/api'
 import { JobListPage, toJobView } from '../../src/features/jobs/JobListPage'
 import { makeOrder } from './fixtures'
@@ -10,6 +11,11 @@ import { makeOrder } from './fixtures'
 vi.mock('../../src/features/jobs/api', async (importOriginal) => {
   const actual = await importOriginal<typeof api>()
   return { ...actual, fetchMyJobs: vi.fn() }
+})
+
+vi.mock('../../src/features/customer-messages/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof messagesApi>()
+  return { ...actual, fetchLatestCustomerMessages: vi.fn() }
 })
 
 const fetchMyJobs = vi.mocked(api.fetchMyJobs)
@@ -37,6 +43,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(NOW)
   fetchMyJobs.mockReset().mockResolvedValue([])
+  vi.mocked(messagesApi.fetchLatestCustomerMessages).mockReset().mockResolvedValue({})
 })
 afterEach(() => vi.useRealTimers())
 

@@ -8,6 +8,7 @@ import { BUTTON, CARD, LINK } from '../../components/styles'
 import {
   availableTransitions,
   canChangeJobFiles,
+  canManageCustomerMessage,
   canRecordPayment,
   canRescheduleOrder,
   formatMalaysiaDateTime,
@@ -16,6 +17,7 @@ import {
   type OrderStatus,
 } from '../../domain'
 import { JobFiles, PaymentList } from '../attachments'
+import { CustomerMessagePanel } from '../customer-messages'
 import { useLoad } from '../../lib/useLoad'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
 import { acceptJob, fetchJob, rescheduleJob, startJob, type JobDetail } from './api'
@@ -146,6 +148,12 @@ export function JobPage() {
           {job.scheduled_at ? formatMalaysiaDateTime(job.scheduled_at) : 'No date yet'}
         </p>
       </header>
+
+      <CustomerMessagePanel
+        orderId={job.id}
+        orderStatus={job.status}
+        canManage={canManageCustomerMessage(job.status, 'technician', true)}
+      />
 
       {inRework ? (
         <section role="note" aria-label="Returned for rework" className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">

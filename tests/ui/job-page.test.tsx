@@ -4,9 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as filesApi from '../../src/features/attachments/api'
+import * as messagesApi from '../../src/features/customer-messages/api'
 import * as api from '../../src/features/jobs/api'
 import { JobPage } from '../../src/features/jobs/JobPage'
-import { makeOrder } from './fixtures'
+import { CUSTOMER_MESSAGE_TEXT, makeCustomerMessage, makeOrder } from './fixtures'
 
 vi.mock('../../src/features/jobs/api', async (importOriginal) => {
   const actual = await importOriginal<typeof api>()
@@ -16,6 +17,11 @@ vi.mock('../../src/features/jobs/api', async (importOriginal) => {
 vi.mock('../../src/features/attachments/api', async (importOriginal) => {
   const actual = await importOriginal<typeof filesApi>()
   return { ...actual, fetchJobFiles: vi.fn(), signedUrls: vi.fn() }
+})
+
+vi.mock('../../src/features/customer-messages/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof messagesApi>()
+  return { ...actual, fetchLatestCustomerMessage: vi.fn(), confirmCustomerMessage: vi.fn(), editCustomerMessage: vi.fn() }
 })
 
 const m = vi.mocked(api)
@@ -45,6 +51,7 @@ beforeEach(() => {
   m.rescheduleJob.mockResolvedValue()
   vi.mocked(filesApi.fetchJobFiles).mockResolvedValue([])
   vi.mocked(filesApi.signedUrls).mockResolvedValue({})
+  vi.mocked(messagesApi.fetchLatestCustomerMessage).mockResolvedValue(null)
 })
 
 describe('Job details and contact (AC3)', () => {
@@ -328,5 +335,49 @@ describe('Complete and pay from the job page', () => {
     expect(await screen.findByText('Payment recorded. Finance has been told.')).toBeTruthy()
     const payments = within(screen.getByRole('list', { name: 'Payments' }))
     expect((await payments.findByRole('link', { name: 'Receipt' })).getAttribute('href')).toBe('https://signed/r.jpg')
+  })
+})
+
+describe('Customer message (0003)', () => {
+  it('shows the message, the badge and Send above the customer once the job is done', async () => {
+    vi.mocked(messagesApi.fetchLatestCustomerMessage).mockResolvedValue(makeCustomerMessage())
+    m.fetchJob.mockResolvedValue(detail({}, { status: 'job_done' }))
+    renderJob()
+    const panel = within(await screen.findByRole('region', { name: 'Customer message' }))
+    expect(panel.getByText(CUSTOMER_MESSAGE_TEXT)).toBeTruthy()
+    expect(panel.getByText('Customer not told yet')).toBeTruthy()
+    expect(panel.getByRole('link', { name: /Send to customer on WhatsApp/ })).toBeTruthy()
+    expect(panel.getByRole('button', { name: 'Edit message' })).toBeTruthy()
+    expect(messagesApi.fetchLatestCustomerMessage).toHaveBeenCalledWith('o-1')
+  })
+
+  it('shows no message while the job is being reworked, even though an older one exists', async () => {
+    vi.mocked(messagesApi.fetchLatestCustomerMessage).mockResolvedValue(makeCustomerMessage())
+    m.fetchJob.mockResolvedValue(detail({}, { status: 'in_progress' }))
+    renderJob()
+    await screen.findByRole('heading', { name: /ORDER1001/ })
+    expect(screen.queryByRole('region', { name: 'Customer message' })).toBeNull()
+    expect(messagesApi.fetchLatestCustomerMessage).not.toHaveBeenCalled()
+  })
+
+  it('confirms from the job page and shows who sent it', async () => {
+    const user = userEvent.setup()
+    let latest = makeCustomerMessage()
+    vi.mocked(messagesApi.fetchLatestCustomerMessage).mockImplementation(async () => latest)
+    vi.mocked(messagesApi.confirmCustomerMessage).mockImplementation(async () => {
+      latest = makeCustomerMessage({
+        status: 'sent',
+        confirmed_by: 't-ali',
+        confirmed_by_name: 'Ali',
+        confirmed_at: '2026-10-22T07:20:00Z',
+      })
+    })
+    m.fetchJob.mockResolvedValue(detail({}, { status: 'job_done' }))
+    renderJob()
+    const panel = within(await screen.findByRole('region', { name: 'Customer message' }))
+    await user.click(panel.getByRole('link', { name: /Send to customer on WhatsApp/ }))
+    await user.click(await screen.findByRole('button', { name: 'Yes, I sent it' }))
+    expect(await panel.findByText('Sent by Ali at Thu 22 Oct 2026, 3:20 PM')).toBeTruthy()
+    expect(panel.queryByText('Customer not told yet')).toBeNull()
   })
 })

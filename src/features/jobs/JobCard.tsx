@@ -1,10 +1,22 @@
 import { Link } from 'react-router'
 import { StatusBadge } from '../../components/StatusBadge'
 import { formatMalaysiaDateTime, formatMYR, jobArea } from '../../domain'
+import { CustomerNotToldBadge } from '../customer-messages'
 import type { OrderSummary } from './api'
 
-/** One job in the list: the whole card is the link to the job page. */
-export function JobCard({ job, overdue = false }: { job: OrderSummary; overdue?: boolean }) {
+/**
+ * One job in the list: the whole card is the link to the job page.
+ * `notTold` adds the "Customer not told yet" flag (Submitted tab).
+ */
+export function JobCard({
+  job,
+  overdue = false,
+  notTold = false,
+}: {
+  job: OrderSummary
+  overdue?: boolean
+  notTold?: boolean
+}) {
   const toCollect = job.status !== 'cancelled' && job.balance > 0
   return (
     <li>
@@ -27,6 +39,11 @@ export function JobCard({ job, overdue = false }: { job: OrderSummary; overdue?:
         </p>
         {toCollect ? (
           <p className="mt-1 text-sm text-slate-600">To collect: {formatMYR(job.balance)}</p>
+        ) : null}
+        {notTold ? (
+          <p className="mt-2">
+            <CustomerNotToldBadge />
+          </p>
         ) : null}
       </Link>
     </li>

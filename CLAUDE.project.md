@@ -22,7 +22,8 @@ Review. Admins use desktop, technicians use mobile, and managers get an AI
 assistant that answers operational questions from controlled queries.
 
 Source brief: `docs/prd/0000-programmer-assessment-brief.docx`. Feature
-numbers 0000–0006 follow the brief's modules (see `docs/product-roadmap.md`).
+numbers 0000–0006 follow the brief's modules; 0007 (review and close screens)
+and 0008 (customer feedback) came out of 0003 (see `docs/product-roadmap.md`).
 
 ## Tech Stack
 
@@ -39,7 +40,8 @@ when structure, routes, schemas, or config change).
 
 - **`src/`** — React app: `domain/` (pure rules mirrored from the DB),
   `features/` (per-feature UI: `auth`, `orders` (Admin), `jobs` (Technician),
-  `attachments` (job files), `notifications`), `components/` (shared UI),
+  `attachments` (job files), `notifications`, `customer-messages` (0003)),
+  `components/` (shared UI),
   `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
 - **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning)
@@ -97,6 +99,11 @@ when structure, routes, schemas, or config change).
    uploaded to Storage, then registered by RPC; they change only while the job
    is In Progress. Extra charges follow the money rule and need remarks;
    non-cash payments need a receipt; payments carry a one-time client key.
+7. Customer WhatsApp message: `docs/0003-whatsapp-notification-workflow.md`.
+   A database trigger prepares it whenever an order reaches Job Done (English,
+   Malaysia time); it is sent by `wa.me` deep link and confirmed by a person.
+   Editable until confirmed; a confirmed message never changes and messages
+   are never deleted (cleanup must disable `customer_messages_guard_trg`).
 
 ## Environment And Secrets
 

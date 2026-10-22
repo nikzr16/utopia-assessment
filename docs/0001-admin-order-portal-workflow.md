@@ -65,7 +65,12 @@ The technician dropdown lists active technicians from `technician_options()`: th
 **Reads:** `order_summary` by order number, the technician's phone from `staff`, and `audit_log` with the actor's name (newest first).
 **Shows:** Status badge, order details, money (quoted, extra charges, final, paid, balance, payment status), history in plain words (edits as `field: old → new`, reassign as `From A to B`, reschedule with reason and requester, notes).
 **Actions offered:** Edit (`canEditOrder`), Assign / Reassign and Cancel (`availableTransitions(status, 'admin')`), Reschedule (`canRescheduleOrder`). Closed, Cancelled, Job Done and Reviewed orders show none (In Progress shows Reschedule only).
-**History wording:** payments name the method and whether a receipt was attached ("RM 150.00 by Bank transfer, with receipt"); `file_added` / `file_removed` (0002) read "Added a file" / "Removed a file" with the file name.
+**History wording:** payments name the method and whether a receipt was attached ("RM 150.00 by Bank transfer, with receipt"); `file_added` / `file_removed` (0002) read "Added a file" / "Removed a file" with the file name; the 0003 customer message events read "Edited the customer message", "Sent the customer message on WhatsApp", "Told the customer by phone".
+
+### 3b. Customer message (0003)
+
+**When shown:** The order is Job Done, Reviewed, or Closed and has a customer message.
+**Shows:** The Customer message panel above the order details: the message, Edit, Send to customer on WhatsApp (or Call the customer for a landline), the "Have you sent it?" question, "Sent by X at T", and the "Customer not told yet" badge. The history reloads after an edit or confirmation. Details: `docs/0003-whatsapp-notification-workflow.md`.
 
 ### 3a. Completion section (0002)
 
@@ -141,3 +146,4 @@ Dialog with a required reason. On success the order is Cancelled: no actions, no
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0006-admin-order-portal-implementation-details.md` | Decision log | Divergences from the 0001 plan |
 | `docs/0002-technician-job-portal-workflow.md` | Workflow | Technician side, and the job-file uploader the Completion section reuses |
+| `docs/0003-whatsapp-notification-workflow.md` | Workflow | Customer message panel on the order detail |

@@ -141,6 +141,11 @@ export interface TestDb {
   currentIdentity: () => Identity
   /** The identity of a staff member's linked sign-in account. */
   identityOf: (staffId: string) => Promise<Identity>
+  /**
+   * Run a migration held back with `holdBackMigrations` (name or file prefix),
+   * for tests that need data in place before it runs.
+   */
+  applyMigration: (name: string) => Promise<void>
   /** Create a Supabase Auth user (the link trigger fires) and return its id. */
   createAuthUser: (email: string) => Promise<string>
   people: People
@@ -198,6 +203,9 @@ export interface CreateOrderOptions {
   branch?: string // branch name, default Shah Alam
   quotedPrice?: number
   scheduledAt?: string | null
+  customerName?: string
+  /** Stored or typed form; default is a mobile number (`60123456789`). */
+  customerPhone?: string
 }
 
 export interface PayOptions {
@@ -237,6 +245,12 @@ export interface CreateTestDbOptions {
    * its staff row. Default true.
    */
   provisionLogins?: boolean
+  /**
+   * Migration files (name or file prefix) not to run when the database is
+   * created; run one later with `applyMigration`. For testing what a migration
+   * does to data that already exists (a backfill).
+   */
+  holdBackMigrations?: string[]
 }
 
 export type AdvanceTarget =
@@ -263,7 +277,9 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
     .sort()
+  const heldBack = options.holdBackMigrations ?? []
   for (const file of files) {
+    if (heldBack.some((name) => file.startsWith(name))) continue
     await db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'))
   }
   await db.exec(readFileSync(SEED_FILE, 'utf8'))
@@ -348,6 +364,12 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
     current = SIGNED_OUT
   }
 
+  const applyMigration = async (name: string): Promise<void> => {
+    const file = files.find((f) => f.startsWith(name))
+    if (!file) throw new Error(`No migration named ${name}`)
+    await db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'))
+  }
+
   const createAuthUser = async (email: string): Promise<string> => {
     const rows = await q<{ id: string }>(
       'insert into auth.users (email, email_confirmed_at) values ($1, now()) returning id',
@@ -381,8 +403,8 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
   const createOrder = async (opts: CreateOrderOptions = {}): Promise<Row> => {
     return rpcAs(opts.actor ?? people.admin, 'create_order', {
       p_branch_id: await branchId(opts.branch ?? 'Shah Alam'),
-      p_customer_name: 'Encik Hafiz',
-      p_customer_phone: '60123456789',
+      p_customer_name: opts.customerName ?? 'Encik Hafiz',
+      p_customer_phone: opts.customerPhone ?? '60123456789',
       p_customer_address: '12 Jalan Mawar, Seksyen 7, Shah Alam',
       p_problem_description: 'Aircond not cold',
       p_service_type_id: await serviceTypeId('Repair'),
@@ -535,6 +557,7 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
     actSignedOut,
     currentIdentity: () => current,
     identityOf,
+    applyMigration,
     createAuthUser,
     people,
     branchId,

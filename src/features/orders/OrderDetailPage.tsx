@@ -6,10 +6,12 @@ import { BUTTON, CARD, LINK } from '../../components/styles'
 import {
   availableTransitions,
   canEditOrder,
+  canManageCustomerMessage,
   canRescheduleOrder,
   type OrderStatus,
   type TechnicianMessageKind,
 } from '../../domain'
+import { CustomerMessagePanel } from '../customer-messages'
 import { fetchOrder, fetchOrderHistory, type OrderDetail, type HistoryEntry } from './api'
 import { AssignDialog } from './actions/AssignDialog'
 import { CancelDialog } from './actions/CancelDialog'
@@ -162,6 +164,13 @@ export function OrderDetailPage() {
           />
         </section>
       ) : null}
+
+      <CustomerMessagePanel
+        orderId={order.id}
+        orderStatus={order.status}
+        canManage={canManageCustomerMessage(order.status, 'admin', false)}
+        onChange={reload}
+      />
 
       <OrderSummaryCard order={order} />
       {COMPLETION_STATUSES.includes(order.status) ? <CompletionSection order={order} /> : null}

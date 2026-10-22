@@ -46,13 +46,15 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 ### Phase 2: Core workflow
 
 **Trigger:** Phase 1 shipped.
-**Graduation criteria:** An order can go from creation to Closed through the app's screens (0001–0003 shipped).
+**Graduation criteria:** An order can go from creation to Closed through the app's screens, and customers can leave feedback (0001–0003, 0007, 0008 shipped).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
 | `docs/prd/0001-admin-order-portal-prd.md` | `src/features/orders/`, `supabase/migrations/` | shipped | Brief Module 1 |
 | `docs/prd/0002-technician-job-portal-prd.md` | `src/features/jobs/`, `src/features/attachments/`, `src/features/notifications/`, `supabase/migrations/` | shipped | Brief Module 2 |
-| 0003 `whatsapp-notification` | — | planned | Brief Module 3; PRD not written yet. Must also place the Manager review and Finance close screens (0002 PRD Q14) |
+| `docs/prd/0003-whatsapp-notification-prd.md` | `src/features/customer-messages/`, `supabase/migrations/` | shipped | Brief Module 3 |
+| 0007 `review-and-close` | — | planned | Manager review and Finance close screens (0002 PRD Q14; 0003 Q10); PRD not written yet |
+| 0008 `customer-feedback` | — | planned | Feedback link in the 0003 message; no sign-in; one submission per job (0003 Q6); PRD not written yet |
 
 ### Phase 3: Insights
 
@@ -78,7 +80,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | Concern | Introduced In | Matured In | Current State |
 |---|---|---|---|
 | Authentication and access (Supabase Auth, RLS, actor from `auth.uid()`) | 0000 | 0000 | Real email/password sign-in; public sign-up off |
-| Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0002 | Transitions, enums, phone, price, editable / reschedulable statuses, extra charges, file types / sizes / paths, file and receipt permissions, payment rules, job list tabs, notification events |
+| Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0003 | Transitions, enums, phone, price, editable / reschedulable statuses, extra charges, file types / sizes / paths, file and receipt permissions, payment rules, job list tabs, notification events, mobile check, Malaysia time format, customer message rules |
 | Deployment (Vercel) | 0001 | — | `vercel.json` SPA rewrite in place; not deployed yet |
 | File storage (Supabase Storage) | 0002 | 0002 | Private `job-files` bucket; policies follow order visibility; files registered by RPC from the stored object's real type and size |
 | Live updates (Supabase Realtime) | 0002 | 0002 | `notifications` streamed to the recipient under RLS; refresh on return as a fallback |
@@ -91,6 +93,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | `docs/prd/0000-system-foundation-prd.md` | 1 – Foundation | `supabase/`, `src/domain/`, `src/features/auth/` | shipped |
 | `docs/prd/0001-admin-order-portal-prd.md` | 2 – Core workflow | `src/features/orders/`, `supabase/migrations/` | shipped |
 | `docs/prd/0002-technician-job-portal-prd.md` | 2 – Core workflow | `src/features/jobs/`, `src/features/attachments/`, `src/features/notifications/`, `supabase/migrations/` | shipped |
+| `docs/prd/0003-whatsapp-notification-prd.md` | 2 – Core workflow | `src/features/customer-messages/`, `supabase/migrations/` | shipped |
 
 ## Prioritization Log
 
@@ -100,6 +103,7 @@ _When a feature moves between phases or priorities shift, record the change and 
 |---|---|---|
 | 2026-10-22 | Phases 1–4 defined from the brief's modules (0000–0006) | Build in the order a job moves through the business; insight features need the data the workflow screens create |
 | 2026-10-22 | Manager review and Finance close screens are to be scoped in the 0003 PRD | Not part of Module 2 (0002 PRD Q14); Phase 2 cannot graduate without a screen path to Closed |
+| 2026-10-22 | Manager review and Finance close screens moved to new PRD 0007 `review-and-close`; customer feedback moved to new PRD 0008 `customer-feedback`; both in Phase 2 after 0003 | Neither is WhatsApp notification (0003 Q6, Q10); review/close first because Phase 2 needs a screen path to Closed |
 
 ## Related Documents
 

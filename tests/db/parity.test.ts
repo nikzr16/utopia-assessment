@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
+  CUSTOMER_MESSAGE_CHANNELS,
+  CUSTOMER_MESSAGE_STATES,
+  CUSTOMER_MESSAGE_STATUSES,
   EDITABLE_STATUSES,
   JOB_VIEWS,
   JOB_VIEW_STATUSES,
@@ -12,8 +15,12 @@ import {
   TRANSITION_RULES,
   canAddReceipt,
   canChangeJobFiles,
+  canManageCustomerMessage,
   canRecordPayment,
+  checkCustomerMessageBody,
   checkJobFile,
+  formatMalaysiaDateTime,
+  isMyMobile,
   jobFileOrder,
   normalizeMyPhone,
   parseExtraCharges,
@@ -393,5 +400,136 @@ describe('Rules parity: notification events (src/domain/jobs.ts = notifications_
     )
     const events = [...row.def.matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1])
     expect(events.sort()).toEqual([...NOTIFICATION_EVENTS].sort())
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 0003 customer messages
+// ---------------------------------------------------------------------------
+const MOBILE_CASES = [
+  '60123456789', '601123456789', '60112345678', '601234567890', '6012345678', '60123456',
+  '6011234567890', '60312345678', '60412345678', '0123456789', '+60123456789', '123456789',
+  '5123456789', '60223456789', '60 123456789', '60123456789 ', ' 60123456789', '60123456789\n',
+  '6012345678a', '٦٠١٢٣٤٥٦٧٨٩', '',
+]
+
+describe('Rules parity: mobile numbers (src/domain/phone.ts isMyMobile = _is_my_mobile)', () => {
+  it.each(MOBILE_CASES)('%j', async (input) => {
+    const rows = await t.q<{ v: boolean }>('select _is_my_mobile($1) as v', [input])
+    expect(rows[0].v).toBe(isMyMobile(input))
+  })
+
+  it('is false for no number at all', async () => {
+    expect((await t.q<{ v: boolean }>('select _is_my_mobile(null) as v'))[0].v).toBe(false)
+  })
+
+  it('agrees with normalizeMyPhone: every number it stores is WhatsApp-capable exactly when it is a mobile', async () => {
+    for (const input of PHONE_CASES) {
+      const result = normalizeMyPhone(input)
+      if (!result.ok) continue
+      const rows = await t.q<{ v: boolean }>('select _is_my_mobile($1) as v', [result.value])
+      expect(rows[0].v, input).toBe(isMyMobile(result.value))
+    }
+  })
+})
+
+// Malaysia is UTC+8 all year. The cases cover midnight and noon (12 AM / 12 PM),
+// single-digit days, every month and weekday, month / year / leap-day
+// boundaries, and instants whose UTC date differs from the Malaysia date.
+const MALAYSIA_TIME_CASES = [
+  '2026-10-22T07:15:00Z', // Thu 22 Oct 2026, 3:15 PM
+  '2026-10-21T16:00:00Z', // midnight: 12:00 AM on the 22nd
+  '2026-10-21T15:59:00Z', // 11:59 PM on the 21st
+  '2026-10-22T04:00:00Z', // noon: 12:00 PM
+  '2026-10-22T03:59:00Z', // 11:59 AM
+  '2026-10-22T04:01:00Z', // 12:01 PM
+  '2026-10-21T16:01:00Z', // 12:01 AM
+  '2026-10-22T20:30:00Z', // UTC 22nd, Malaysia 23rd 4:30 AM
+  '2026-10-22T00:00:00Z', // 8:00 AM
+  '2026-10-09T01:05:00Z', // single-digit day, 9:05 AM
+  '2026-10-01T00:00:00Z', // first of the month
+  '2026-09-30T16:00:00Z', // month boundary: 1 Oct, 12:00 AM
+  '2026-12-31T16:00:00Z', // year boundary: Fri 1 Jan 2027
+  '2026-12-31T15:59:00Z',
+  '2028-02-29T10:00:00Z', // leap day
+  '2026-02-28T16:30:00Z', // 1 Mar, 12:30 AM
+  '2026-01-04T00:00:00Z', // a Sunday
+  '2026-10-22T07:15:00.999Z',
+  ...Array.from({ length: 12 }, (_, i) => `2026-${String(i + 1).padStart(2, '0')}-15T04:30:00Z`),
+  ...Array.from({ length: 7 }, (_, i) => `2026-11-0${i + 1}T10:07:00Z`),
+]
+
+describe('Rules parity: Malaysia date and time (src/domain/malaysiaTime.ts = _malaysia_date_time)', () => {
+  it.each(MALAYSIA_TIME_CASES)('%s', async (iso) => {
+    const rows = await t.q<{ v: string }>('select _malaysia_date_time($1::timestamptz) as v', [iso])
+    expect(rows[0].v).toBe(formatMalaysiaDateTime(iso))
+  })
+
+  it('is empty for no time, like the app', async () => {
+    expect((await t.q<{ v: string }>('select _malaysia_date_time(null) as v'))[0].v).toBe(formatMalaysiaDateTime(null))
+  })
+})
+
+const MESSAGE_BODY_CASES = [
+  '', '   ', '\n\t ', 'Hello', '  Hello  ', 'Line one\nLine two', ' \n padded \n ',
+  'a'.repeat(999), 'a'.repeat(1000), 'a'.repeat(1001), ` ${'a'.repeat(1000)} `, ` ${'a'.repeat(1001)} `,
+  '😀'.repeat(1000), '😀'.repeat(1001), 'é'.repeat(1000), 'é'.repeat(1001),
+]
+
+describe('Rules parity: customer message text (src/domain/customerMessages.ts = _check_customer_message_body)', () => {
+  it.each(MESSAGE_BODY_CASES.map((c) => [c.length > 40 ? `${c.slice(0, 8)}… (${[...c].length} characters)` : c, c]))(
+    '%j',
+    async (_label, input) => {
+      const sql = await sqlResult(t, 'select _check_customer_message_body($1) as v', input)
+      expect(sql).toEqual(checkCustomerMessageBody(input))
+    },
+  )
+})
+
+describe('Rules parity: customer message states (src/domain/customerMessages.ts)', () => {
+  const checkValues = async (name: string) => {
+    const [row] = await t.q<{ def: string }>(
+      `select pg_get_constraintdef(oid) as def from pg_constraint where conname = $1`,
+      [name],
+    )
+    return [...row.def.matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1])
+  }
+
+  it('has the same states and channels as the table checks', async () => {
+    expect((await checkValues('customer_messages_status_check')).sort()).toEqual([...CUSTOMER_MESSAGE_STATES].sort())
+    expect((await checkValues('customer_messages_channel_check')).sort()).toEqual([...CUSTOMER_MESSAGE_CHANNELS].sort())
+  })
+
+  it('lets exactly the people and statuses of canManageCustomerMessage edit a message', async () => {
+    const reached = await ordersInEveryStatus(t.people.ali)
+    const actors: Array<[string, StaffRole, boolean]> = [
+      [t.people.ali, 'technician', true],
+      [t.people.bala, 'technician', false],
+      [t.people.admin, 'admin', false],
+      [t.people.managerSA, 'manager', false],
+      [t.people.finance, 'finance', false],
+    ]
+    for (const status of ORDER_STATUSES) {
+      // A fresh not_sent WhatsApp message, the newest of its order.
+      const [message] = await t.q<{ id: string }>(
+        `insert into customer_messages (order_id, channel, phone, prepared_body, body)
+         values ($1, 'whatsapp', '60123456789', 'Prepared', 'Prepared') returning id`,
+        [reached[status]],
+      )
+      for (const [staffId, role, assigned] of actors) {
+        // The New order has no technician, so Ali is not assigned to it.
+        const isAssigned = assigned && status !== 'new'
+        const ok = await t
+          .rpcAs(staffId, 'edit_customer_message', { p_message_id: message.id, p_body: 'Edited' })
+          .then(
+            () => true,
+            () => false,
+          )
+        expect({ status, role, ok }).toEqual({ status, role, ok: canManageCustomerMessage(status, role, isAssigned) })
+      }
+    }
+    expect(ORDER_STATUSES.filter((s) => canManageCustomerMessage(s, 'admin', false))).toEqual([
+      ...CUSTOMER_MESSAGE_STATUSES,
+    ])
   })
 })

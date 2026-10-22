@@ -28,6 +28,9 @@ const ACTION_LABELS: Record<string, string> = {
   payment_recorded: 'Recorded a payment',
   file_added: 'Added a file',
   file_removed: 'Removed a file',
+  customer_message_edited: 'Edited the customer message',
+  customer_messaged: 'Sent the customer message on WhatsApp',
+  customer_called: 'Told the customer by phone',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -89,6 +92,15 @@ export function historyDetails(entry: HistoryEntry): string[] {
       return [str(d.file_name) ?? String(d.kind ?? 'file')]
     case 'completion_submitted':
       return [`Final amount ${formatMYR(Number(d.final_amount))}`]
+    case 'customer_message_edited':
+      return [`From: ${str(d.previous_body) ?? '(empty)'}`, `To: ${str(d.new_body) ?? '(empty)'}`]
+    case 'customer_messaged':
+      return [
+        `To ${str(d.phone) ? formatMyPhone(String(d.phone)) : 'the customer'}${d.edited ? ' (text was edited)' : ''}`,
+        `Message: ${str(d.body) ?? '(empty)'}`,
+      ]
+    case 'customer_called':
+      return [`Called ${str(d.phone) ? formatMyPhone(String(d.phone)) : 'the customer'}`]
     default:
       return []
   }
