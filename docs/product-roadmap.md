@@ -19,56 +19,74 @@ cross-feature ordering logic. Do not duplicate PRD content here.
 
 ## Product Vision
 
-_One to three sentences describing the long-term direction of the product._
+An internal operations system that carries every Sejuk Sejuk Service
+air-conditioner job from order to payment clearance on one shared data model,
+with an AI assistant that answers operational questions from controlled
+queries.
 
 ## Phasing Strategy
 
-_How phases are defined: by user base milestones, capability tiers, infrastructure readiness, or a combination. Explain the graduation logic._
+Phases follow the assessment brief's modules and the order a job moves
+through the business: the shared foundation first, then the screens for each
+step of the job lifecycle, then the insight features that read the data those
+screens create, then optional stretch work. A phase graduates when every PRD
+in it is shipped (all acceptance criteria passing, including manual checks).
 
 ## Phases
 
-### Phase 1: [Name]
+### Phase 1: Foundation
 
-**Trigger:** _What starts this phase (e.g. project kickoff, first deployment)._
-**Graduation criteria:** _What must be true before moving to Phase 2._
-
-| PRD | Module | Status | Notes |
-|---|---|---|---|
-| `docs/prd/NNNN-[feature]-prd.md` | `src/[module]/` | draft / in-progress / shipped | |
-
-### Phase 2: [Name]
-
-**Trigger:** _What starts this phase (e.g. Phase 1 shipped, N active users)._
-**Graduation criteria:** _What must be true before moving to Phase 3._
+**Trigger:** Project kickoff.
+**Graduation criteria:** Data model, lifecycle rules, roles, and real sign-in work end to end (0000 shipped).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
-| | | | |
+| `docs/prd/0000-system-foundation-prd.md` | `supabase/`, `src/domain/`, `src/features/auth/` | shipped | |
 
-### Phase 3: [Name]
+### Phase 2: Core workflow
 
-**Trigger:** _What starts this phase._
-**Graduation criteria:** _What must be true before moving to Phase 4._
+**Trigger:** Phase 1 shipped.
+**Graduation criteria:** An order can go from creation to Closed through the app's screens (0001–0003 shipped).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
-| | | | |
+| `docs/prd/0001-admin-order-portal-prd.md` | `src/features/orders/`, `supabase/migrations/` | shipped | Brief Module 1 |
+| 0002 `technician-job-portal` | — | planned | Brief Module 2; PRD not written yet |
+| 0003 `whatsapp-notification` | — | planned | Brief Module 3; PRD not written yet |
+
+### Phase 3: Insights
+
+**Trigger:** Phase 2 shipped.
+**Graduation criteria:** KPI dashboard and AI operations query window shipped (0004, 0005).
+
+| PRD | Module | Status | Notes |
+|---|---|---|---|
+| 0004 `kpi-dashboard` | — | planned | Brief bonus module; PRD not written yet |
+| 0005 `ai-ops-query` | — | planned | Brief AI module; PRD not written yet |
+
+### Phase 4: Stretch
+
+**Trigger:** Phase 3 shipped.
+**Graduation criteria:** Chosen optional AI challenges shipped (0006).
+
+| PRD | Module | Status | Notes |
+|---|---|---|---|
+| 0006 `ai-advanced` | — | planned | Optional advanced AI challenges; PRD not written yet |
 
 ## Cross-Cutting Concerns
 
-_Capabilities that span multiple phases rather than belonging to a single PRD (e.g. auth, observability, CI/CD, infrastructure). Track their progression here._
-
 | Concern | Introduced In | Matured In | Current State |
 |---|---|---|---|
-| | | | |
+| Authentication and access (Supabase Auth, RLS, actor from `auth.uid()`) | 0000 | 0000 | Real email/password sign-in; public sign-up off |
+| Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0001 | Transitions, enums, phone, price, editable / reschedulable statuses |
+| Deployment (Vercel) | 0001 | — | `vercel.json` SPA rewrite in place; not deployed yet |
 
 ## PRD Registry
 
-_Master list of all PRDs and their phase assignment. Duplicates the per-phase tables into one flat view for quick lookup._
-
 | PRD | Phase | Module | Status |
 |---|---|---|---|
-| `docs/prd/0000-system-foundation-prd.md` | 1 – Foundation | `supabase/`, `src/domain/`, `src/features/session/` | shipped |
+| `docs/prd/0000-system-foundation-prd.md` | 1 – Foundation | `supabase/`, `src/domain/`, `src/features/auth/` | shipped |
+| `docs/prd/0001-admin-order-portal-prd.md` | 2 – Core workflow | `src/features/orders/`, `supabase/migrations/` | shipped |
 
 ## Prioritization Log
 
@@ -76,7 +94,7 @@ _When a feature moves between phases or priorities shift, record the change and 
 
 | Date | Change | Reason |
 |---|---|---|
-| | | |
+| 2026-10-22 | Phases 1–4 defined from the brief's modules (0000–0006) | Build in the order a job moves through the business; insight features need the data the workflow screens create |
 
 ## Related Documents
 

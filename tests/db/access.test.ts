@@ -91,6 +91,7 @@ describe('Access migration: row-level security and grants', () => {
       [
         'create_order', 'transition_order', 'submit_completion', 'record_payment', 'reschedule_order',
         'mark_notification_read', 'technician_jobs', 'current_staff', '_current_staff_id', '_current_staff_role',
+        'update_order', 'list_orders', 'technician_options',
       ].sort(),
     )
   })
@@ -120,7 +121,7 @@ describe('Access migration: row-level security and grants', () => {
     const internal = [
       '_require_actor', '_lock_order', '_require_technician', '_audit', '_notify',
       '_payment_status', '_authorize_transition', '_status_label', '_transition_phrase',
-      '_link_staff_on_signup',
+      '_link_staff_on_signup', '_normalize_my_phone', '_check_quoted_price', '_check_order_details',
     ]
     const rows = await t.q<{ proname: string; role: string; ok: boolean }>(
       `select p.proname, r.role, has_function_privilege(r.role, p.oid, 'execute') as ok

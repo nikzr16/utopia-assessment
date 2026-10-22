@@ -1,8 +1,10 @@
+import { BrowserRouter } from 'react-router'
 import { AppHeader } from './components/AppHeader'
 import { Notice } from './components/Notice'
 import { RoleHome } from './components/RoleHome'
 import { SetupNotice } from './components/SetupNotice'
 import { AuthProvider, SignInForm, useAuth } from './features/auth'
+import { AdminPortal } from './features/orders'
 
 const PRIMARY_BUTTON =
   'mt-3 rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-300'
@@ -65,18 +67,21 @@ function Main() {
     )
   }
 
+  if (profile.profile.role === 'admin') return <AdminPortal branchName={profile.profile.branchName} />
   return <RoleHome role={profile.profile.role} />
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <div className="min-h-screen bg-slate-50 text-slate-900">
-        <AppHeader />
-        <main className="mx-auto max-w-5xl px-4 py-6">
-          <Main />
-        </main>
-      </div>
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <div className="min-h-screen bg-slate-50 text-slate-900">
+          <AppHeader />
+          <main className="mx-auto max-w-6xl px-4 py-6">
+            <Main />
+          </main>
+        </div>
+      </AuthProvider>
+    </BrowserRouter>
   )
 }

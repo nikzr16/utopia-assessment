@@ -26,11 +26,11 @@ numbers 0000–0006 follow the brief's modules (see `docs/product-roadmap.md`).
 
 ## Tech Stack
 
-- **Frontend:** React 19 + TypeScript, Vite 7, Tailwind CSS 4
+- **Frontend:** React 19 + TypeScript, Vite 7, Tailwind CSS 4, React Router 7 (library mode)
 - **Backend:** Supabase Postgres; business rules live in SQL functions (RPCs); Supabase Auth (email + password) with row-level security
 - **Storage:** Supabase Postgres and Supabase Storage (attachments)
-- **Packaging:** npm with `package-lock.json`; Node 23 (Vitest pinned to 3.x until Node ≥ 24)
-- **Deployment:** Vercel (`main` = production, `dev` = integration)
+- **Packaging:** npm with `package-lock.json`; Node 23 (Vitest pinned to 3.x and jsdom to 26 until Node ≥ 24)
+- **Deployment:** Vercel (`main` = production, `dev` = integration); `vercel.json` rewrites all paths to the SPA
 
 ## Repository Layout
 
@@ -41,7 +41,8 @@ when structure, routes, schemas, or config change).
   `features/` (per-feature UI), `components/` (shared UI), `lib/` (Supabase client)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
 - **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning)
-- **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `db/` PGlite database tests
+- **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `db/` PGlite database tests;
+  `ui/` component tests (jsdom; `src/features/*/api.ts` replaced by test doubles)
 - **`docs/`** — docs-first source of truth: `docs/product-roadmap.md`,
   `docs/prd/`, `docs/plan/`, `docs/reference/`, `docs/decisions/`. `docs/draft/` is the
   user's personal scratch space — never read or act on it unless explicitly referenced.
@@ -54,7 +55,7 @@ when structure, routes, schemas, or config change).
 | Run locally | `npm run dev` | Needs `.env.local` (see Environment And Secrets) |
 | Build | `npm run build` | `tsc -b` then `vite build` |
 | Typecheck | `npm run typecheck` | |
-| Test | `npm test` | Vitest; DB tests run on PGlite, no Docker or Supabase needed |
+| Test | `npm test` | Vitest; DB tests run on PGlite, UI tests on jsdom; no Docker or Supabase needed |
 | Create staff logins | `npm run auth:create-staff-logins` | Needs `SUPABASE_SECRET_KEY` + `STAFF_DEMO_PASSWORD` in `.env.local`; `-- --reset-passwords` to update |
 
 ## Code Conventions
@@ -86,6 +87,9 @@ when structure, routes, schemas, or config change).
    payments (never stored).
 3. Malaysia time (UTC+8), weeks Monday–Sunday, currency MYR.
 4. AI features read data only through controlled, whitelisted queries.
+5. Phone numbers are Malaysian mobile or landline, stored as digits with the
+   country code (`60123456789`); quoted price is RM 0 – 100,000 with 2 decimals.
+   Admin portal behavior: `docs/0001-admin-order-portal-workflow.md`.
 
 ## Environment And Secrets
 

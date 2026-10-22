@@ -6,7 +6,7 @@ export function AppHeader() {
 
   return (
     <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <h1 className="text-lg font-semibold">Sejuk Sejuk Service</h1>
           <p className="break-words text-sm text-slate-600" aria-live="polite">
