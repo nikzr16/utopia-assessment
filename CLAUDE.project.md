@@ -27,8 +27,8 @@ numbers 0000–0006 follow the brief's modules (see `docs/product-roadmap.md`).
 ## Tech Stack
 
 - **Frontend:** React 19 + TypeScript, Vite 7, Tailwind CSS 4, React Router 7 (library mode)
-- **Backend:** Supabase Postgres; business rules live in SQL functions (RPCs); Supabase Auth (email + password) with row-level security
-- **Storage:** Supabase Postgres and Supabase Storage (attachments)
+- **Backend:** Supabase Postgres; business rules live in SQL functions (RPCs); Supabase Auth (email + password) with row-level security; Supabase Realtime for in-app notifications
+- **Storage:** Supabase Postgres and Supabase Storage (private `job-files` bucket for job photos / videos / PDFs and payment receipts)
 - **Packaging:** npm with `package-lock.json`; Node 23 (Vitest pinned to 3.x and jsdom to 26 until Node ≥ 24)
 - **Deployment:** Vercel (`main` = production, `dev` = integration); `vercel.json` rewrites all paths to the SPA
 
@@ -38,7 +38,9 @@ Full structural reference: `docs/reference/folder-structure.md` (keep it current
 when structure, routes, schemas, or config change).
 
 - **`src/`** — React app: `domain/` (pure rules mirrored from the DB),
-  `features/` (per-feature UI), `components/` (shared UI), `lib/` (Supabase client)
+  `features/` (per-feature UI: `auth`, `orders` (Admin), `jobs` (Technician),
+  `attachments` (job files), `notifications`), `components/` (shared UI),
+  `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
 - **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning)
 - **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `db/` PGlite database tests;
@@ -90,6 +92,11 @@ when structure, routes, schemas, or config change).
 5. Phone numbers are Malaysian mobile or landline, stored as digits with the
    country code (`60123456789`); quoted price is RM 0 – 100,000 with 2 decimals.
    Admin portal behavior: `docs/0001-admin-order-portal-workflow.md`.
+6. Technician portal behavior: `docs/0002-technician-job-portal-workflow.md`.
+   Job files (max 6 per order; photo 10 MB, video 50 MB, PDF 10 MB) are
+   uploaded to Storage, then registered by RPC; they change only while the job
+   is In Progress. Extra charges follow the money rule and need remarks;
+   non-cash payments need a receipt; payments carry a one-time client key.
 
 ## Environment And Secrets
 
@@ -116,3 +123,6 @@ when structure, routes, schemas, or config change).
   are created only by `npm run auth:create-staff-logins`.
 - Demo staff emails are `<name>@sejuk.example.com` (see `supabase/seed.sql`).
 - `docs/draft/` is local-only and partly ignored via `.git/info/exclude`.
+- Storage files cannot be deleted with SQL (Supabase blocks it); remove test
+  files in the dashboard (Storage → `job-files`). Hosted SQL for each feature
+  lives in `docs/draft/NNNN-supabase-update.sql`.

@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite'
+import { randomUUID } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -47,6 +48,45 @@ export const SUPABASE_SHIM = `
   alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
   alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
   alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+
+  -- Supabase Storage's tables, as the Storage API sees them: it inserts and
+  -- deletes objects as the caller's role, so the policies on storage.objects
+  -- decide; direct SQL deletes are refused unless the API's flag is set.
+  create schema storage;
+  create table storage.buckets (
+    id                 text primary key,
+    name               text not null unique,
+    public             boolean not null default false,
+    file_size_limit    bigint,
+    allowed_mime_types text[],
+    created_at         timestamptz not null default now()
+  );
+  create table storage.objects (
+    id         uuid primary key default gen_random_uuid(),
+    bucket_id  text references storage.buckets (id),
+    name       text not null,
+    owner      uuid,
+    owner_id   text,
+    metadata   jsonb,
+    created_at timestamptz not null default now(),
+    unique (bucket_id, name)
+  );
+  alter table storage.objects enable row level security;
+
+  create function storage.protect_delete() returns trigger
+  language plpgsql as $$
+  begin
+    if coalesce(current_setting('storage.allow_delete_query', true), '') <> 'true' then
+      raise exception 'Direct deletion from storage tables is not allowed. Use the Storage API instead.';
+    end if;
+    return old;
+  end;
+  $$;
+  create trigger protect_objects_delete before delete on storage.objects
+    for each row execute function storage.protect_delete();
+
+  grant usage on schema storage to anon, authenticated, service_role;
+  grant all on storage.objects, storage.buckets to anon, authenticated, service_role;
 `
 
 export type DbRole = 'anon' | 'authenticated' | 'service_role'
@@ -120,14 +160,29 @@ export interface TestDb {
     note?: string | null,
     technician?: string | null,
   ) => Promise<Row>
-  /** record_payment shorthand as the given staff member (cash by default). */
-  pay: (actor: string, orderId: string, amount: number, method?: string) => Promise<Row>
+  /**
+   * record_payment shorthand as the given staff member (cash by default).
+   * A non-cash payment without `receiptPath` gets a receipt uploaded for it.
+   */
+  pay: (actor: string, orderId: string, amount: number, method?: string, opts?: PayOptions) => Promise<Row>
   /** submit_completion shorthand as the given staff member. */
   submit: (
     actor: string,
     orderId: string,
     opts?: { workDone?: string; extraCharges?: number; remarks?: string | null },
   ) => Promise<Row>
+  /** A fresh job-files path for an order (`<order>/<uuid>.<ext>` or `<order>/receipts/…`). */
+  filePath: (orderId: string, opts?: { receipt?: boolean; ext?: string }) => string
+  /**
+   * Upload an object to the job-files bucket the way the Storage API does: an
+   * insert into storage.objects as the actor (storage policies apply), owned by
+   * their sign-in account, with Storage's metadata. Returns the path.
+   */
+  upload: (actor: Actor, path: string, file?: { mime?: string; size?: number }) => Promise<string>
+  /** Delete an object the way the Storage API does (as the actor, policies apply). */
+  removeObject: (actor: Actor, path: string) => Promise<number>
+  /** Names of the objects stored for an order. */
+  objects: (orderId: string) => Promise<string[]>
   /** Audit entries for an order, oldest first. */
   audit: (orderId: string) => Promise<AuditRow[]>
   /** Notifications for an order, oldest first. */
@@ -143,6 +198,12 @@ export interface CreateOrderOptions {
   branch?: string // branch name, default Shah Alam
   quotedPrice?: number
   scheduledAt?: string | null
+}
+
+export interface PayOptions {
+  note?: string | null
+  clientKey?: string | null
+  receiptPath?: string | null
 }
 
 export interface AuditRow {
@@ -239,18 +300,29 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
   const resolve = (actor: Actor): Promise<Identity> =>
     typeof actor === 'string' ? identityOf(actor) : Promise.resolve(actor)
 
-  const qAs = async <T = Row>(actor: Actor, sql: string, params: unknown[] = []): Promise<T[]> => {
+  const runAs = async <T = Row>(
+    actor: Actor,
+    sql: string,
+    params: unknown[] = [],
+    settings: Record<string, string> = {},
+  ): Promise<T[]> => {
     const identity = await resolve(actor)
     const claims = identity.sub
       ? JSON.stringify({ sub: identity.sub, role: identity.role, aud: 'authenticated' })
       : ''
     return db.transaction(async (tx) => {
       await tx.query(`select set_config('request.jwt.claims', $1, true)`, [claims])
+      for (const [name, value] of Object.entries(settings)) {
+        await tx.query('select set_config($1, $2, true)', [name, value])
+      }
       await tx.exec(`set local role ${identity.role}`)
       const res = await tx.query<T>(sql, params)
       return res.rows
     })
   }
+
+  const qAs = <T = Row>(actor: Actor, sql: string, params: unknown[] = []): Promise<T[]> =>
+    runAs<T>(actor, sql, params)
 
   const rpcAs = async <T = Row>(
     actor: Actor,
@@ -340,13 +412,63 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
       p_technician_id: technician ?? null,
     })
 
-  const pay = (actor: string, orderId: string, amount: number, method = 'cash'): Promise<Row> =>
-    rpcAs(actor, 'record_payment', {
+  const filePath = (orderId: string, opts: { receipt?: boolean; ext?: string } = {}) =>
+    `${orderId}/${opts.receipt ? 'receipts/' : ''}${randomUUID()}.${opts.ext ?? 'jpg'}`
+
+  const upload = async (
+    actor: Actor,
+    path: string,
+    file: { mime?: string; size?: number } = {},
+  ): Promise<string> => {
+    const identity = await resolve(actor)
+    await runAs(
+      identity,
+      `insert into storage.objects (bucket_id, name, owner, owner_id, metadata)
+       values ('job-files', $1, $2::uuid, $2::text, jsonb_build_object('mimetype', $3::text, 'size', $4::bigint))`,
+      [path, identity.sub, file.mime ?? 'image/jpeg', file.size ?? 250_000],
+    )
+    return path
+  }
+
+  const removeObject = async (actor: Actor, path: string): Promise<number> => {
+    const rows = await runAs<{ n: number }>(
+      actor,
+      `with d as (delete from storage.objects where bucket_id = 'job-files' and name = $1 returning 1)
+       select count(*)::int as n from d`,
+      [path],
+      { 'storage.allow_delete_query': 'true' },
+    )
+    return rows[0].n
+  }
+
+  const objects = async (orderId: string): Promise<string[]> => {
+    const rows = await q<{ name: string }>(
+      `select name from storage.objects where bucket_id = 'job-files' and name like $1 order by name`,
+      [`${orderId}/%`],
+    )
+    return rows.map((r) => r.name)
+  }
+
+  const pay = async (
+    actor: string,
+    orderId: string,
+    amount: number,
+    method = 'cash',
+    opts: PayOptions = {},
+  ): Promise<Row> => {
+    let receiptPath = opts.receiptPath ?? null
+    if (receiptPath === null && opts.receiptPath === undefined && method !== 'cash') {
+      receiptPath = await upload(actor, filePath(orderId, { receipt: true }))
+    }
+    return rpcAs(actor, 'record_payment', {
       p_order_id: orderId,
       p_amount: amount,
       p_method: method,
-      p_note: null,
+      p_note: opts.note ?? null,
+      p_client_key: opts.clientKey ?? null,
+      p_receipt_path: receiptPath,
     })
+  }
 
   const submit = (
     actor: string,
@@ -357,7 +479,9 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
       p_order_id: orderId,
       p_work_done: opts.workDone ?? 'Done',
       p_extra_charges: opts.extraCharges ?? 0,
-      p_remarks: opts.remarks ?? null,
+      // Extra charges need an explanation (0002); default one unless given.
+      p_remarks:
+        opts.remarks !== undefined ? opts.remarks : (opts.extraCharges ?? 0) > 0 ? 'Extra parts' : null,
     })
 
   const advance = async (
@@ -421,6 +545,10 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
     transition,
     pay,
     submit,
+    filePath,
+    upload,
+    removeObject,
+    objects,
     audit,
     notifications,
     closeOrder,

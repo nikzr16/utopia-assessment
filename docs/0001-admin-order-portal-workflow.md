@@ -65,6 +65,13 @@ The technician dropdown lists active technicians from `technician_options()`: th
 **Reads:** `order_summary` by order number, the technician's phone from `staff`, and `audit_log` with the actor's name (newest first).
 **Shows:** Status badge, order details, money (quoted, extra charges, final, paid, balance, payment status), history in plain words (edits as `field: old → new`, reassign as `From A to B`, reschedule with reason and requester, notes).
 **Actions offered:** Edit (`canEditOrder`), Assign / Reassign and Cancel (`availableTransitions(status, 'admin')`), Reschedule (`canRescheduleOrder`). Closed, Cancelled, Job Done and Reviewed orders show none (In Progress shows Reschedule only).
+**History wording:** payments name the method and whether a receipt was attached ("RM 150.00 by Bank transfer, with receipt"); `file_added` / `file_removed` (0002) read "Added a file" / "Removed a file" with the file name.
+
+### 3a. Completion section (0002)
+
+**When shown:** The order is In Progress, Job Done, Reviewed, or Closed.
+**Reads:** `fetchOrderRecords` (completion record, payments with receipts, latest rework note), reloaded whenever the order changes.
+**Shows:** The technician's record read-only (work done, extra charges, final amount, remarks, submitted by and when) or "Not submitted yet."; the rework note while a returned job is In Progress; **Photos, videos and PDFs** with the same uploader as the technician (an Admin can add or remove files only while the job is In Progress; read-only otherwise); **Payments** with Receipt links, or "No payments recorded yet." Uploader details: `docs/0002-technician-job-portal-workflow.md` stage 5.
 
 ### 4. Notify the technician — WhatsApp deep link
 
@@ -85,11 +92,11 @@ Dialog with the technician dropdown (the current technician is not offered). On 
 
 ### 7. Reschedule / postpone — `reschedule_order`
 
-Dialog: new date and time (Malaysia time) or "Postpone, no new date yet"; reason; requested by; note (required for "Other"). On success: banner "New date saved." and a `rescheduled` history entry.
+Dialog (shared with the Technician portal, `src/components/RescheduleDialog.tsx`): new date and time (Malaysia time) or "Postpone, no new date yet"; reason; requested by; note (required for "Other"). On success: banner "New date saved." and a `rescheduled` history entry.
 
 ### 8. Cancel — `transition_order(…, 'cancelled', reason)`
 
-Dialog with a required reason. On success the order is Cancelled: no actions, no WhatsApp button, edit refused.
+Dialog with a required reason. On success the order is Cancelled: no actions, no WhatsApp button, edit refused. The assigned technician gets an in-app `cancelled` notification with the reason (0002); a reassign likewise tells the previous technician (`reassigned_away`).
 
 ## Error States
 
@@ -119,7 +126,7 @@ Dialog with a required reason. On success the order is Cancelled: no actions, no
 
 ## Behavioral Constraints
 
-- The portal never writes a table directly; only `create_order`, `update_order`, `transition_order`, and `reschedule_order`.
+- The portal never writes a table directly; only `create_order`, `update_order`, `transition_order`, `reschedule_order`, and (0002, Completion section) `add_attachment` / `remove_attachment` with Storage uploads and deletes.
 - Phone, price, editable and reschedulable statuses exist in both `src/domain/` and SQL; `tests/db/parity.test.ts` runs the same cases through both.
 - `list_orders` and `technician_options` are `security invoker`: row-level security applies (a technician calling them sees only their own orders).
 - `create_order` stores new phones normalised; rows saved before 0001 keep the phone as typed.
@@ -133,3 +140,4 @@ Dialog with a required reason. On success the order is Cancelled: no actions, no
 | `docs/0000-system-foundation-workflow.md` | Workflow | Lifecycle RPCs this portal calls |
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0006-admin-order-portal-implementation-details.md` | Decision log | Divergences from the 0001 plan |
+| `docs/0002-technician-job-portal-workflow.md` | Workflow | Technician side, and the job-file uploader the Completion section reuses |

@@ -4,6 +4,7 @@ import { Notice } from './components/Notice'
 import { RoleHome } from './components/RoleHome'
 import { SetupNotice } from './components/SetupNotice'
 import { AuthProvider, SignInForm, useAuth } from './features/auth'
+import { TechnicianPortal } from './features/jobs'
 import { AdminPortal } from './features/orders'
 
 const PRIMARY_BUTTON =
@@ -68,6 +69,7 @@ function Main() {
   }
 
   if (profile.profile.role === 'admin') return <AdminPortal branchName={profile.profile.branchName} />
+  if (profile.profile.role === 'technician') return <TechnicianPortal staffId={profile.profile.id} />
   return <RoleHome role={profile.profile.role} />
 }
 

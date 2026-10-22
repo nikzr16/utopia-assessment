@@ -3,7 +3,7 @@ import { Notice } from '../../components/Notice'
 import { EMPTY_ORDER_FORM } from '../../domain'
 import { createOrder, fetchReferenceData } from './api'
 import { OrderForm } from './OrderForm'
-import { useLoad } from './useLoad'
+import { useLoad } from '../../lib/useLoad'
 
 /** New order (brief Module 1). The branch defaults to the Admin's own (PRD Q2). */
 export function NewOrderPage({ adminBranchName }: { adminBranchName: string | null }) {

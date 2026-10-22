@@ -1,11 +1,13 @@
 import { CARD } from '../../components/styles'
 import {
+  PAYMENT_METHOD_LABELS,
   RESCHEDULE_REASON_LABELS,
   ROLE_LABELS,
   STATUS_LABELS,
   formatMYR,
   formatMalaysiaDateTime,
   formatMyPhone,
+  type PaymentMethod,
   type RescheduleReason,
 } from '../../domain'
 import type { HistoryEntry } from './api'
@@ -24,6 +26,8 @@ const ACTION_LABELS: Record<string, string> = {
   cancelled: 'Cancelled the order',
   rescheduled: 'Rescheduled the order',
   payment_recorded: 'Recorded a payment',
+  file_added: 'Added a file',
+  file_removed: 'Removed a file',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -75,7 +79,14 @@ export function historyDetails(entry: HistoryEntry): string[] {
       ]
     }
     case 'payment_recorded':
-      return [`${formatMYR(Number(d.amount))} by ${String(d.method).replace('_', ' ')}`]
+      return [
+        `${formatMYR(Number(d.amount))} by ${PAYMENT_METHOD_LABELS[d.method as PaymentMethod] ?? String(d.method)}${
+          d.receipt ? ', with receipt' : ''
+        }`,
+      ]
+    case 'file_added':
+    case 'file_removed':
+      return [str(d.file_name) ?? String(d.kind ?? 'file')]
     case 'completion_submitted':
       return [`Final amount ${formatMYR(Number(d.final_amount))}`]
     default:

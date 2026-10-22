@@ -110,18 +110,19 @@ describe('AC13 workflow events create in-app notifications', () => {
     expect(recipients(await t.notifications(fresh.id as string))).toEqual([t.people.yusoff])
   })
 
-  it('creates no notification for acknowledge, start, cancel or close', async () => {
+  it('creates no notification for acknowledge, start or close', async () => {
     const o = await t.createOrder({ technician: t.people.ali })
     const id = o.id as string
     const base = (await t.notifications(id)).length // the assignment
     await t.transition(t.people.ali, id, 'acknowledged')
     await t.transition(t.people.ali, id, 'in_progress')
     expect(await t.notifications(id)).toHaveLength(base)
+  })
 
-    const c = await t.createOrder({ technician: t.people.ali })
-    const before = (await t.notifications(c.id as string)).length
+  it('cancelling an unassigned order notifies nobody (0002 notifies the technician of an assigned one)', async () => {
+    const c = await t.createOrder()
     await t.transition(t.people.admin, c.id as string, 'cancelled', 'No longer needed')
-    expect(await t.notifications(c.id as string)).toHaveLength(before)
+    expect(await t.notifications(c.id as string)).toHaveLength(0)
   })
 
   it('creates no notification when a change is rejected', async () => {

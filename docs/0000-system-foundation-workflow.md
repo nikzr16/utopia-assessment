@@ -62,7 +62,7 @@ notification. Details: `docs/0001-admin-order-portal-workflow.md`.
 ### 3. Assign or reassign — `transition_order(…, 'assigned', …, technician)`
 
 **Actions:** Admin only, from `new` (assign) or `assigned` / `acknowledged` (reassign, must be a different technician).
-**Output:** Status `assigned`. Audit `assigned` or `reassigned` (previous and new technician in details). New technician notified.
+**Output:** Status `assigned`. Audit `assigned` or `reassigned` (previous and new technician in details). New technician notified; on a reassign the previous technician gets `reassigned_away` (since 0002).
 
 ### 4. Acknowledge and start — `transition_order(…, 'acknowledged' | 'in_progress')`
 
@@ -71,15 +71,21 @@ notification. Details: `docs/0001-admin-order-portal-workflow.md`.
 
 ### 5. Submit completion — `submit_completion`
 
-**Input:** Work done, extra charges (≥ 0), remarks.
+**Input:** Work done, extra charges (RM 0.00 – 100,000.00, at most 2 decimals; empty = 0; since 0002), remarks (required when extra charges > 0; since 0002).
 **Actions:** Assigned technician only, while `in_progress`. Upserts the completion record and moves the order to `job_done` in one transaction (a reworked job overwrites its completion record).
 **Output:** Status `job_done`. Audit `completion_submitted`. Managers of the order's branch notified.
 
 ### 6. Record payment — `record_payment`
 
-**Input:** Amount (> 0), method (cash, bank transfer, card, e-wallet), note.
-**Actions:** Assigned technician or Finance, while `in_progress`, `job_done`, or `reviewed`.
-**Output:** Payment row; audit `payment_recorded` (no from / to status). Payment status recalculates in `order_summary`.
+**Input:** Amount (> 0), method (cash, bank transfer, card, e-wallet), note; since 0002 also a client key and a receipt path (and file name).
+**Actions:** Assigned technician or Finance, while `in_progress`, `job_done`, or `reviewed`. A client key already used by the same person on the same order returns that payment unchanged (retry-safe). Bank transfer, card and e-wallet need a receipt: a photo or PDF already uploaded to `job-files/<order>/receipts/…`, saved as an `attachments` row with the payment in the same transaction.
+**Output:** Payment row; audit `payment_recorded` (no from / to status; `receipt` flag in details). Payment status recalculates in `order_summary`. When a technician records it, every active Finance user gets `payment_recorded` (since 0002).
+
+### 6a. Job files — Storage + `add_attachment` / `remove_attachment` (0002)
+
+The assigned technician or an Admin uploads job files to the private
+`job-files` bucket while the order is `in_progress`, then registers them;
+details in `docs/0002-technician-job-portal-workflow.md`.
 
 ### 7. Review or return — `transition_order(…, 'reviewed' | 'in_progress')`
 
@@ -94,7 +100,7 @@ notification. Details: `docs/0001-admin-order-portal-workflow.md`.
 ### 9. Cancel — `transition_order(…, 'cancelled', reason)`
 
 **Actions:** Admin only, from `new`, `assigned`, or `acknowledged`; reason required.
-**Output:** Status `cancelled` (terminal). Audit `cancelled`.
+**Output:** Status `cancelled` (terminal). Audit `cancelled`. The assigned technician, if any, gets `cancelled` with the reason (since 0002).
 
 ### Side flow: Reschedule — `reschedule_order`
 
@@ -108,9 +114,11 @@ All reads require a signed-in user with an active staff profile (row-level secur
 
 - `order_summary` view: order plus branch, service type, technician, extra charges, final amount, amount paid, balance, payment status. Technicians see only their own orders; other roles see all.
 - `technician_jobs()`: the signed-in technician's `order_summary` rows.
+- `my_jobs(p_view)` (0002): the signed-in technician's jobs for one job-list tab (`open`, `submitted`, `finished`).
 - `current_staff()`: the signed-in user's staff profile with branch name.
 - `list_orders(...)`, `technician_options()` (0001): Admin portal list and technician dropdown, under RLS.
-- `notifications` table: each user sees only their own; `mark_notification_read` sets `read_at` for the recipient only.
+- `notifications` table: each user sees only their own; `mark_notification_read` sets `read_at` for the recipient only; `mark_all_notifications_read` (0002) marks all of the caller's. The table is in the `supabase_realtime` publication (0002), so changes stream to the recipient under the same row-level security.
+- `job-files` Storage objects (0002): readable by whoever can read the order.
 
 ## Error States
 
@@ -128,6 +136,8 @@ All reads require a signed-in user with an active staff profile (row-level secur
 | "Submit the completion record to mark a job as done" | `transition_order` called with `job_done` | Rejected; use `submit_completion` |
 | Order number change | Any update to `order_no` | Rejected by trigger |
 | More than 6 completion attachments | Seventh attachment on an order | Rejected by trigger |
+| "Explain the extra charges in the remarks" | Extra charges > 0 without remarks (0002) | Rejected |
+| "Attach a receipt for bank transfer, card or e-wallet payments" | Non-cash payment without a receipt (0002) | Rejected |
 
 ## Defaults
 
@@ -140,7 +150,8 @@ All reads require a signed-in user with an active staff profile (row-level secur
 | Payment status | `paid` when amount paid ≥ final amount (including zero-amount orders), `partial` when 0 < paid < final, else `unpaid` |
 | Time zone / week | Malaysia, UTC+8; weeks run Monday–Sunday (`src/domain/week.ts`) |
 | Currency | MYR |
-| Completion attachments | Max 6 per order |
+| Completion attachments | Max 6 per order (receipts not counted) |
+| Extra charges | RM 0.00 – 100,000.00, at most 2 decimals (0002) |
 
 ## Behavioral Constraints
 
@@ -164,3 +175,5 @@ All reads require a signed-in user with an active staff profile (row-level secur
 | `docs/decisions/0004-real-authentication-replaces-mock-login.md` | Decision log | Real Supabase Auth replaces the mock login |
 | `docs/decisions/0005-auth-implementation-hardening.md` | Decision log | Confirmed-email linking, script and app safeguards |
 | `docs/0001-admin-order-portal-workflow.md` | Workflow | Admin portal built on these RPCs (edit, list, phone and price rules) |
+| `docs/0002-technician-job-portal-workflow.md` | Workflow | Technician portal: job files, retry-safe payments, notifications |
+| `docs/decisions/0007-technician-job-portal-implementation-details.md` | Decision log | 0002 divergences from its plan |

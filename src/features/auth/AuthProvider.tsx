@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { clearAllDrafts } from '../../lib/drafts'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { AuthContext, type AuthState } from './AuthContext'
 import { mapAuthError } from './errors'
@@ -68,6 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     if (!supabase) return
+    // Drafts on this device belong to the person signing out (shared phones).
+    clearAllDrafts()
     // The local session is cleared even if the network call fails.
     await supabase.auth.signOut()
     setIdentity({ resolved: true, userId: null, email: null })

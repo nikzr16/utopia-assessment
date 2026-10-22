@@ -39,6 +39,7 @@ describe('AC9 final amount always equals quoted price plus extra charges', () =>
       p_order_id: id,
       p_work_done: 'Redone',
       p_extra_charges: 20,
+      p_remarks: 'Replaced capacitor',
     })
     const s = await t.summary(id)
     expect(num(s.extra_charges)).toBe(20)
@@ -121,6 +122,7 @@ describe('AC10 payment status follows the sum of payments versus final amount', 
       p_order_id: id,
       p_work_done: 'Done, plus extra part',
       p_extra_charges: 60,
+      p_remarks: 'Extra part',
     })
     const s = await t.summary(id)
     expect(s.payment_status).toBe('partial')

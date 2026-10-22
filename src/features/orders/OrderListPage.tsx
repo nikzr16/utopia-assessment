@@ -14,7 +14,7 @@ import {
   type OrderStatus,
 } from '../../domain'
 import { fetchReferenceData, listOrders, type OrderListQuery, type OrderListRow, type ReferenceData } from './api'
-import { useLoad } from './useLoad'
+import { useLoad } from '../../lib/useLoad'
 
 export const PAGE_SIZE = 25
 
