@@ -1,21 +1,14 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type {
-  OrderInput,
-  OrderStatus,
-  PaymentStatus,
-  RescheduleParty,
-  RescheduleReason,
-  StaffRole,
-} from '../../domain'
-import { supabase } from '../../lib/supabase'
+import type { OrderInput, OrderStatus, RescheduleParty, RescheduleReason, StaffRole } from '../../domain'
+import { client, run, toNumber, toOrderSummary, type OrderSummary } from '../../lib/api'
+
+export { ApiError, toApiError, type OrderSummary } from '../../lib/api'
+export { fetchOrderRecords, type OrderRecords } from '../../lib/orderRecords'
 
 /**
  * Every database call the Admin portal makes. Writes go only through RPCs;
  * the database resolves the actor from the session. Each function throws an
  * `ApiError` with a message that can be shown to the Admin as it is.
  */
-
-export class ApiError extends Error {}
 
 export interface Branch {
   id: string
@@ -43,34 +36,6 @@ export interface ReferenceData {
   technicians: TechnicianOption[]
 }
 
-/** One row of `order_summary`. */
-export interface OrderSummary {
-  id: string
-  order_no: string
-  branch_id: string
-  branch_name: string
-  customer_name: string
-  customer_phone: string
-  customer_address: string
-  problem_description: string
-  service_type_id: string
-  service_type_name: string
-  quoted_price: number
-  assigned_technician_id: string | null
-  technician_name: string | null
-  admin_notes: string | null
-  status: OrderStatus
-  scheduled_at: string | null
-  created_at: string
-  /** Kept as the database's string: `update_order` compares it exactly. */
-  updated_at: string
-  extra_charges: number
-  final_amount: number
-  amount_paid: number
-  balance: number
-  overpaid_amount: number
-  payment_status: PaymentStatus
-}
 
 export interface OrderDetail {
   order: OrderSummary
@@ -117,48 +82,6 @@ export interface HistoryEntry {
   note: string | null
   details: Record<string, unknown>
   created_at: string
-}
-
-// ---------------------------------------------------------------------------
-
-function client(): SupabaseClient {
-  if (!supabase) throw new ApiError('The app is not connected to the database.')
-  return supabase
-}
-
-/** Database errors → a sentence for the Admin. Rule errors are already plain language. */
-export function toApiError(error: { message?: string; code?: string } | null | undefined): ApiError {
-  const message = error?.message?.trim() ?? ''
-  if (error?.code === '42501') return new ApiError('You do not have permission to do that.')
-  if (!message || /failed to fetch|network|load failed/i.test(message)) {
-    return new ApiError('Could not reach the server. Check your connection and try again.')
-  }
-  return new ApiError(message)
-}
-
-async function run<T>(query: PromiseLike<{ data: T | null; error: unknown }>): Promise<T> {
-  let result: { data: T | null; error: unknown }
-  try {
-    result = await query
-  } catch (e) {
-    throw toApiError(e as { message?: string })
-  }
-  if (result.error) throw toApiError(result.error as { message?: string; code?: string })
-  return result.data as T
-}
-
-const toNumber = (v: unknown) => (v === null || v === undefined ? 0 : Number(v))
-
-function toOrderSummary(row: Record<string, unknown>): OrderSummary {
-  return {
-    ...(row as unknown as OrderSummary),
-    quoted_price: toNumber(row.quoted_price),
-    extra_charges: toNumber(row.extra_charges),
-    final_amount: toNumber(row.final_amount),
-    amount_paid: toNumber(row.amount_paid),
-    balance: toNumber(row.balance),
-    overpaid_amount: toNumber(row.overpaid_amount),
-  }
 }
 
 // ---------------------------------------------------------------------------

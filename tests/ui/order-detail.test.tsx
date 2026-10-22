@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OrderStatus } from '../../src/domain'
+import * as filesApi from '../../src/features/attachments/api'
 import * as api from '../../src/features/orders/api'
 import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
 import { TECH, history, makeOrder, reference } from './fixtures'
@@ -18,7 +19,12 @@ vi.mock('../../src/features/orders/api', async (importOriginal) => {
     assignTechnician: vi.fn(),
     cancelOrder: vi.fn(),
     rescheduleOrder: vi.fn(),
+    fetchOrderRecords: vi.fn(),
   }
+})
+vi.mock('../../src/features/attachments/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof filesApi>()
+  return { ...actual, fetchJobFiles: vi.fn(), signedUrls: vi.fn() }
 })
 
 const m = vi.mocked(api)
@@ -38,6 +44,9 @@ beforeEach(() => {
   vi.resetAllMocks()
   m.fetchOrder.mockResolvedValue({ order: makeOrder(), technicianPhone: '60120000011' })
   m.fetchOrderHistory.mockResolvedValue(history)
+  m.fetchOrderRecords.mockResolvedValue({ completion: null, payments: [], rework: null })
+  vi.mocked(filesApi.fetchJobFiles).mockResolvedValue([])
+  vi.mocked(filesApi.signedUrls).mockResolvedValue({})
   m.fetchReferenceData.mockResolvedValue(reference)
 })
 
@@ -211,5 +220,109 @@ describe('History (AC9)', () => {
       </MemoryRouter>,
     )
     expect(await screen.findByText('There is no order ORDER9999.')).toBeTruthy()
+  })
+})
+
+describe('Completion section (0002 AC15)', () => {
+  it.each([
+    ['assigned', false],
+    ['in_progress', true],
+    ['job_done', true],
+    ['cancelled', false],
+  ] as const)('is shown while %s: %s', async (status, shown) => {
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status }), technicianPhone: '60120000011' })
+    await renderDetail()
+    expect(Boolean(screen.queryByRole('region', { name: 'Completion' }))).toBe(shown)
+  })
+
+  it('lets an Admin add files while the job is In Progress, not after', async () => {
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status: 'in_progress' }), technicianPhone: '60120000011' })
+    await renderDetail()
+    const section = within(screen.getByRole('region', { name: 'Completion' }))
+    expect(await section.findByText('Not submitted yet.')).toBeTruthy()
+    expect(section.getByRole('button', { name: 'Add photos, videos or PDFs' })).toBeTruthy()
+    expect(section.getByText('No payments recorded yet.')).toBeTruthy()
+  })
+
+  it('shows the submitted record, the returned note, and payments with receipts', async () => {
+    m.fetchOrder.mockResolvedValue({
+      order: makeOrder({ status: 'in_progress', extra_charges: 40, final_amount: 220 }),
+      technicianPhone: '60120000011',
+    })
+    m.fetchOrderRecords.mockResolvedValue({
+      completion: {
+        work_done: 'Cleaned filters',
+        extra_charges: 40,
+        remarks: 'New filter',
+        completed_at: '2026-10-26T05:00:00Z',
+        technician_name: 'Ali',
+      },
+      payments: [
+        {
+          id: 'p1',
+          amount: 220,
+          method: 'card',
+          note: null,
+          recorded_at: '2026-10-26T06:00:00Z',
+          recorded_by_name: 'Ali',
+          receipt: { id: 'a1', kind: 'photo', storage_path: 'o-1/receipts/r.jpg', file_name: 'slip.jpg' },
+        },
+      ],
+      rework: { note: 'Photo missing', by: 'Nurul Huda', at: '2026-10-26T07:00:00Z' },
+    })
+    vi.mocked(filesApi.signedUrls).mockResolvedValue({ 'o-1/receipts/r.jpg': 'https://signed/r.jpg' })
+    await renderDetail()
+    const section = within(screen.getByRole('region', { name: 'Completion' }))
+    expect(await section.findByText('Cleaned filters')).toBeTruthy()
+    expect(section.getByText('RM 220.00')).toBeTruthy()
+    expect(section.getByText('Ali, Mon 26 Oct 2026, 1:00 PM')).toBeTruthy()
+    expect(section.getByText('Returned for rework by Nurul Huda: Photo missing')).toBeTruthy()
+    const payments = within(section.getByRole('list', { name: 'Payments' }))
+    expect(payments.getByText(/RM 220\.00 · Card/)).toBeTruthy()
+    expect((await payments.findByRole('link', { name: 'Receipt' })).getAttribute('href')).toBe('https://signed/r.jpg')
+  })
+
+  it('makes the files read-only once the job is submitted', async () => {
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status: 'job_done' }), technicianPhone: '60120000011' })
+    await renderDetail()
+    const section = within(screen.getByRole('region', { name: 'Completion' }))
+    await section.findByText('No files yet.')
+    expect(section.queryByRole('button', { name: 'Add photos, videos or PDFs' })).toBeNull()
+  })
+})
+
+describe('History of 0002 events', () => {
+  it('names payment methods, receipts and files in plain words', async () => {
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status: 'in_progress' }), technicianPhone: '60120000011' })
+    m.fetchOrderHistory.mockResolvedValue([
+      {
+        id: 3,
+        action: 'payment_recorded',
+        actor_role: 'technician',
+        actor_name: 'Ali',
+        from_status: null,
+        to_status: null,
+        note: null,
+        details: { amount: 150, method: 'bank_transfer', receipt: true },
+        created_at: '2026-10-26T04:00:00Z',
+      },
+      {
+        id: 2,
+        action: 'file_added',
+        actor_role: 'technician',
+        actor_name: 'Ali',
+        from_status: null,
+        to_status: null,
+        note: null,
+        details: { kind: 'photo', file_name: 'unit.jpg' },
+        created_at: '2026-10-26T03:00:00Z',
+      },
+    ])
+    await renderDetail()
+    const historyList = within(screen.getByRole('region', { name: 'History' }))
+    expect(historyList.getByText('Recorded a payment')).toBeTruthy()
+    expect(historyList.getByText('RM 150.00 by Bank transfer, with receipt')).toBeTruthy()
+    expect(historyList.getByText('Added a file')).toBeTruthy()
+    expect(historyList.getByText('unit.jpg')).toBeTruthy()
   })
 })

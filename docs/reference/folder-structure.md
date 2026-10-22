@@ -14,7 +14,7 @@ current state; record the divergence in the decision log.
 ## Overview
 
 Where the application, database, tests, and docs live. Covers everything up to
-and including feature 0001 (admin order portal).
+and including feature 0002 (technician job portal).
 
 ## Directory Layout
 
@@ -28,13 +28,16 @@ and including feature 0001 (admin order portal).
 ├── .env.example                Env template → copy to .env.local (browser + script-only vars)
 ├── src/
 │   ├── main.tsx                React root
-│   ├── App.tsx                 App shell (BrowserRouter): setup notice → sign-in → Admin portal or role home
+│   ├── App.tsx                 App shell (BrowserRouter): setup notice → sign-in → Admin portal, Technician portal, or role home
 │   ├── index.css               Tailwind entry
-│   ├── components/             Shared UI: AppHeader, RoleHome, SetupNotice, Notice, Field, Dialog, StatusBadge, styles
+│   ├── components/             Shared UI: AppHeader, RoleHome, SetupNotice, Notice, Field, Dialog, StatusBadge, RescheduleDialog, styles
 │   ├── domain/                 Pure business rules mirrored from the database
 │   ├── features/auth/          Supabase Auth: session context, sign-in form, staff profile
-│   ├── features/orders/        Admin order portal (0001): routes, pages, dialogs, data access
-│   └── lib/                    Supabase client and config detection
+│   ├── features/orders/        Admin order portal (0001): routes, pages, dialogs, data access; Completion section (0002)
+│   ├── features/jobs/          Technician job portal (0002): job list, job page, completion and payment forms
+│   ├── features/attachments/   Job files and receipts in Supabase Storage (0002): uploader, gallery, payments list
+│   ├── features/notifications/ In-app notifications (0002): live unread count, bell, list
+│   └── lib/                    Supabase client and config, shared API plumbing, order records, hooks, drafts
 ├── scripts/
 │   ├── create-staff-logins.ts  Creates/links Supabase Auth accounts for staff (secret key)
 │   └── lib/                    Pure planning logic for the script
@@ -64,6 +67,11 @@ and including feature 0001 (admin order portal).
 | `orderForm.ts` | Order form values, validation, clean RPC input, `orderToFormValues` |
 | `malaysiaTime.ts` | `datetime-local` ↔ UTC+8 instants, Malaysia day ranges, display formats |
 | `whatsapp.ts` | Technician job message and `wa.me` URL |
+| `price.ts` (0002) | Also `parseExtraCharges` (mirror of `_check_extra_charges`); both share one money parser |
+| `completionForm.ts` | Completion form values, validation (work done, extra charges, remarks rule), live final amount, rework pre-fill |
+| `attachments.ts` | Job-file types, kinds and size limits (mirror of `_job_file_kind`), storage paths (mirror of `_job_file_order`), who may change files / add receipts (mirror of `_job_file_write_error`), photo resize sizing, file sizes |
+| `paymentForm.ts` | Payment method labels, receipt rule, form validation, over-balance amount, `canRecordPayment` |
+| `jobs.ts` | Job list tabs and statuses (mirror of `my_jobs`), Malaysia-day grouping (Overdue / Today / Upcoming / No date), area, `tel:` / maps links, customer WhatsApp greeting, notification events (mirror of the event check) and labels |
 | `index.ts` | Barrel export |
 
 ## Auth (`src/features/auth/`)
@@ -81,15 +89,60 @@ and including feature 0001 (admin order portal).
 | File | Purpose |
 |---|---|
 | `AdminPortal.tsx` | Admin navigation and routes: `/orders`, `/orders/new`, `/orders/:orderNo`, `/orders/:orderNo/edit` (others → `/orders`) |
-| `api.ts` | All portal database calls (RPCs and reads), row types, `ApiError` / `toApiError` |
-| `useLoad.ts` | Load-on-key hook with reload; ignores stale responses |
+| `api.ts` | All portal database calls (RPCs and reads), row types; re-exports `ApiError` / `toApiError` / `OrderSummary` and `fetchOrderRecords` from `src/lib/` |
 | `OrderListPage.tsx` | Search, filters, pagination over `list_orders`; `toListQuery` maps URL params |
 | `NewOrderPage.tsx`, `EditOrderPage.tsx` | Create / edit pages around `OrderForm` |
 | `OrderForm.tsx`, `TechnicianSelect.tsx` | Shared order form; technician dropdown grouped by branch with open-job counts |
 | `OrderDetailPage.tsx` | Summary, WhatsApp, actions, history, banners (`?created`, `?updated`, `?action=reschedule`) |
-| `OrderSummaryCard.tsx`, `OrderHistory.tsx`, `WhatsAppButton.tsx` | Detail page parts |
-| `actions/AssignDialog.tsx`, `CancelDialog.tsx`, `RescheduleDialog.tsx` | Assign / reassign, cancel, reschedule dialogs |
+| `OrderSummaryCard.tsx`, `OrderHistory.tsx`, `WhatsAppButton.tsx` | Detail page parts (history names payment methods, receipts, and file events) |
+| `CompletionSection.tsx` | 0002: technician's record, job files (Admin add / remove while In Progress), payments with receipts; `COMPLETION_STATUSES` |
+| `actions/AssignDialog.tsx`, `CancelDialog.tsx` | Assign / reassign and cancel dialogs |
+| `actions/RescheduleDialog.tsx` | Wraps the shared `components/RescheduleDialog.tsx` with `rescheduleOrder` |
 | `index.ts` | Barrel export |
+
+## Technician Job Portal (`src/features/jobs/`)
+
+| File | Purpose |
+|---|---|
+| `TechnicianPortal.tsx` | Wraps the portal in `NotificationsProvider`; nav (My jobs, Notifications); routes `/jobs`, `/jobs/:orderNo`, `/jobs/:orderNo/complete`, `/jobs/:orderNo/payment`, `/notifications` (others → `/jobs`) |
+| `api.ts` | `fetchMyJobs`, `fetchJob` (order + `fetchOrderRecords`), `acceptJob`, `startJob`, `rescheduleJob`, `submitCompletion`, `recordPayment`; `JobDetail` |
+| `JobListPage.tsx`, `JobCard.tsx` | Tabs from `?tab=`, Open grouped by Malaysia day, cards; `toJobView` |
+| `JobPage.tsx`, `ContactLinks.tsx` | Job details, Call / WhatsApp / Maps, rework and cancelled banners, files, record, payments, sticky actions, start confirmation, banners (`?submitted`, `?paid`) |
+| `CompletionPage.tsx` | Brief completion form with live final amount, files, draft, no-photos confirmation, single submit, lost-answer recovery |
+| `PaymentPage.tsx` | Payment form: receipt upload, one-time client key in the draft, over-balance confirmation |
+| `index.ts` | Barrel export |
+
+## Job Files (`src/features/attachments/`)
+
+| File | Purpose |
+|---|---|
+| `api.ts` | `fetchJobFiles`, `fetchReceipts`, `signedUrls` (1 hour), `uploadFile` (409 = already uploaded), `deleteStoredFile`, `addAttachment`, `removeAttachment`; `Attachment` |
+| `resize.ts` | `preparePhoto`: canvas resize of large JPEG / PNG / WebP to 2048 px JPEG; injectable `PhotoCodec` |
+| `JobFiles.tsx` | Uploader: pick → prepare → upload → register, one at a time, Retry / Remove, 6-file room; reports `JobFilesStatus` to the form |
+| `FileGallery.tsx` | Tiles with signed links; photo thumbnails, video / PDF tiles; Remove with confirm |
+| `ReceiptLink.tsx`, `PaymentList.tsx` | Receipt link via signed URL; payments list used by the job page and the Admin Completion section |
+| `index.ts` | Barrel export |
+
+## Notifications (`src/features/notifications/`)
+
+| File | Purpose |
+|---|---|
+| `api.ts` | `fetchNotifications` (50 latest, with order number), `fetchUnreadCount`, `markNotificationRead`, `markAllNotificationsRead`, `subscribeToNotifications` (Realtime, filtered to the recipient) |
+| `NotificationsProvider.tsx` | Unread count and a version for lists; live updates and refresh on return; `useNotifications` |
+| `NotificationBell.tsx` | Nav link with unread badge (reusable by other portals) |
+| `NotificationsPage.tsx` | List, open job and mark read, Mark all as read |
+| `index.ts` | Barrel export |
+
+## Shared Plumbing (`src/lib/`)
+
+| File | Purpose |
+|---|---|
+| `supabase.ts`, `supabaseConfig.ts` | Supabase client and config detection |
+| `api.ts` | `ApiError`, `toApiError`, `NETWORK_ERROR_MESSAGE` / `isNetworkError`, `client`, `run`, `OrderSummary` / `toOrderSummary` |
+| `orderRecords.ts` | `fetchOrderRecords`: completion record, payments with receipts, latest rework note |
+| `useLoad.ts` | Load-on-key hook with reload; ignores stale responses (moved from `features/orders/`) |
+| `useRefreshOnReturn.ts` | Calls a refresh when the page becomes visible or the connection returns |
+| `drafts.ts` | Form drafts in `localStorage` (`sejuk-draft:` prefix); `clearAllDrafts` on sign-out |
 
 ## Scripts (`scripts/`)
 
@@ -107,6 +160,7 @@ and including feature 0001 (admin order portal).
 | `migrations/20261022000003_auth_link.sql` | `auth.users` trigger and `link_staff_accounts()` linking confirmed accounts to staff by email |
 | `migrations/20261022000004_access_policies.sql` | RLS on every table, `authenticated` read policies (technician scoping, own notifications), grants; nothing for `anon` |
 | `migrations/20261022000005_admin_order_portal.sql` | 0001: `_normalize_my_phone`, `_check_quoted_price`, `_check_order_details`; `create_order` replaced (same signature); `update_order`; `list_orders`, `technician_options`; `order_updated` notification event; execute grants |
+| `migrations/20261022000006_technician_job_portal.sql` | 0002: `attachments.file_name` / `size_bytes` / unique `storage_path`, `payments.client_key` (unique); `_check_extra_charges`, `_job_file_order`, `_job_file_is_receipt`, `_job_file_write_error`, `_job_file_kind`, `_job_file_object`, `_can_access_job_file` (storage policy helper), `_payment_method_label`; `add_attachment`, `remove_attachment`; `record_payment` recreated (client key, receipt); `submit_completion` and `transition_order` replaced (same signatures); `mark_all_notifications_read`, `my_jobs`; notification events `cancelled`, `reassigned_away`, `payment_recorded`; guarded: `job-files` bucket + `storage.objects` policies, `supabase_realtime` publication |
 | `seed.sql` | 5 branches, service types, staff with `@sejuk.example.com` emails (incl. Ali, John, Bala, Yusoff); no auth accounts |
 
 ### Tables
@@ -119,18 +173,29 @@ and including feature 0001 (admin order portal).
 
 `create_order`, `update_order`, `transition_order`, `submit_completion`,
 `record_payment`, `reschedule_order`, `mark_notification_read`,
-`technician_jobs`, `current_staff` (no actor parameter; actor = signed-in user).
-Read functions (security invoker, RLS applies): `list_orders`,
-`technician_options`. Service-role only: `link_staff_accounts`.
+`mark_all_notifications_read`, `add_attachment`, `remove_attachment`,
+`technician_jobs`, `my_jobs`, `current_staff` (no actor parameter; actor =
+signed-in user). Read functions (security invoker, RLS applies):
+`list_orders`, `technician_options`. Storage policy helper for
+`authenticated`: `_can_access_job_file`. Service-role only:
+`link_staff_accounts`.
 
 Notification events: `assigned`, `job_done`, `rework`, `reviewed`,
-`order_updated`.
+`order_updated`, `cancelled`, `reassigned_away`, `payment_recorded`.
+
+### Storage
+
+Private bucket `job-files` (50 MB per file; JPEG, PNG, WebP, HEIC/HEIF, MP4,
+MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
+`<order_id>/receipts/<uuid>.<ext>` (receipts). Policies `job_files_read`,
+`job_files_upload`, `job_files_delete` on `storage.objects` call
+`_can_access_job_file(name, 'read' | 'upload' | 'delete')`.
 
 ## Tests (`tests/`)
 
 | File | Covers |
 |---|---|
-| `db/helpers.ts` | Fresh PGlite database per file: Supabase shim (`auth` schema, `auth.uid()`, roles), migrations in filename order, seed; act-as / signed-out helpers |
+| `db/helpers.ts` | Fresh PGlite database per file: Supabase shim (`auth` schema, `auth.uid()`, roles, `storage.buckets` / `storage.objects` with RLS and the delete guard), migrations in filename order, seed; act-as / signed-out helpers; upload / Storage-API delete helpers |
 | `db/seed.test.ts` | AC1 |
 | `db/auth.test.ts` | AC2, AC16, AC17, account linking, `current_staff()` |
 | `db/audit.test.ts` | AC2 (actor recorded), AC12 |
@@ -139,21 +204,32 @@ Notification events: `assigned`, `job_done`, `rework`, `reviewed`,
 | `db/reschedule.test.ts` | AC11 |
 | `db/notifications.test.ts` | AC13 |
 | `db/orders.test.ts` | AC14, AC15 |
-| `db/parity.test.ts` | TS mirrors equal the database: transitions, enums, phone and price rules (shared case tables), editable and reschedulable statuses |
+| `db/parity.test.ts` | TS mirrors equal the database: transitions, enums, phone and price rules (shared case tables), editable and reschedulable statuses; 0002: extra charges, completion form, file types / sizes / paths, who may change files, payment methods / labels / receipt rule / statuses, job list tabs, notification events |
+| `db/storage.test.ts` | 0002 AC7: `job-files` bucket and the read / upload / delete policies by role, status and path |
+| `db/technician-jobs.test.ts` | 0002 AC6, AC8, AC10, AC16: `add_attachment`, `remove_attachment`, `record_payment` (client key, receipt), extra charges, cancel / reassign / payment notifications, `mark_all_notifications_read`, `my_jobs`, Realtime publication |
 | `db/admin-orders.test.ts` | 0001 AC4, AC5, AC8, AC10, AC11: phone / price rules, `update_order`, `list_orders`, `technician_options` |
 | `ui/*.test.tsx` | 0001 AC1–AC3, AC6, AC7, AC9, AC12, AC13: portal access, form, summary, WhatsApp link, detail actions, list, edit |
+| `ui/job-list.test.tsx`, `job-page.test.tsx`, `job-files.test.tsx`, `resize.test.ts`, `completion-form.test.tsx`, `payment-form.test.tsx`, `notifications.test.tsx`, `drafts.test.ts` | 0002 AC1–AC6, AC8–AC13, AC15: technician portal screens (api modules replaced by test doubles) |
 | `db/access.test.ts` | RLS and grants under `authenticated` / `anon` (AC15, AC16, AC17) |
 | `domain/*.test.ts`, `auth/*.test.ts`, `scripts/*.test.ts` | Unit tests for pure helpers |
 
 ## Wiring
 
 - `App.tsx` wraps everything in `BrowserRouter`; an Admin gets `AdminPortal`,
-  other roles `RoleHome`. Portal screens call only `src/features/orders/api.ts`.
+  a Technician `TechnicianPortal` (with their staff id), other roles
+  `RoleHome`. Screens call only their feature's `api.ts` (which builds on
+  `src/lib/api.ts`).
+- Job files go browser → Storage (`job-files`, policies decide) → RPC
+  (`add_attachment` / `record_payment` read the stored object's real type and
+  size). Viewing uses 1-hour signed URLs.
+- `NotificationsProvider` subscribes to Realtime `postgres_changes` on
+  `notifications` filtered to the staff id; RLS applies to the stream.
 - The app reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (publishable
   or legacy anon key) in `src/lib/supabaseConfig.ts`. When either is missing,
   `App.tsx` renders `SetupNotice` instead of the app.
 - `AuthProvider` wraps the app: it tracks the Supabase session, calls
-  `current_staff()` after sign-in, and exposes sign in / sign out. Supabase
+  `current_staff()` after sign-in, and exposes sign in / sign out (sign-out
+  first clears form drafts on the device). Supabase
   attaches the session token to every RPC, and the database resolves the actor
   from `auth.uid()`.
 - `SUPABASE_SECRET_KEY` and `STAFF_DEMO_PASSWORD` are read only by
@@ -171,4 +247,6 @@ Notification events: `assigned`, `job_done`, `rework`, `reviewed`,
 | `docs/0000-system-foundation-workflow.md` | Workflow | Runtime behavior that uses these structures |
 | `docs/prd/0001-admin-order-portal-prd.md` | Intent | Admin order portal goals |
 | `docs/0001-admin-order-portal-workflow.md` | Workflow | Admin portal runtime behavior |
-| `docs/decisions/0001-*.md` – `0006-*.md` | Decision log | Structural changes that diverged from the plans |
+| `docs/prd/0002-technician-job-portal-prd.md` | Intent | Technician job portal goals |
+| `docs/0002-technician-job-portal-workflow.md` | Workflow | Technician portal runtime behavior |
+| `docs/decisions/0001-*.md` – `0007-*.md` | Decision log | Structural changes that diverged from the plans |

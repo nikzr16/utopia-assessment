@@ -13,10 +13,11 @@ import {
 import { fetchOrder, fetchOrderHistory, type OrderDetail, type HistoryEntry } from './api'
 import { AssignDialog } from './actions/AssignDialog'
 import { CancelDialog } from './actions/CancelDialog'
+import { COMPLETION_STATUSES, CompletionSection } from './CompletionSection'
 import { RescheduleDialog } from './actions/RescheduleDialog'
 import { OrderHistory } from './OrderHistory'
 import { OrderSummaryCard } from './OrderSummaryCard'
-import { useLoad } from './useLoad'
+import { useLoad } from '../../lib/useLoad'
 import { WhatsAppButton } from './WhatsAppButton'
 
 type DialogName = 'assign' | 'cancel' | 'reschedule'
@@ -163,6 +164,7 @@ export function OrderDetailPage() {
       ) : null}
 
       <OrderSummaryCard order={order} />
+      {COMPLETION_STATUSES.includes(order.status) ? <CompletionSection order={order} /> : null}
       <OrderHistory entries={history} />
 
       {dialog === 'assign' ? (

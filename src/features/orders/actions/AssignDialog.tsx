@@ -4,7 +4,7 @@ import { Field } from '../../../components/Field'
 import { BUTTON } from '../../../components/styles'
 import { assignTechnician, fetchReferenceData, type OrderSummary } from '../api'
 import { TechnicianSelect } from '../TechnicianSelect'
-import { useLoad } from '../useLoad'
+import { useLoad } from '../../../lib/useLoad'
 
 /** Assign (New) or reassign (Assigned / Acknowledged) through `transition_order`. */
 export function AssignDialog({

@@ -4,7 +4,7 @@ import { LINK } from '../../components/styles'
 import { STATUS_LABELS, canEditOrder, orderToFormValues } from '../../domain'
 import { fetchOrder, fetchReferenceData, updateOrder } from './api'
 import { OrderForm } from './OrderForm'
-import { useLoad } from './useLoad'
+import { useLoad } from '../../lib/useLoad'
 
 async function loadForEdit(orderNo: string) {
   const [detail, reference] = await Promise.all([fetchOrder(orderNo), fetchReferenceData()])
