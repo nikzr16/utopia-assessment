@@ -1,5 +1,6 @@
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
+import type { CustomerMessage } from '../../src/domain'
 import type { HistoryEntry, OrderSummary, ReferenceData } from '../../src/features/orders/api'
 
 // Component tests replace src/features/orders/api.ts with test doubles; the
@@ -81,3 +82,27 @@ export const history: HistoryEntry[] = [
     created_at: '2026-10-22T01:00:00+00:00',
   },
 ]
+
+export const CUSTOMER_MESSAGE_TEXT =
+  'Hi Puan Lim, Job ORDER1001 has been completed by Technician Ali at Thu 22 Oct 2026, 3:15 PM. Please check and leave feedback. Thank you!'
+
+/** A row of `latest_customer_messages`: a WhatsApp message that is not sent yet. */
+export function makeCustomerMessage(overrides: Partial<CustomerMessage> = {}): CustomerMessage {
+  return {
+    id: 'm-1',
+    order_id: 'o-1',
+    channel: 'whatsapp',
+    phone: '60123456789',
+    prepared_body: CUSTOMER_MESSAGE_TEXT,
+    body: CUSTOMER_MESSAGE_TEXT,
+    status: 'not_sent',
+    edited_by: null,
+    edited_by_name: null,
+    edited_at: null,
+    confirmed_by: null,
+    confirmed_by_name: null,
+    confirmed_at: null,
+    created_at: '2026-10-22T07:15:00Z',
+    ...overrides,
+  }
+}

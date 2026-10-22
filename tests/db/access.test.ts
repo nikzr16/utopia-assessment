@@ -10,7 +10,9 @@ afterAll(() => t.close())
 const TABLES = [
   'branches', 'staff', 'service_types', 'orders', 'order_completions', 'attachments',
   'payments', 'order_reschedules', 'audit_log', 'notifications', 'order_status_transitions',
+  'customer_messages',
 ]
+const VIEWS = ['order_summary', 'latest_customer_messages']
 const ORDER_CHILDREN = ['order_completions', 'attachments', 'payments', 'order_reschedules', 'audit_log']
 
 // ---------------------------------------------------------------------------
@@ -40,11 +42,14 @@ describe('Access migration: row-level security and grants', () => {
     }
   })
 
-  it('keeps order_summary security_invoker so the policies apply through the view', async () => {
-    const [v] = await t.q<{ reloptions: string[] | null }>(
-      `select reloptions from pg_class where relname = 'order_summary'`,
-    )
-    expect(v.reloptions).toContain('security_invoker=true')
+  it('keeps the views security_invoker so the policies apply through them', async () => {
+    for (const view of VIEWS) {
+      const [v] = await t.q<{ reloptions: string[] | null }>(
+        `select reloptions from pg_class where relname = $1`,
+        [view],
+      )
+      expect(v.reloptions, view).toContain('security_invoker=true')
+    }
   })
 
   it('grants authenticated read-only access: SELECT yes; INSERT/UPDATE/DELETE/TRUNCATE no', async () => {
@@ -52,7 +57,7 @@ describe('Access migration: row-level security and grants', () => {
       `select r.rel, p.priv, has_table_privilege('authenticated', 'public.' || r.rel, p.priv) as ok
          from unnest($1::text[]) as r(rel),
               unnest(array['select','insert','update','delete','truncate','references','trigger']) as p(priv)`,
-      [[...TABLES, 'order_summary']],
+      [[...TABLES, ...VIEWS]],
     )
     for (const p of privileges) {
       expect(p.ok, `${p.rel} ${p.priv}`).toBe(p.priv === 'select')
@@ -64,7 +69,7 @@ describe('Access migration: row-level security and grants', () => {
       `select r.rel, p.priv, has_table_privilege('anon', 'public.' || r.rel, p.priv) as ok
          from unnest($1::text[]) as r(rel),
               unnest(array['select','insert','update','delete','truncate','references','trigger']) as p(priv)`,
-      [[...TABLES, 'order_summary']],
+      [[...TABLES, ...VIEWS]],
     )
     expect(tables.filter((r) => r.ok)).toEqual([])
 
@@ -94,6 +99,7 @@ describe('Access migration: row-level security and grants', () => {
         'update_order', 'list_orders', 'technician_options',
         'add_attachment', 'remove_attachment', 'mark_all_notifications_read', 'my_jobs',
         '_can_access_job_file',
+        'edit_customer_message', 'confirm_customer_message',
       ].sort(),
     )
   })
@@ -104,7 +110,7 @@ describe('Access migration: row-level security and grants', () => {
          from unnest($1::text[]) as r(rel),
               unnest(array['select','insert','update','delete','truncate','references','trigger']) as p(priv)
         where has_table_privilege('service_role', 'public.' || r.rel, p.priv)`,
-      [[...TABLES, 'order_summary']],
+      [[...TABLES, ...VIEWS]],
     )
     expect(tables).toEqual([{ rel: 'staff', priv: 'select' }])
 
@@ -126,6 +132,9 @@ describe('Access migration: row-level security and grants', () => {
       '_link_staff_on_signup', '_normalize_my_phone', '_check_quoted_price', '_check_order_details',
       '_check_extra_charges', '_job_file_order', '_job_file_is_receipt', '_job_file_write_error',
       '_job_file_kind', '_job_file_object', '_payment_method_label',
+      '_is_my_mobile', '_malaysia_date_time', '_customer_job_done_message', '_check_customer_message_body',
+      '_customer_message_confirmed_error', '_customer_message_error',
+      'customer_messages_guard', 'orders_customer_message',
     ]
     const rows = await t.q<{ proname: string; role: string; ok: boolean }>(
       `select p.proname, r.role, has_function_privilege(r.role, p.oid, 'execute') as ok
@@ -327,7 +336,7 @@ describe('AC15 a technician can read only orders assigned to them, enforced by t
 // ---------------------------------------------------------------------------
 describe('AC16 signed-out requests can read no data', () => {
   it('the anon role cannot read any table or view', async () => {
-    for (const table of [...TABLES, 'order_summary']) {
+    for (const table of [...TABLES, ...VIEWS]) {
       await expectRejects(t.qAs(SIGNED_OUT, `select * from ${table}`), /permission denied/i)
     }
   })
@@ -340,7 +349,7 @@ describe('AC16 signed-out requests can read no data', () => {
 
   it('even a request that reaches the tables as authenticated without a user gets zero rows (RLS)', async () => {
     const noUser: Identity = { role: 'authenticated', sub: null }
-    for (const table of [...TABLES, 'order_summary']) {
+    for (const table of [...TABLES, ...VIEWS]) {
       expect(await t.qAs(noUser, `select * from ${table}`), table).toEqual([])
     }
   })
@@ -366,7 +375,7 @@ describe('AC17 an account with no active staff profile can read nothing', () => 
     await t.q('update staff set active = false where id = $1', [t.people.bala])
     try {
       for (const who of [stranger, deactivated]) {
-        for (const table of [...TABLES, 'order_summary']) {
+        for (const table of [...TABLES, ...VIEWS]) {
           expect(await t.qAs(who, `select * from ${table}`), table).toEqual([])
         }
         expect(await t.qAs(who, 'select * from technician_jobs()').catch((e: Error) => e.message)).toMatch(
@@ -407,6 +416,10 @@ describe('Nobody can write tables directly; all writes go through the RPCs', () 
       `insert into attachments (order_id, kind, storage_path, uploaded_by) values ('${o}', 'photo', 'x', '${who}')`,
       `update order_reschedules set reason = 'other'`,
       `insert into service_types (name) values ('Hacked')`,
+      `update customer_messages set body = 'hacked'`,
+      `update customer_messages set status = 'sent'`,
+      `delete from customer_messages`,
+      `insert into customer_messages (order_id, channel, phone, prepared_body, body) values ('${o}', 'whatsapp', '60123456789', 'x', 'x')`,
     ]
     for (const sql of attempts) {
       await expectRejects(t.qAs(who, sql), /permission denied/i)

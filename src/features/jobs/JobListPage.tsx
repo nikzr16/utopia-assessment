@@ -6,11 +6,14 @@ import {
   JOB_VIEWS,
   JOB_VIEW_LABELS,
   OPEN_JOB_GROUP_LABELS,
+  customerNotTold,
   groupOpenJobs,
+  type CustomerMessage,
   type JobView,
 } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
+import { fetchLatestCustomerMessages } from '../customer-messages'
 import { fetchMyJobs, type OrderSummary } from './api'
 import { JobCard } from './JobCard'
 
@@ -18,6 +21,13 @@ const EMPTY: Record<JobView, string> = {
   open: 'No open jobs. New jobs assigned to you will show up here.',
   submitted: 'Nothing is waiting for review.',
   finished: `No jobs closed or cancelled in the last ${FINISHED_JOB_DAYS} days.`,
+}
+
+/** The tab's jobs, with the newest customer message of each on the Submitted tab (for the "not told" flag). */
+async function loadJobs(view: JobView): Promise<{ jobs: OrderSummary[]; messages: Record<string, CustomerMessage> }> {
+  const jobs = await fetchMyJobs(view)
+  const messages = view === 'submitted' ? await fetchLatestCustomerMessages(jobs.map((j) => j.id)) : {}
+  return { jobs, messages }
 }
 
 /** `?tab=` → a job view; anything else is the Open tab. */
@@ -29,7 +39,7 @@ export function toJobView(tab: string | null): JobView {
 export function JobListPage() {
   const [params] = useSearchParams()
   const view = toJobView(params.get('tab'))
-  const [state, reload] = useLoad(() => fetchMyJobs(view), view)
+  const [state, reload] = useLoad(() => loadJobs(view), view)
   useRefreshOnReturn(reload)
 
   return (
@@ -67,16 +77,16 @@ export function JobListPage() {
             Try again
           </button>
         </Notice>
-      ) : state.data.length === 0 ? (
+      ) : state.data.jobs.length === 0 ? (
         <div className={`${CARD} text-center`}>
           <p className="text-sm text-slate-700">{EMPTY[view]}</p>
         </div>
       ) : view === 'open' ? (
-        <OpenJobs jobs={state.data} />
+        <OpenJobs jobs={state.data.jobs} />
       ) : (
         <ul className="space-y-3" aria-label={`${JOB_VIEW_LABELS[view]} jobs`}>
-          {state.data.map((job) => (
-            <JobCard key={job.id} job={job} />
+          {state.data.jobs.map((job) => (
+            <JobCard key={job.id} job={job} notTold={customerNotTold(state.data.messages[job.id], job.status)} />
           ))}
         </ul>
       )}

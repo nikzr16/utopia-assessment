@@ -56,7 +56,7 @@ Layout is phone first (375 px, tap targets ≥ 44 px, sticky action bar).
 
 **Input:** Tab from `?tab=` (`open` default, `submitted`, `finished`).
 **Actions:** One `my_jobs` call per tab. Open: Assigned, Acknowledged, In Progress, soonest scheduled first. Submitted: Job Done, Reviewed, latest first. Finished: Closed and Cancelled updated in the last 30 days.
-**Output:** Open jobs grouped by Malaysia day: **Overdue** (scheduled before today, in red), **Today** (even if the time has passed), **Upcoming**, **No date yet**; each with a count. Each card: order number, status, service type, customer · area (last part of the address), date and time, "To collect: RM x" when a balance is owed (never on a cancelled job). The whole card links to the job.
+**Output:** Open jobs grouped by Malaysia day: **Overdue** (scheduled before today, in red), **Today** (even if the time has passed), **Upcoming**, **No date yet**; each with a count. Each card: order number, status, service type, customer · area (last part of the address), date and time, "To collect: RM x" when a balance is owed (never on a cancelled job), and on the Submitted tab "Customer not told yet" while the customer message is unsent (0003). The whole card links to the job.
 **Refresh:** Refresh button; also automatically when the app becomes visible again or the connection comes back.
 **On failure:** "Could not load your jobs" with the message and Try again. Empty tabs say so in plain words.
 
@@ -64,6 +64,7 @@ Layout is phone first (375 px, tap targets ≥ 44 px, sticky action bar).
 
 **Reads:** The order from `order_summary` (RLS: own jobs only), the completion record, payments with their receipts, and the latest `returned_for_rework` audit entry.
 **Shows:** Order number, status, service type, date; **Customer** (name, formatted phone, address) with **Call** (`tel:+60…`), **WhatsApp** (`wa.me` with "Hi <customer>, this is <technician> from Sejuk Sejuk Service about your aircond job <order>.") and **Open in Maps** (Google Maps search); **Job** (problem, notes from the office, branch); **Money** (quoted, extra charges, final, paid with payment status, To collect) and the payments list with **Receipt** links; **Photos and files** (In Progress, Job Done, Reviewed, Closed); the **Completion record** ("Previous completion record" during rework).
+**Customer message (0003):** Job Done, Reviewed and Closed jobs show the Customer message panel under the header: send on WhatsApp (or call a landline customer), edit before sending, confirm. Details: `docs/0003-whatsapp-notification-workflow.md`.
 **Banners:** "Returned for rework" with the manager's note, name and time (In Progress with a record and a rework entry); "This job was cancelled. Nothing more to do." (cancelled: contact links hidden).
 **Actions (sticky bar):** Accept job (Assigned), Start job (Assigned / Acknowledged), Complete job or **Fix and resubmit** (In Progress), Record payment (In Progress, Job Done, Reviewed), Reschedule (`RESCHEDULABLE_STATUSES`).
 **On failure:** "Could not load the job" with Try again. A job the technician cannot read (not theirs, or reassigned away): "Job not found — … may have been reassigned to another technician."
@@ -182,3 +183,4 @@ Signing out removes every `sejuk-draft:` entry from the phone before ending the 
 | `docs/0001-admin-order-portal-workflow.md` | Workflow | Admin side: dispatch, and the Completion section on the order detail |
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0007-technician-job-portal-implementation-details.md` | Decision log | Divergences from the 0002 plan |
+| `docs/0003-whatsapp-notification-workflow.md` | Workflow | Customer message panel on the job page and the Submitted-tab flag |

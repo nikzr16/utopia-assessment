@@ -5,9 +5,10 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OrderStatus } from '../../src/domain'
 import * as filesApi from '../../src/features/attachments/api'
+import * as messagesApi from '../../src/features/customer-messages/api'
 import * as api from '../../src/features/orders/api'
 import { OrderDetailPage } from '../../src/features/orders/OrderDetailPage'
-import { TECH, history, makeOrder, reference } from './fixtures'
+import { CUSTOMER_MESSAGE_TEXT, TECH, history, makeCustomerMessage, makeOrder, reference } from './fixtures'
 
 vi.mock('../../src/features/orders/api', async (importOriginal) => {
   const actual = await importOriginal<typeof api>()
@@ -25,6 +26,11 @@ vi.mock('../../src/features/orders/api', async (importOriginal) => {
 vi.mock('../../src/features/attachments/api', async (importOriginal) => {
   const actual = await importOriginal<typeof filesApi>()
   return { ...actual, fetchJobFiles: vi.fn(), signedUrls: vi.fn() }
+})
+
+vi.mock('../../src/features/customer-messages/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof messagesApi>()
+  return { ...actual, fetchLatestCustomerMessage: vi.fn(), confirmCustomerMessage: vi.fn(), editCustomerMessage: vi.fn() }
 })
 
 const m = vi.mocked(api)
@@ -47,6 +53,7 @@ beforeEach(() => {
   m.fetchOrderRecords.mockResolvedValue({ completion: null, payments: [], rework: null })
   vi.mocked(filesApi.fetchJobFiles).mockResolvedValue([])
   vi.mocked(filesApi.signedUrls).mockResolvedValue({})
+  vi.mocked(messagesApi.fetchLatestCustomerMessage).mockResolvedValue(null)
   m.fetchReferenceData.mockResolvedValue(reference)
 })
 
@@ -324,5 +331,97 @@ describe('History of 0002 events', () => {
     expect(historyList.getByText('RM 150.00 by Bank transfer, with receipt')).toBeTruthy()
     expect(historyList.getByText('Added a file')).toBeTruthy()
     expect(historyList.getByText('unit.jpg')).toBeTruthy()
+  })
+})
+
+describe('Customer message (0003)', () => {
+  it('shows the Admin the message, the badge and Send on a finished order', async () => {
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status: 'job_done' }), technicianPhone: '60120000011' })
+    vi.mocked(messagesApi.fetchLatestCustomerMessage).mockResolvedValue(makeCustomerMessage())
+    await renderDetail()
+    const panel = within(await screen.findByRole('region', { name: 'Customer message' }))
+    expect(panel.getByText(CUSTOMER_MESSAGE_TEXT)).toBeTruthy()
+    expect(panel.getByText('Customer not told yet')).toBeTruthy()
+    expect(panel.getByRole('link', { name: /Send to customer on WhatsApp/ })).toBeTruthy()
+    expect(panel.getByRole('button', { name: 'Edit message' })).toBeTruthy()
+  })
+
+  it('shows "Sent by X" with Send disabled when someone already sent it', async () => {
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status: 'reviewed' }), technicianPhone: '60120000011' })
+    vi.mocked(messagesApi.fetchLatestCustomerMessage).mockResolvedValue(
+      makeCustomerMessage({
+        status: 'sent',
+        confirmed_by: 't-ali',
+        confirmed_by_name: 'Ali',
+        confirmed_at: '2026-10-22T07:20:00Z',
+      }),
+    )
+    await renderDetail()
+    const panel = within(await screen.findByRole('region', { name: 'Customer message' }))
+    expect(panel.getByText('Sent by Ali at Thu 22 Oct 2026, 3:20 PM')).toBeTruthy()
+    expect((panel.getByRole('button', { name: 'Send to customer on WhatsApp' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(panel.queryByText('Customer not told yet')).toBeNull()
+  })
+
+  it('reloads the history after the Admin confirms it was sent', async () => {
+    const user = userEvent.setup()
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status: 'job_done' }), technicianPhone: '60120000011' })
+    vi.mocked(messagesApi.fetchLatestCustomerMessage).mockResolvedValue(makeCustomerMessage())
+    vi.mocked(messagesApi.confirmCustomerMessage).mockResolvedValue()
+    await renderDetail()
+    const panel = within(await screen.findByRole('region', { name: 'Customer message' }))
+    const historyCalls = m.fetchOrderHistory.mock.calls.length
+    await user.click(panel.getByRole('link', { name: /Send to customer on WhatsApp/ }))
+    await user.click(await screen.findByRole('button', { name: 'Yes, I sent it' }))
+    await waitFor(() => expect(m.fetchOrderHistory.mock.calls.length).toBeGreaterThan(historyCalls))
+  })
+
+  it('shows nothing before the job is done', async () => {
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status: 'in_progress' }), technicianPhone: '60120000011' })
+    await renderDetail()
+    expect(screen.queryByRole('region', { name: 'Customer message' })).toBeNull()
+    expect(messagesApi.fetchLatestCustomerMessage).not.toHaveBeenCalled()
+  })
+
+  it('names the three customer message events in the history, with what changed', async () => {
+    m.fetchOrder.mockResolvedValue({ order: makeOrder({ status: 'job_done' }), technicianPhone: '60120000011' })
+    const entry = (id: number, action: string, details: Record<string, unknown>) => ({
+      id,
+      action,
+      actor_role: 'technician' as const,
+      actor_name: 'Ali',
+      from_status: null,
+      to_status: null,
+      note: null,
+      details,
+      created_at: '2026-10-22T07:20:00Z',
+    })
+    m.fetchOrderHistory.mockResolvedValue([
+      entry(3, 'customer_called', { message_id: 'm-2', channel: 'phone', phone: '60312345678', status: 'job_done' }),
+      entry(2, 'customer_messaged', {
+        message_id: 'm-1',
+        channel: 'whatsapp',
+        phone: '60123456789',
+        body: 'Hello again',
+        edited: true,
+        status: 'job_done',
+      }),
+      entry(1, 'customer_message_edited', {
+        message_id: 'm-1',
+        previous_body: 'Hello',
+        new_body: 'Hello again',
+        status: 'job_done',
+      }),
+    ])
+    await renderDetail()
+    const historyList = within(screen.getByRole('region', { name: 'History' }))
+    expect(historyList.getByText('Edited the customer message')).toBeTruthy()
+    expect(historyList.getByText('From: Hello')).toBeTruthy()
+    expect(historyList.getByText('To: Hello again')).toBeTruthy()
+    expect(historyList.getByText('Sent the customer message on WhatsApp')).toBeTruthy()
+    expect(historyList.getByText('To +60 12-345 6789 (text was edited)')).toBeTruthy()
+    expect(historyList.getByText('Message: Hello again')).toBeTruthy()
+    expect(historyList.getByText('Told the customer by phone')).toBeTruthy()
+    expect(historyList.getByText('Called +60 3-1234 5678')).toBeTruthy()
   })
 })
