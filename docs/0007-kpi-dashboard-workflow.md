@@ -18,8 +18,8 @@ How technician performance is shown per week or month: summary cards, a
 leaderboard, simple charts, a branch comparison, and a drill-down to the jobs
 behind every number, scoped to what each role may read. Nothing is stored:
 every number is computed by five read-only database functions when a page
-loads. The same functions are the whitelisted queries the AI assistant (0008)
-will call. Rules: `supabase/migrations/20261023000005_kpi_dashboard.sql`;
+loads. The same functions are on the AI assistant's lookup menu (0008,
+`docs/0008-ai-ops-query-workflow.md`). Rules: `supabase/migrations/20261023000005_kpi_dashboard.sql`;
 screens: `src/features/kpi/`; pure rules: `src/domain/kpi.ts`.
 
 ## Trigger

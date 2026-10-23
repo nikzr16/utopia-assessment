@@ -9,6 +9,9 @@ const config = readSupabaseConfig(
 /** True when valid Supabase environment variables were provided at build/dev time. */
 export const isSupabaseConfigured = config !== null
 
+/** The project address and public key (the ask function is called with `fetch` to read its stream, 0008). */
+export const supabaseConfig = config
+
 /**
  * The shared Supabase client, or `null` when the environment is not configured.
  * Importing this module never throws; callers must check for `null` (or

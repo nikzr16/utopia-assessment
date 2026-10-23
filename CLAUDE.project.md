@@ -18,8 +18,9 @@ A programmer assessment: an internal operations system for Sejuk Sejuk Service
 Sdn Bhd (fictional), an air-conditioner installation, servicing, and repair
 company with 5 branches and 40+ field technician teams. It digitises the
 service workflow: Order → Assignment → Service Completion → Manager / Finance
-Review. Admins use desktop, technicians use mobile, and managers get an AI
-assistant that answers operational questions from controlled queries.
+Review. Admins use desktop, technicians use mobile, and every staff role gets
+an AI assistant (Ask) that answers operational questions from controlled
+queries (technicians about their own work).
 
 Source brief: `docs/prd/0000-programmer-assessment-brief.docx`. Feature
 numbers follow the build order: 0000 foundation, 0001–0003 brief Modules 1–3,
@@ -48,12 +49,13 @@ when structure, routes, schemas, or config change).
   `payments` (shared payment form), `order-review` (Manager / Finance order
   page and queues), `review` (Manager), `finance` (Finance) (0004),
   `feedback` (public feedback page and staff feedback card, 0005),
-  `staff` (staff screens, 0006), `kpi` (KPI dashboard and My week, 0007)),
+  `staff` (staff screens, 0006), `kpi` (KPI dashboard and My week, 0007),
+  `ask` (Ask chat bubble, saved chats, Admin Question log, 0008)),
   `components/` (shared UI),
   `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
 - **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning for a fresh project)
-- **`supabase/functions/`** — Edge Functions (`staff-access`, 0006); logic in plain TS tested from `tests/functions/`
+- **`supabase/functions/`** — Edge Functions (`staff-access`, 0006; `ask`, 0008); logic in plain TS tested from `tests/functions/`
 - **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `functions/` Edge Function logic; `db/` PGlite database tests;
   `ui/` component tests (jsdom; `src/features/*/api.ts` replaced by test doubles)
 - **`docs/`** — docs-first source of truth: `docs/product-roadmap.md`,
@@ -71,6 +73,7 @@ when structure, routes, schemas, or config change).
 | Test | `npm test` | Vitest; DB tests run on PGlite, UI tests on jsdom; no Docker or Supabase needed |
 | Create staff logins | `npm run auth:create-staff-logins` | Fresh-project set-up only (staff are added on screen since 0006). Needs `SUPABASE_SECRET_KEY` + `STAFF_DEMO_PASSWORD` in `.env.local`; `-- --reset-passwords` to update |
 | Deploy the staff function | `npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt --use-api` | After `npx supabase login` (the user signs in); redeploy when `supabase/functions/staff-access/` changes |
+| Deploy the AI function | `npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api` | Redeploy when `supabase/functions/ask/` changes; needs the `OPENAI_API_KEY` function secret |
 
 ## Code Conventions
 
@@ -151,6 +154,17 @@ when structure, routes, schemas, or config change).
    ratings follow their job (latest per order). Admins and Finance see every
    branch, Managers their covered branches, technicians only "My week".
    Periods are Malaysia days, end exclusive, at most 400 days.
+12. AI operations query: `docs/0008-ai-ops-query-workflow.md`. The `ask`
+   Edge Function is the only code that talks to OpenAI (`gpt-6-luna`; key in
+   its secrets). The AI picks at most 3 lookups from a fixed menu (the five
+   `kpi_*` functions, `ask_jobs`, `ask_payments`; names via
+   `ask_find_people`); the server checks every input and runs each read with
+   the asking person's token, so RLS and role scope apply. The AI never sees
+   ids, phone numbers, addresses, notes or comments; limits end in fixed
+   sentences; staff see a plain "How I found this" line, never function
+   names or JSON (decision 0016). Chats and the Admin Question log are
+   written only by `ask_record` (secret key) and kept 7 days (nightly
+   `pg_cron` purge). Test cleanup deletes `ask_chats` and `ask_log`.
 
 ## Environment And Secrets
 
@@ -159,6 +173,10 @@ when structure, routes, schemas, or config change).
     anon key). Without them the app shows a setup notice.
   - Script only: `SUPABASE_SECRET_KEY` (`sb_secret_…`) and `STAFF_DEMO_PASSWORD`.
     Never prefix these with `VITE_`; never read or print them in agent output.
+- Edge Function secrets (Supabase dashboard → Edge Functions → Secrets; set by
+  the user, never seen by the agent): `OPENAI_API_KEY` for `ask` (optional
+  `OPENAI_MODEL`, default `gpt-6-luna`; `OPENAI_EFFORT`, default `medium`),
+  `APP_ORIGINS` for `staff-access`.
 
 ## Testing And Definition Of Done
 

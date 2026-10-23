@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite'
+import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm'
 import { randomUUID } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -283,7 +284,8 @@ export interface AdvanceOptions {
  * order), the seed, and (by default) a linked sign-in account per staff member.
  */
 export async function createTestDb(options: CreateTestDbOptions = {}): Promise<TestDb> {
-  const db = await PGlite.create()
+  // pg_trgm: the 0008 name search (Supabase ships it too).
+  const db = await PGlite.create({ extensions: { pg_trgm } })
   await db.exec(SUPABASE_SHIM)
   if (options.beforeMigrations) await db.exec(options.beforeMigrations)
 

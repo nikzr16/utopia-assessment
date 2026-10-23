@@ -11,8 +11,10 @@ const TABLES = [
   'branches', 'staff', 'service_types', 'orders', 'order_completions', 'attachments',
   'payments', 'order_reschedules', 'audit_log', 'notifications', 'order_status_transitions',
   'customer_messages', 'customer_feedback',
+  // 0008: saved chats and the Question log (written only by the ask Edge Function).
+  'ask_chats', 'ask_messages', 'ask_log',
 ]
-const VIEWS = ['order_summary', 'latest_customer_messages', 'order_review_summary', 'order_feedback']
+const VIEWS = ['order_summary', 'latest_customer_messages', 'order_review_summary', 'order_feedback', 'ask_log_entries']
 // 0005: settings only the definer functions read; 0006: staff history (read
 // through staff_detail). RLS on, no policy, no grants.
 const PRIVATE_TABLES = ['app_settings', 'staff_history']
@@ -122,11 +124,13 @@ describe('Access migration: row-level security and grants', () => {
         'create_staff', 'update_staff', 'set_staff_active', 'staff_access_check', 'staff_access_event',
         'staff_list', 'staff_detail', 'branch_cover_overview', 'staff_form_check',
         'kpi_summary', 'kpi_technicians', 'kpi_branches', 'kpi_trend', 'kpi_technician_events',
+        '_ask_scope', '_ask_contains_pattern', 'ask_jobs', 'ask_payments', 'ask_find_people',
+        'ask_rename_chat', 'ask_delete_chat',
       ].sort(),
     )
   })
 
-  it('gives service_role only: read staff, and run link_staff_accounts / link_invited_staff', async () => {
+  it('gives service_role only: read staff, run link_staff_accounts / link_invited_staff, and record / purge Ask', async () => {
     const tables = await t.q<{ rel: string; priv: string }>(
       `select r.rel, p.priv
          from unnest($1::text[]) as r(rel),
@@ -141,7 +145,9 @@ describe('Access migration: row-level security and grants', () => {
         where n.nspname = 'public' and p.prokind = 'f'
           and has_function_privilege('service_role', p.oid, 'execute')`,
     )
-    expect(fns.map((f) => f.proname).sort()).toEqual(['link_invited_staff', 'link_staff_accounts'])
+    expect(fns.map((f) => f.proname).sort()).toEqual(
+      ['ask_purge_old', 'ask_record', 'link_invited_staff', 'link_staff_accounts'],
+    )
 
     expect((await t.qAs(SERVICE_ROLE, 'select count(*)::int as n from staff'))[0].n).toBe(12)
     await expectRejects(t.qAs(SERVICE_ROLE, 'select * from orders'), /permission denied/i)
@@ -171,6 +177,7 @@ describe('Access migration: row-level security and grants', () => {
       '_staff_access_target', '_staff_check_branch', '_staff_visible_to', '_require_staff_screen',
       'order_reschedules_technician', '_kpi_day_start', '_kpi_period', '_kpi_visible_branches',
       '_kpi_needs_attention', '_kpi_completed_jobs', '_kpi_events', '_kpi_active_technicians', '_kpi_metrics',
+      '_ask_normalize_name', '_ask_name_score',
     ]
     const rows = await t.q<{ proname: string; role: string; ok: boolean }>(
       `select p.proname, r.role, has_function_privilege(r.role, p.oid, 'execute') as ok

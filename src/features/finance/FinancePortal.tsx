@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { AskAssistant } from '../ask'
 import { DashboardRoutes } from '../kpi'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from '../notifications'
 import { OrderReviewPage } from '../order-review'
@@ -39,6 +40,7 @@ export function FinancePortal({ staffId, staffName }: { staffId: string; staffNa
         />
         <Route path="*" element={<Navigate to="/finance" replace />} />
       </Routes>
+      <AskAssistant role="finance" orderPath={(orderNo) => `/finance/${encodeURIComponent(orderNo)}`} />
     </NotificationsProvider>
   )
 }
