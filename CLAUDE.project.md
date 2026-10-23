@@ -22,8 +22,10 @@ Review. Admins use desktop, technicians use mobile, and managers get an AI
 assistant that answers operational questions from controlled queries.
 
 Source brief: `docs/prd/0000-programmer-assessment-brief.docx`. Feature
-numbers 0000–0006 follow the brief's modules; 0007 (review and close screens)
-and 0008 (customer feedback) came out of 0003 (see `docs/product-roadmap.md`).
+numbers follow the build order: 0000 foundation, 0001–0003 brief Modules 1–3,
+0004 review and close screens, 0005 customer feedback, 0006 KPI dashboard,
+0007 AI operations query, 0008 optional AI challenges (see
+`docs/product-roadmap.md`; renumbered in decision 0009).
 
 ## Tech Stack
 

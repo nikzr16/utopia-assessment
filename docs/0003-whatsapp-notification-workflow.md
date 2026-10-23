@@ -120,7 +120,7 @@ The migration wrote one `not_sent` message for every order already Job Done, Rev
 | Statuses offering the message | Job Done, Reviewed, Closed (`CUSTOMER_MESSAGE_STATUSES`) |
 | Edited text | 1 – 1,000 characters, trimmed |
 | Undo after confirming | None |
-| Who can see messages | Assigned technician and Admins (Manager / Finance: 0007) |
+| Who can see messages | Assigned technician and Admins (Manager / Finance: 0004) |
 
 ## Behavioral Constraints
 
@@ -139,7 +139,7 @@ The migration wrote one `not_sent` message for every order already Job Done, Rev
 - The screen trims Unicode spaces; the database trims spaces, tabs and line
   breaks. Text made only of non-breaking spaces is refused by the screen but
   not by the database.
-- 0008 (`customer-feedback`) adds the feedback link to
+- 0005 (`customer-feedback`) adds the feedback link to
   `_customer_job_done_message`.
 
 ## Related Documents

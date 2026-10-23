@@ -47,7 +47,7 @@ a message stays sent; there is no undo (P5, PRD Q2).
   formatted like the app's `formatMalaysiaDateTime`, e.g.
   `Thu 22 Oct 2026, 3:15 PM` (P7). The prepared text is stored on the row and
   never changes (`prepared_body`); the text that will be sent is `body`.
-  0008 adds the feedback link to this function later.
+  0005 adds the feedback link to this function later.
 - **Edit before sending (P2).** `edit_customer_message(p_message_id, p_body)`:
   - caller is the order's assigned technician or an Admin;
   - order is Job Done, Reviewed, or Closed;
@@ -79,7 +79,7 @@ a message stays sent; there is no undo (P5, PRD Q2).
   sent by X at T"; the screen reloads and shows the sent state. There is no
   undo (P5): a confirmed message stays sent, and the button stays disabled.
 - **Reads (P3, P6).** RLS on `customer_messages`: select for the assigned
-  technician and Admins (PRD AC 9; Manager / Finance access comes with 0007).
+  technician and Admins (PRD AC 9; Manager / Finance access comes with 0004).
   A `security_invoker` view `latest_customer_messages` returns the newest
   row per order with the editor's and confirmer's names. The job list, job
   page, and order detail fetch it alongside their current reads;
@@ -108,7 +108,7 @@ a message stays sent; there is no undo (P5, PRD Q2).
 ## Resolved PRD Open Questions
 
 All ten answered 2026-10-22; see the PRD's Product Decisions. Q6 (feedback)
-and Q10 (review / close screens) moved to 0008 and 0007.
+and Q10 (review / close screens) moved to 0005 and 0004.
 
 ## System Components
 
@@ -240,6 +240,6 @@ All answered 2026-10-23.
 - [x] **P3. How screens read the message state.** (a) A new `latest_customer_messages` view; `order_summary` and `my_jobs` unchanged.
 - [x] **P4. Technician and Admin both confirm.** (a) First one wins; the second gets "Already sent by X at T".
 - [x] **P5. Undo a mistaken Yes.** (a) No undo; once confirmed, the message stays sent and the button stays disabled.
-- [x] **P6. Who can see message status.** (a) Assigned technician and Admins only; 0007 adds Manager / Finance.
+- [x] **P6. Who can see message status.** (a) Assigned technician and Admins only; 0004 adds Manager / Finance.
 - [x] **P7. Time format in the message.** (a) `Thu 22 Oct 2026, 3:15 PM`.
 - [x] **P8. Orders already Job Done / Reviewed / Closed before this feature.** (b) Backfill a message for each, so they show Send and the badge.

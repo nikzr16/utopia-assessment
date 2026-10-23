@@ -269,4 +269,4 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `docs/0002-technician-job-portal-workflow.md` | Workflow | Technician portal runtime behavior |
 | `docs/prd/0003-whatsapp-notification-prd.md` | Intent | Customer WhatsApp notification goals |
 | `docs/0003-whatsapp-notification-workflow.md` | Workflow | Customer message runtime behavior |
-| `docs/decisions/0001-*.md` – `0008-*.md` | Decision log | Structural changes that diverged from the plans |
+| `docs/decisions/0001-*.md` – `0009-*.md` | Decision log | Structural changes that diverged from the plans |
