@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { MyWeek } from '../kpi'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from '../notifications'
 import { CompletionPage } from './CompletionPage'
 import { JobListPage } from './JobListPage'
@@ -18,6 +19,9 @@ export function TechnicianPortal({ staffId }: { staffId: string }) {
           <NavLink to="/jobs" className={({ isActive }) => tab(isActive)}>
             My jobs
           </NavLink>
+          <NavLink to="/my-week" className={({ isActive }) => tab(isActive)}>
+            My week
+          </NavLink>
           <NotificationBell className={tab} />
         </nav>
         <Routes>
@@ -25,6 +29,7 @@ export function TechnicianPortal({ staffId }: { staffId: string }) {
           <Route path="/jobs/:orderNo" element={<JobPage />} />
           <Route path="/jobs/:orderNo/complete" element={<CompletionPage />} />
           <Route path="/jobs/:orderNo/payment" element={<PaymentPage />} />
+          <Route path="/my-week" element={<MyWeek staffId={staffId} />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="*" element={<Navigate to="/jobs" replace />} />
         </Routes>

@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { DashboardRoutes } from '../kpi'
 import { StaffRoutes } from '../staff'
 import { EditOrderPage } from './EditOrderPage'
 import { NewOrderPage } from './NewOrderPage'
@@ -32,6 +33,12 @@ export function AdminPortal({ branchName }: { branchName: string | null }) {
         >
           Staff
         </NavLink>
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) => `${TAB} ${isActive ? 'bg-sky-100 text-sky-900' : 'text-slate-700 hover:bg-slate-100'}`}
+        >
+          Dashboard
+        </NavLink>
       </nav>
       <Routes>
         <Route path="/orders" element={<OrderListPage />} />
@@ -41,6 +48,10 @@ export function AdminPortal({ branchName }: { branchName: string | null }) {
         <Route
           path="/staff/*"
           element={<StaffRoutes actorRole="admin" orderPath={(orderNo) => `/orders/${encodeURIComponent(orderNo)}`} />}
+        />
+        <Route
+          path="/dashboard/*"
+          element={<DashboardRoutes role="admin" orderPath={(orderNo) => `/orders/${encodeURIComponent(orderNo)}`} />}
         />
         <Route path="*" element={<Navigate to="/orders" replace />} />
       </Routes>

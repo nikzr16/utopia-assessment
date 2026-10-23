@@ -107,7 +107,7 @@ details in `docs/0002-technician-job-portal-workflow.md`.
 
 **Input:** New date (empty = postponed with no date), reason, requested by (customer / technician / admin), note.
 **Actions:** Admin, or the assigned technician, while `new`, `assigned`, `acknowledged`, or `in_progress`. Reason `other` requires a note.
-**Output:** `orders.scheduled_at` updated, a row in `order_reschedules`, audit `rescheduled`. Status unchanged.
+**Output:** `orders.scheduled_at` updated, a row in `order_reschedules`, audit `rescheduled`. Status unchanged. Since 0007 the row also keeps the technician assigned at that moment (`technician_id`, filled by `order_reschedules_technician_trg`) for the KPI dashboard.
 
 ### Read paths
 
@@ -119,6 +119,7 @@ All reads require a signed-in user with an active staff profile (row-level secur
 - `my_jobs(p_view)` (0002): the signed-in technician's jobs for one job-list tab (`open`, `submitted`, `finished`).
 - `current_staff()`: the signed-in user's staff profile with branch name.
 - `list_orders(...)`, `technician_options()` (0001): Admin portal list and technician dropdown, under RLS.
+- `kpi_summary`, `kpi_technicians`, `kpi_branches`, `kpi_trend`, `kpi_technician_events` (0007): read-only KPI numbers, scoped by role; `docs/0007-kpi-dashboard-workflow.md`.
 - `notifications` table: each user sees only their own; `mark_notification_read` sets `read_at` for the recipient only; `mark_all_notifications_read` (0002) marks all of the caller's. The table is in the `supabase_realtime` publication (0002), so changes stream to the recipient under the same row-level security.
 - `job-files` Storage objects (0002): readable by whoever can read the order.
 
@@ -184,4 +185,5 @@ All reads require a signed-in user with an active staff profile (row-level secur
 | `docs/0002-technician-job-portal-workflow.md` | Workflow | Technician portal: job files, retry-safe payments, notifications |
 | `docs/0003-whatsapp-notification-workflow.md` | Workflow | Customer message prepared on Job Done |
 | `docs/0004-review-and-close-workflow.md` | Workflow | Manager review, Finance verification and close, branch cover |
+| `docs/0007-kpi-dashboard-workflow.md` | Workflow | KPI dashboard read functions over this data |
 | `docs/decisions/0007-technician-job-portal-implementation-details.md` | Decision log | 0002 divergences from its plan |

@@ -68,7 +68,7 @@ async function editArgs(t: TestDb, staffId: string, changes: Record<string, unkn
 // ---------------------------------------------------------------------------
 describe('Migration on a project that already has staff', () => {
   it('backfills joined / left dates and one history entry per person', async () => {
-    const L = await createTestDb({ holdBackMigrations: ['20261023000004'] })
+    const L = await createTestDb({ holdBackMigrations: ['20261023000004', '20261023000005'] })
     try {
       await L.q('update staff set active = false where id = $1', [L.people.yusoff])
       await L.applyMigration('20261023000004')

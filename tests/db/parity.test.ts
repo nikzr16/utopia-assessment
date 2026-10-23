@@ -56,6 +56,18 @@ import {
   type StaffRole,
 } from '../../src/domain'
 import { createTestDb, expectRejects, type TestDb } from './helpers'
+import {
+  NEEDS_ATTENTION_RETURNS,
+  addDays,
+  competitionRanks,
+  monthStartOf,
+  needsAttention,
+  periodRange,
+  rankLeaderboard,
+  shiftPeriod,
+  weekStartOf,
+} from '../../src/domain'
+import { addTechnician, approvedJob, myt, num, prepareKpiDb, technicians, trend, week } from './kpiHelpers'
 
 let t: TestDb
 beforeAll(async () => {
@@ -1031,5 +1043,81 @@ describe('Rules parity: who may change whom (src/domain/staff.ts staffManageErro
       }
     }
     expect(checked).toBe(5 * 5 * 4)
+  })
+})
+
+describe('Rules parity: KPI periods (src/domain/kpi.ts = kpi_trend buckets)', () => {
+  // Days around week, month, year and leap-day edges.
+  const DAYS = [
+    '2026-10-19', '2026-10-21', '2026-10-25', '2026-10-26', '2026-10-31', '2026-11-01', '2026-12-28',
+    '2026-12-31', '2027-01-01', '2027-01-03', '2027-01-04', '2024-02-28', '2024-02-29', '2024-03-01',
+    '2025-12-29', '2026-03-01', '2026-02-28',
+  ]
+
+  it('starts and ends every week and month on the same day in SQL and TypeScript', async () => {
+    const asDate = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v))
+    for (const day of DAYS) {
+      // p_end is exclusive: the last row is the period holding the day before it.
+      const next = addDays(day, 1)
+      const [wk] = await trend(t, t.people.admin, 'week', next, 1)
+      const [mo] = await trend(t, t.people.admin, 'month', next, 1)
+      expect({ day, week: [asDate(wk.period_start), asDate(wk.period_end)] }).toEqual({
+        day,
+        week: [weekStartOf(day), periodRange('week', day).end],
+      })
+      expect({ day, month: [asDate(mo.period_start), asDate(mo.period_end)] }).toEqual({
+        day,
+        month: [monthStartOf(day), periodRange('month', day).end],
+      })
+    }
+  })
+
+  it('steps back whole weeks and months the way shiftPeriod does', async () => {
+    const asDate = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : String(v))
+    const weeks = await trend(t, t.people.admin, 'week', '2027-01-11', 4)
+    expect(weeks.map((r) => asDate(r.period_start))).toEqual([-3, -2, -1, 0].map((n) => shiftPeriod('week', weekStartOf('2027-01-10'), n)))
+    const months = await trend(t, t.people.admin, 'month', '2027-02-01', 3)
+    expect(months.map((r) => asDate(r.period_start))).toEqual([-2, -1, 0].map((n) => shiftPeriod('month', monthStartOf('2027-01-31'), n)))
+  })
+})
+
+describe('Rules parity: Needs attention (src/domain/review.ts needsAttention = _kpi_needs_attention)', () => {
+  it('agrees for every number of returns around the threshold', async () => {
+    expect(NEEDS_ATTENTION_RETURNS).toBe(3)
+    for (const n of [0, 1, 2, 3, 4, 10]) {
+      const [row] = await t.q<{ v: boolean }>('select _kpi_needs_attention($1) as v', [n])
+      expect({ n, v: row.v }).toEqual({ n, v: needsAttention(n) })
+    }
+  })
+})
+
+describe('Rules parity: leaderboard ranking (src/domain/kpi.ts competitionRanks = kpi_technicians.rank)', () => {
+  let k: TestDb
+  beforeAll(async () => {
+    k = await createTestDb()
+    await prepareKpiDb(k)
+  })
+  afterAll(() => k.close())
+
+  it('orders and ranks the same rows the same way, ties included', async () => {
+    const w = week(60)
+    const jb = await k.branchId('Johor Bahru')
+    const make = (name: string) => addTechnician(k, name, 'Johor Bahru')
+    const [a, b, c, d] = [await make('Rank B'), await make('Rank A'), await make('Rank C'), await make('Rank D')]
+    await make('Rank Zero 1')
+    await make('Rank Zero 2')
+    const job = (tech: string, price: number, n: number) =>
+      approvedJob(k, { tech, branch: 'Johor Bahru', price, at: myt(addDays(w.start, n), '10:00:00') })
+    await job(a, 100, 0); await job(a, 100, 1)
+    await job(b, 150, 0); await job(b, 50, 2)
+    await job(c, 200, 0); await job(c, 100, 3)
+    await job(d, 100, 1)
+
+    const rows = await technicians(k, k.people.admin, w.start, w.end, jb)
+    const asRows = rows.map((r) => ({ name: r.name, jobs_completed: r.jobs_completed, total_amount: num(r.total_amount) }))
+    // Same order as the TypeScript comparison, same ranks as competitionRanks.
+    expect(rankLeaderboard(asRows).map((r) => r.name)).toEqual(asRows.map((r) => r.name))
+    expect(rows.map((r) => r.rank)).toEqual(competitionRanks(asRows))
+    expect(rows.map((r) => r.rank)).toEqual([1, 2, 2, 4, 5, 5])
   })
 })

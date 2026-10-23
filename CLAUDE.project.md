@@ -32,6 +32,7 @@ renumbered in decisions 0009 and 0010; 0010 added in decision 0012).
 
 - **Frontend:** React 19 + TypeScript, Vite 7, Tailwind CSS 4, React Router 7 (library mode)
 - **Backend:** Supabase Postgres; business rules live in SQL functions (RPCs); Supabase Auth (email + password) with row-level security; Supabase Realtime for in-app notifications
+- **Charts:** Recharts (KPI dashboard only; loaded on demand with the dashboard pages)
 - **Storage:** Supabase Postgres and Supabase Storage (private `job-files` bucket for job photos / videos / PDFs and payment receipts)
 - **Packaging:** npm with `package-lock.json`; Node 23 (Vitest pinned to 3.x and jsdom to 26 until Node ≥ 24)
 - **Deployment:** Vercel (`main` = production, `dev` = integration); `vercel.json` rewrites all paths to the SPA
@@ -47,7 +48,7 @@ when structure, routes, schemas, or config change).
   `payments` (shared payment form), `order-review` (Manager / Finance order
   page and queues), `review` (Manager), `finance` (Finance) (0004),
   `feedback` (public feedback page and staff feedback card, 0005),
-  `staff` (staff screens, 0006)),
+  `staff` (staff screens, 0006), `kpi` (KPI dashboard and My week, 0007)),
   `components/` (shared UI),
   `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
@@ -141,6 +142,15 @@ when structure, routes, schemas, or config change).
    person out at once. Staff are never deleted; every change goes to the
    append-only `staff_history`. Test cleanup deletes test staff (history
    follows) and their `auth.users` rows.
+11. KPI dashboard: `docs/0007-kpi-dashboard-workflow.md`. Read-only; every
+   number comes from the five `kpi_*` functions (the whitelist the AI query
+   0008 reuses). A job counts as completed on the day a Manager approves it
+   (Reviewed or Closed; approval is final), credited to the technician who
+   submitted it, in the order's branch; reschedules count on the day logged
+   for the technician assigned then (`order_reschedules.technician_id`);
+   ratings follow their job (latest per order). Admins and Finance see every
+   branch, Managers their covered branches, technicians only "My week".
+   Periods are Malaysia days, end exclusive, at most 400 days.
 
 ## Environment And Secrets
 
