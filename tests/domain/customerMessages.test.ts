@@ -36,6 +36,8 @@ const message = (overrides: Partial<CustomerMessage> = {}): CustomerMessage => (
   confirmed_by_name: null,
   confirmed_at: null,
   created_at: '2026-10-22T07:15:00Z',
+  feedback_url: null,
+  full_body: 'Hi Encik Hafiz, Job ORDER1001 has been completed by Technician Ali at Thu 22 Oct 2026, 3:15 PM.',
   ...overrides,
 })
 

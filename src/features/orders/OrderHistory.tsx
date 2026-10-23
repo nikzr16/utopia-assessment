@@ -33,6 +33,7 @@ const ACTION_LABELS: Record<string, string> = {
   customer_message_edited: 'Edited the customer message',
   customer_messaged: 'Sent the customer message on WhatsApp',
   customer_called: 'Told the customer by phone',
+  feedback_recorded: 'Recorded the customer rating taken by phone',
 }
 
 const FIELD_LABELS: Record<string, string> = {
@@ -106,6 +107,11 @@ export function historyDetails(entry: HistoryEntry): string[] {
       ]
     case 'customer_called':
       return [`Called ${str(d.phone) ? formatMyPhone(String(d.phone)) : 'the customer'}`]
+    case 'feedback_recorded':
+      return [
+        `${String(d.rating)} out of 5 stars; working well now: ${d.working_well ? 'Yes' : 'No'}`,
+        ...(str(d.comment) ? [`Comment: ${String(d.comment)}`] : []),
+      ]
     default:
       return []
   }

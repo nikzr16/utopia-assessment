@@ -46,6 +46,11 @@ vi.mock('../../src/features/attachments/api', async (importOriginal) => {
   const actual = await importOriginal<typeof filesApi>()
   return { ...actual, fetchJobFiles: vi.fn(), signedUrls: vi.fn(), uploadFile: vi.fn(), deleteStoredFile: vi.fn() }
 })
+// 0005: the order pages show the customer feedback card; no feedback here.
+vi.mock('../../src/features/feedback/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/feedback/api')>()),
+  fetchOrderFeedback: async () => [],
+}))
 vi.mock('../../src/features/customer-messages/api', async (importOriginal) => {
   const actual = await importOriginal<typeof messagesApi>()
   return { ...actual, fetchLatestCustomerMessage: vi.fn(), confirmCustomerMessage: vi.fn(), editCustomerMessage: vi.fn() }
@@ -82,6 +87,8 @@ function makeReview(overrides: Partial<OrderReview> = {}): OrderReview {
     review_note: null,
     closed_at: null,
     closed_by_name: null,
+    latest_rating: null,
+    latest_working_well: null,
     ...overrides,
   }
 }
@@ -175,6 +182,26 @@ describe('Manager review queue (AC5)', () => {
 
     await user.selectOptions(screen.getByLabelText('Branch'), 'Penang')
     await waitFor(() => expect(m.fetchManagerOrders).toHaveBeenCalledWith('returned', 'b-pg'))
+  })
+
+  it('shows the latest customer rating in the Reviewed tab, poor ones marked (0005)', async () => {
+    m.fetchManagerOrders.mockResolvedValue([
+      makeReview({ status: 'reviewed', reviewed_at: '2026-10-22T08:00:00Z', latest_rating: 2, latest_working_well: false }),
+      makeReview({ id: 'o-2', order_no: 'ORDER1002', status: 'reviewed', reviewed_at: '2026-10-22T08:00:00Z' }),
+    ])
+    render(
+      <MemoryRouter initialEntries={['/review?tab=reviewed']}>
+        <Routes>
+          <Route path="/review" element={<ReviewQueuePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const table = await screen.findByRole('table', { name: 'Reviewed' })
+    expect(within(table).getByRole('columnheader', { name: 'Customer rating' })).toBeTruthy()
+    const [first, second] = within(table).getAllByRole('row').slice(1)
+    expect(within(first).getByRole('img', { name: '2 out of 5 stars' })).toBeTruthy()
+    expect(first.textContent).toContain('Not working')
+    expect(within(second).queryByRole('img')).toBeNull()
   })
 
   it('hides the branch filter for a Manager of one branch', async () => {

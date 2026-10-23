@@ -14,7 +14,7 @@ current state; record the divergence in the decision log.
 ## Overview
 
 Where the application, database, tests, and docs live. Covers everything up to
-and including feature 0004 (review and close).
+and including feature 0005 (customer feedback).
 
 ## Directory Layout
 
@@ -28,7 +28,7 @@ and including feature 0004 (review and close).
 ├── .env.example                Env template → copy to .env.local (browser + script-only vars)
 ├── src/
 │   ├── main.tsx                React root
-│   ├── App.tsx                 App shell (BrowserRouter): setup notice → sign-in → Admin, Technician, Manager or Finance portal
+│   ├── App.tsx                 App shell (BrowserRouter): public `/f/:token` feedback page (0005); otherwise setup notice → sign-in → Admin, Technician, Manager or Finance portal
 │   ├── index.css               Tailwind entry
 │   ├── components/             Shared UI: AppHeader, SetupNotice, Notice, Field, Dialog, StatusBadge, RescheduleDialog, styles
 │   ├── domain/                 Pure business rules mirrored from the database
@@ -42,6 +42,7 @@ and including feature 0004 (review and close).
 │   ├── features/order-review/  Manager / Finance order page, queue list, dialogs, data access (0004)
 │   ├── features/review/        Manager portal (0004): review queue
 │   ├── features/finance/       Finance portal (0004): payment queue, record payment
+│   ├── features/feedback/      Customer feedback (0005): public page, staff feedback card, phone rating dialog
 │   └── lib/                    Supabase client and config, shared API plumbing, order records, hooks, drafts
 ├── scripts/
 │   ├── create-staff-logins.ts  Creates/links Supabase Auth accounts for staff (secret key)
@@ -78,6 +79,7 @@ and including feature 0004 (review and close).
 | `paymentForm.ts` | Payment method labels, receipt rule, form validation, over-balance amount, `canRecordPayment` |
 | `customerMessages.ts` | 0003: customer message channels, states and audit actions, `CUSTOMER_MESSAGE_STATUSES` (Job Done / Reviewed / Closed), edited-text rule (mirror of `_check_customer_message_body`), `canManageCustomerMessage` (edit), `canConfirmCustomerMessage` (send, incl. covering Managers, 0004), `customerNotTold`, send / call / edit rules, "Sent by" / "Edited by" labels |
 | `jobs.ts` | Job list tabs and statuses (mirror of `my_jobs`), Malaysia-day grouping (Overdue / Today / Upcoming / No date), area, `tel:` / maps links, customer WhatsApp greeting, notification events (mirror of the event check) and labels |
+| `feedback.ts` | 0005: rating range, `FEEDBACK_LOW_RATING_MAX`, comment limit, `FEEDBACK_LINK_DAYS`, token pattern, `FEEDBACK_LINK_PLACEHOLDER`, link states and their messages (mirror of `_feedback_state_error`), sources, `isLowFeedback` (mirror of `_is_low_feedback`), `customerMessageFullText` (mirror of `_customer_message_full_text`), `validateFeedbackForm` (mirror of `_check_feedback`), `canRecordPhoneFeedback` (mirror of `_phone_feedback_error`), `EMPTY_FEEDBACK_FORM`, `ratingStars`, `feedbackSourceLabel`; `FeedbackForm` / `OrderFeedback` rows |
 | `review.ts` | 0004: `coversBranch` (mirror of `_covers_branch`), Manager / Finance tabs and labels (`managerViewOf` / `financeViewOf`, mirrors of `manager_orders` / `finance_orders`), `NEEDS_ATTENTION_RETURNS`, `approveBlockReason`, `closeBlockReason`, `paymentNeedsVerifying`, `canVerifyPayment`, Approved / Closed / Verified labels, `customerOnBehalfMessage` (mirror of `_customer_on_behalf_message`) |
 | `index.ts` | Barrel export |
 
@@ -148,6 +150,16 @@ and including feature 0004 (review and close).
 | `CustomerMessagePanel.tsx` | Panel for the job page, Admin order detail and Manager / Finance order page: message, Show original, edit form, Send on WhatsApp / Call, "Have you sent it?" question, "Sent by" state; `onChange` after writes; `onBehalfBody` / `canEdit` for Managers (0004); `CustomerNotToldBadge` |
 | `index.ts` | Barrel export |
 
+## Customer Feedback (`src/features/feedback/`, 0005)
+
+| File | Purpose |
+|---|---|
+| `api.ts` | `fetchFeedbackForm` (`feedback_form`), `submitFeedback` (`submit_feedback`) for the signed-out page; `fetchOrderFeedback` (`order_feedback`), `recordPhoneFeedback` (`record_phone_feedback`) for staff |
+| `FeedbackPage.tsx` | Public page at `/f/:token`: job facts, the three questions, single submit, "Thank you", pages for used / replaced / expired / unknown links, retry on no signal |
+| `FeedbackQuestions.tsx` | The three questions (stars, working well, comment) shared by the page and the phone dialog; clears each error when answered |
+| `FeedbackCard.tsx` | "Customer feedback" card for the Admin, technician and Manager / Finance order pages (every visit, latest first; link status while waiting); `PhoneFeedbackDialog` for Admins and covering Managers |
+| `index.ts` | Barrel export |
+
 ## Payments (`src/features/payments/`, 0004)
 
 | File | Purpose |
@@ -214,15 +226,20 @@ and including feature 0004 (review and close).
 | `migrations/20261022000006_technician_job_portal.sql` | 0002: `attachments.file_name` / `size_bytes` / unique `storage_path`, `payments.client_key` (unique); `_check_extra_charges`, `_job_file_order`, `_job_file_is_receipt`, `_job_file_write_error`, `_job_file_kind`, `_job_file_object`, `_can_access_job_file` (storage policy helper), `_payment_method_label`; `add_attachment`, `remove_attachment`; `record_payment` recreated (client key, receipt); `submit_completion` and `transition_order` replaced (same signatures); `mark_all_notifications_read`, `my_jobs`; notification events `cancelled`, `reassigned_away`, `payment_recorded`; guarded: `job-files` bucket + `storage.objects` policies, `supabase_realtime` publication |
 | `migrations/20261023000001_whatsapp_notification.sql` | 0003: `_is_my_mobile`, `_malaysia_date_time`, `_customer_job_done_message`, `_check_customer_message_body`; `customer_messages` table with checks and `customer_messages_guard_trg` (no deletes, confirmed rows frozen); `orders_customer_message_trg` (Job Done → message); backfill for orders already Job Done / Reviewed / Closed; `edit_customer_message`, `confirm_customer_message`; `latest_customer_messages` view; RLS (assigned technician, Admins); grants |
 | `migrations/20261023000002_review_and_close.sql` | 0004: `staff.additional_branch_ids` + `staff_additional_branches_trg`; `_covers_branch`, `_branch_has_manager`; `staff_branch_manager_trg` (constraint trigger, at commit) and `orders_branch_manager_trg` (every branch needs a Manager); `payments.verified_by` / `verified_at` + `payments_verified_check`; notification events `job_approved`, `job_closed`; `_current_staff_covers`; `orders_read` and `customer_messages_read` policies replaced (Managers: covered branches); `_can_access_job_file`, `_authorize_transition`, `submit_completion`, `transition_order`, `_customer_message_error`, `confirm_customer_message` replaced (same signatures); `verify_payment`, `unverify_payment`; `_customer_on_behalf_message`; `order_review_summary` view; `manager_orders`, `finance_orders`, `covered_branches`; grants |
+| `migrations/20261023000003_customer_feedback.sql` | 0005: `app_settings` (`feedback_link_base`); `customer_messages.feedback_token` (unique, WhatsApp only) + backfill for unsent messages; `_new_feedback_token`; `customer_messages_guard` and `orders_customer_message` replaced (token frozen / set on Job Done); `_feedback_link_placeholder`, `_feedback_link`, `_customer_message_full_text`; `confirm_customer_message` replaced (audit keeps the full text); `latest_customer_messages` gains `feedback_url`, `full_body`; `customer_feedback` table + `customer_feedback_guard_trg`; `_is_low_feedback`, `_check_feedback`, `_feedback_link_state`, `_feedback_state_error`, `_notify_low_feedback`; notification event `low_feedback`; `feedback_form`, `submit_feedback` (anon + authenticated); `_phone_feedback_error`, `record_phone_feedback`; RLS `customer_feedback_read`; `order_feedback` view; `order_review_summary` gains `latest_rating`, `latest_working_well`; grants (`anon`: schema usage + the two page functions) |
 | `seed.sql` | 5 branches, service types, staff with `@sejuk.example.com` emails (incl. Ali, John, Bala, Yusoff; one Manager per branch since 0004); no auth accounts |
 
 ### Tables
 
 `branches`, `staff`, `service_types`, `orders`, `order_completions`,
 `attachments`, `payments`, `order_reschedules`, `audit_log`, `notifications`,
-`order_status_transitions`, `customer_messages` (0003). Views: `order_summary`,
-`latest_customer_messages` (0003), `order_review_summary` (0004). New columns
-(0004): `staff.additional_branch_ids`, `payments.verified_by`, `payments.verified_at`.
+`order_status_transitions`, `customer_messages` (0003), `customer_feedback`,
+`app_settings` (0005; RLS on, no policy, no client access). Views:
+`order_summary`, `latest_customer_messages` (0003; `feedback_url`,
+`full_body` since 0005), `order_review_summary` (0004; `latest_rating`,
+`latest_working_well` since 0005), `order_feedback` (0005). New columns
+(0004): `staff.additional_branch_ids`, `payments.verified_by`, `payments.verified_at`;
+(0005): `customer_messages.feedback_token`.
 
 ### RPCs
 
@@ -231,21 +248,25 @@ and including feature 0004 (review and close).
 `mark_all_notifications_read`, `add_attachment`, `remove_attachment`,
 `technician_jobs`, `my_jobs`, `current_staff`, `edit_customer_message`,
 `confirm_customer_message`, `verify_payment`, `unverify_payment`,
-`manager_orders`, `finance_orders`, `covered_branches` (0004) (no actor
-parameter; actor = signed-in user). Read functions (security invoker, RLS applies):
+`manager_orders`, `finance_orders`, `covered_branches` (0004),
+`record_phone_feedback` (0005) (no actor
+parameter; actor = signed-in user). Signed-out (`anon`) and signed-in:
+`feedback_form`, `submit_feedback` (0005; the link token is the only key). Read functions (security invoker, RLS applies):
 `list_orders`, `technician_options`. Policy helpers for
-`authenticated`: `_can_access_job_file`, `_current_staff_covers` (0004). Service-role only:
+`authenticated`: `_can_access_job_file`, `_current_staff_covers` (0004);
+view helpers `_feedback_link`, `_customer_message_full_text` (0005). Service-role only:
 `link_staff_accounts`.
 
 Triggers on `orders` (0003): `orders_customer_message_trg` prepares the
 customer message when the status becomes `job_done`; (0004)
 `orders_branch_manager_trg` refuses a branch with no covering Manager.
 Triggers on `staff` (0004): `staff_additional_branches_trg`,
-`staff_branch_manager_trg` (deferred constraint trigger).
+`staff_branch_manager_trg` (deferred constraint trigger). Trigger on
+`customer_feedback` (0005): `customer_feedback_guard_trg` (no updates or deletes).
 
 Notification events: `assigned`, `job_done`, `rework`, `reviewed`,
 `order_updated`, `cancelled`, `reassigned_away`, `payment_recorded`,
-`job_approved`, `job_closed` (0004).
+`job_approved`, `job_closed` (0004), `low_feedback` (0005).
 
 ### Storage
 
@@ -268,7 +289,7 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `db/reschedule.test.ts` | AC11 |
 | `db/notifications.test.ts` | AC13 |
 | `db/orders.test.ts` | AC14, AC15 |
-| `db/parity.test.ts` | TS mirrors equal the database: transitions, enums, phone and price rules (shared case tables), editable and reschedulable statuses; 0002: extra charges, completion form, file types / sizes / paths, who may change files, payment methods / labels / receipt rule / statuses, job list tabs, notification events; 0003: `isMyMobile` = `_is_my_mobile`, Malaysia time format, edited-text rule, customer message states and statuses; 0004: who may send the customer message, branch cover, review / payment tabs, approve / close guards, verify rule, on-behalf text |
+| `db/parity.test.ts` | TS mirrors equal the database: transitions, enums, phone and price rules (shared case tables), editable and reschedulable statuses; 0002: extra charges, completion form, file types / sizes / paths, who may change files, payment methods / labels / receipt rule / statuses, job list tabs, notification events; 0003: `isMyMobile` = `_is_my_mobile`, Malaysia time format, edited-text rule, customer message states and statuses; 0004: who may send the customer message, branch cover, review / payment tabs, approve / close guards, verify rule, on-behalf text; 0005: poor rating, feedback answers, link text and placeholder, link state messages, sources, who may record a phone rating |
 | `db/storage.test.ts` | 0002 AC7: `job-files` bucket and the read / upload / delete policies by role, status and path |
 | `db/technician-jobs.test.ts` | 0002 AC6, AC8, AC10, AC16: `add_attachment`, `remove_attachment`, `record_payment` (client key, receipt), extra charges, cancel / reassign / payment notifications, `mark_all_notifications_read`, `my_jobs`, Realtime publication |
 | `db/customer-messages.test.ts` | 0003 AC1, AC2, AC5–AC7, AC9: Job Done trigger and wording, rework, backfill, `edit_customer_message`, `confirm_customer_message` (who, when, newest only, first wins), guard trigger, RLS |
@@ -277,6 +298,9 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `db/review.test.ts` | 0004 AC5–AC9, AC15: approve needs the customer told, on-behalf message, notices on approve and close, `order_review_summary`, `manager_orders` |
 | `db/finance.test.ts` | 0004 AC10–AC13: `verify_payment` / `unverify_payment`, close guard, Finance payments with receipt, `finance_orders` |
 | `ui/review-close.test.tsx` | 0004 AC5–AC15: queues, tabs, branch filters, review page, approve / return / close, verify / undo, Finance payment form, notification links, Approved / Closed lines, verification history |
+| `db/feedback.test.ts` | 0005 AC1–AC13: tokens and link line, address setting, `feedback_form` states and fields, `submit_feedback` (once, answers, after Close, rework), poor-rating notices, `record_phone_feedback` rules and audit, RLS reads, Manager rating column |
+| `ui/feedback.test.tsx` | 0005 AC1–AC5, AC7, AC9, AC13, AC14: public route, form validation and single submit, retry, link states, feedback card, phone dialog by role, link line and placeholder warning in the message panel |
+| `domain/feedback.test.ts` | 0005 form rule, poor rating, link line, phone-rating rule, labels |
 | `db/admin-orders.test.ts` | 0001 AC4, AC5, AC8, AC10, AC11: phone / price rules, `update_order`, `list_orders`, `technician_options` |
 | `ui/*.test.tsx` | 0001 AC1–AC3, AC6, AC7, AC9, AC12, AC13: portal access, form, summary, WhatsApp link, detail actions, list, edit |
 | `ui/job-list.test.tsx`, `job-page.test.tsx`, `job-files.test.tsx`, `resize.test.ts`, `completion-form.test.tsx`, `payment-form.test.tsx`, `notifications.test.tsx`, `drafts.test.ts` | 0002 AC1–AC6, AC8–AC13, AC15: technician portal screens (api modules replaced by test doubles) |
@@ -285,7 +309,9 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 
 ## Wiring
 
-- `App.tsx` wraps everything in `BrowserRouter`; an Admin gets `AdminPortal`,
+- `App.tsx` wraps everything in `BrowserRouter`. `AppRoutes` sends `/f/:token`
+  to the public `FeedbackPage` (no `AuthProvider`, no staff header); every
+  other path is the staff app. An Admin gets `AdminPortal`,
   a Technician `TechnicianPortal` (with their staff id), a Manager
   `ManagerPortal` and Finance `FinancePortal` (with their staff id and name). Screens call only their feature's `api.ts` (which builds on
   `src/lib/api.ts`).
@@ -323,4 +349,6 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `docs/0003-whatsapp-notification-workflow.md` | Workflow | Customer message runtime behavior |
 | `docs/prd/0004-review-and-close-prd.md` | Intent | Manager review and Finance close goals |
 | `docs/0004-review-and-close-workflow.md` | Workflow | Review, verification, close and branch cover runtime behavior |
-| `docs/decisions/0001-*.md` – `0011-*.md` | Decision log | Structural changes that diverged from the plans |
+| `docs/prd/0005-customer-feedback-prd.md` | Intent | Customer feedback goals |
+| `docs/0005-customer-feedback-workflow.md` | Workflow | Feedback link, page, card and phone rating runtime behavior |
+| `docs/decisions/0001-*.md` – `0013-*.md` | Decision log | Structural changes that diverged from the plans |

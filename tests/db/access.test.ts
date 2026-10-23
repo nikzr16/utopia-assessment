@@ -10,9 +10,13 @@ afterAll(() => t.close())
 const TABLES = [
   'branches', 'staff', 'service_types', 'orders', 'order_completions', 'attachments',
   'payments', 'order_reschedules', 'audit_log', 'notifications', 'order_status_transitions',
-  'customer_messages',
+  'customer_messages', 'customer_feedback',
 ]
-const VIEWS = ['order_summary', 'latest_customer_messages', 'order_review_summary']
+const VIEWS = ['order_summary', 'latest_customer_messages', 'order_review_summary', 'order_feedback']
+// 0005: settings only the definer functions read; RLS on, no policy, no grants.
+const PRIVATE_TABLES = ['app_settings']
+// 0005: the only functions signed-out visitors may call (the customer feedback page).
+const ANON_FUNCTIONS = ['feedback_form', 'submit_feedback']
 const ORDER_CHILDREN = ['order_completions', 'attachments', 'payments', 'order_reschedules', 'audit_log']
 
 // ---------------------------------------------------------------------------
@@ -24,13 +28,13 @@ describe('Access migration: row-level security and grants', () => {
       `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity`,
     )
-    expect(rls.map((r) => r.relname).sort()).toEqual([...TABLES].sort())
+    expect(rls.map((r) => r.relname).sort()).toEqual([...TABLES, ...PRIVATE_TABLES].sort())
 
     const allTables = await t.q<{ relname: string }>(
       `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r'`,
     )
-    expect(allTables.map((r) => r.relname).sort()).toEqual([...TABLES].sort())
+    expect(allTables.map((r) => r.relname).sort()).toEqual([...TABLES, ...PRIVATE_TABLES].sort())
 
     const policies = await t.q<{ tablename: string; cmd: string; roles: string }>(
       `select tablename, cmd, roles::text as roles from pg_policies where schemaname = 'public'`,
@@ -64,12 +68,22 @@ describe('Access migration: row-level security and grants', () => {
     }
   })
 
-  it('grants anon nothing: no table, view, sequence or function privileges', async () => {
+  it('keeps app_settings away from every API role', async () => {
+    const privileges = await t.q<{ role: string; priv: string }>(
+      `select r.role, p.priv
+         from unnest(array['anon','authenticated','service_role']) as r(role),
+              unnest(array['select','insert','update','delete','truncate','references','trigger']) as p(priv)
+        where has_table_privilege(r.role, 'public.app_settings', p.priv)`,
+    )
+    expect(privileges).toEqual([])
+  })
+
+  it('grants anon no table, view or sequence, and only the two feedback page functions', async () => {
     const tables = await t.q<{ rel: string; priv: string; ok: boolean }>(
       `select r.rel, p.priv, has_table_privilege('anon', 'public.' || r.rel, p.priv) as ok
          from unnest($1::text[]) as r(rel),
               unnest(array['select','insert','update','delete','truncate','references','trigger']) as p(priv)`,
-      [[...TABLES, ...VIEWS]],
+      [[...TABLES, ...VIEWS, ...PRIVATE_TABLES]],
     )
     expect(tables.filter((r) => r.ok)).toEqual([])
 
@@ -83,7 +97,7 @@ describe('Access migration: row-level security and grants', () => {
         where n.nspname = 'public' and p.prokind = 'f'
           and has_function_privilege('anon', p.oid, 'execute')`,
     )
-    expect(fns).toEqual([])
+    expect(fns.map((f) => f.proname).sort()).toEqual([...ANON_FUNCTIONS].sort())
   })
 
   it('lets authenticated execute only the RPCs, the profile lookup, and the policy helpers', async () => {
@@ -102,6 +116,7 @@ describe('Access migration: row-level security and grants', () => {
         'edit_customer_message', 'confirm_customer_message',
         '_current_staff_covers', 'verify_payment', 'unverify_payment',
         'manager_orders', 'finance_orders', 'covered_branches',
+        'feedback_form', 'submit_feedback', 'record_phone_feedback', '_feedback_link', '_customer_message_full_text',
       ].sort(),
     )
   })
@@ -140,6 +155,9 @@ describe('Access migration: row-level security and grants', () => {
       'staff_additional_branches_check', '_covers_branch', '_branch_has_manager', '_branch_no_manager_error',
       'staff_branch_manager_check', 'orders_branch_manager_check', '_payment_verify_error',
       '_set_payment_verified', '_customer_on_behalf_message',
+      '_new_feedback_token', '_feedback_link_placeholder', 'customer_feedback_guard', '_is_low_feedback',
+      '_check_feedback', '_feedback_link_state', '_feedback_state_error', '_notify_low_feedback',
+      '_phone_feedback_error',
     ]
     const rows = await t.q<{ proname: string; role: string; ok: boolean }>(
       `select p.proname, r.role, has_function_privilege(r.role, p.oid, 'execute') as ok
@@ -376,6 +394,11 @@ describe('AC16 signed-out requests can read no data', () => {
     await expectRejects(t.qAs(SIGNED_OUT, 'select * from technician_jobs()'), /permission denied/i)
     await expectRejects(t.qAs(SIGNED_OUT, 'select * from current_staff()'), /permission denied/i)
     await expectRejects(t.qAs(SIGNED_OUT, 'select _current_staff_id()'), /permission denied/i)
+    await expectRejects(t.qAs(SIGNED_OUT, `select _feedback_link('x')`), /permission denied/i)
+    await expectRejects(
+      t.qAs(SIGNED_OUT, `select * from record_phone_feedback('00000000-0000-0000-0000-000000000000', 5, true)`),
+      /permission denied/i,
+    )
   })
 
   it('even a request that reaches the tables as authenticated without a user gets zero rows (RLS)', async () => {

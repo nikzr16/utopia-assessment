@@ -13,6 +13,18 @@
       "runtimeArgs": ["run", "dev", "--", "--host", "::1", "--port", "5174", "--strictPort"],
       "port": 5174,
       "url": "http://[::1]:5174"
+    },
+    {
+      "name": "web-third-role",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5176", "--strictPort"],
+      "port": 5176
+    },
+    {
+      "name": "web-customer",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5177", "--strictPort"],
+      "port": 5177
     }
   ]
 }

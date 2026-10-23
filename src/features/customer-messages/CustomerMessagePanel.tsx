@@ -10,6 +10,8 @@ import {
   checkCustomerMessageBody,
   customerMessageEdited,
   customerMessageEditedLabel,
+  customerMessageFullText,
+  feedbackLinkIsPlaceholder,
   customerMessageOffered,
   customerMessageStateLabel,
   customerNotTold,
@@ -137,7 +139,8 @@ function MessageCard({
   // Until it is sent, a Manager sends their own wording; afterwards the sent text shows.
   const onBehalf = canManage && canSend && onBehalfBody !== undefined
   const body = onBehalf ? onBehalfBody : message.body
-  const waUrl = whatsAppUrl(message.phone, body)
+  // 0005: the feedback link is a fixed last line that editing cannot remove.
+  const waUrl = whatsAppUrl(message.phone, customerMessageFullText(body, message.feedback_url))
   const callUrl = telUrl(message.phone)
   const isWhatsApp = message.channel === 'whatsapp'
 
@@ -227,6 +230,23 @@ function MessageCard({
             <p className="mt-1 whitespace-pre-line break-words rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">
               {body}
             </p>
+            {message.feedback_url ? (
+              <div className="mt-2">
+                <p className="text-sm font-medium text-slate-800">Last line, added automatically</p>
+                <p className="mt-1 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">
+                  Leave feedback: {message.feedback_url}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  The customer's private feedback link. Editing the message does not change it.
+                </p>
+                {feedbackLinkIsPlaceholder(message.feedback_url) ? (
+                  <p role="alert" className="mt-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                    The feedback link address is not set, so this link will not open for the customer. Ask your
+                    administrator to set it before sending.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {onBehalf ? (
               <p className="mt-1 text-sm text-slate-600">Sent in your name, on behalf of the technician.</p>
             ) : null}
@@ -274,7 +294,7 @@ function MessageCard({
             <Field
               id={`${headingId}-body`}
               label="Message to send to the customer"
-              hint={`1 to ${CUSTOMER_MESSAGE_MAX_LENGTH.toLocaleString('en-US')} characters. The original is kept.`}
+              hint={`1 to ${CUSTOMER_MESSAGE_MAX_LENGTH.toLocaleString('en-US')} characters. The original is kept. The feedback link line is added below it.`}
               error={fieldError}
             >
               {(control) => (

@@ -60,7 +60,7 @@ Job Done notices (`job_done`) go to every active Manager covering the order's br
 **Tabs** (`?tab=`):
 - **To review**: Job Done, oldest completion first. Columns: technician, done at, customer told (WhatsApp sent / By phone / Not told yet), final amount.
 - **Returned**: sent back for rework and not resubmitted yet (In Progress, `return_count > 0`), latest return first; with the return note.
-- **Reviewed**: approved in the last 30 days (Reviewed or Closed), latest first; approved at and by.
+- **Reviewed**: approved in the last 30 days (Reviewed or Closed), latest first; approved at and by; customer rating of the latest visit (0005).
 **Flags:** "Returned N×" once returned; **Needs attention** at 3 or more returns (`NEEDS_ATTENTION_RETURNS`).
 **Branch filter** (`?branch=`): "All my branches" or one covered branch (`covered_branches()`); hidden when the Manager covers one branch.
 **Layout:** a table from 768 px; cards below.
@@ -73,7 +73,7 @@ One page for both roles (`order_review_summary`): order details and money, compl
 
 **Panel:** for a covering Manager, while the message is not sent, the text shown and sent is `_customer_on_behalf_message` (mirrored by `customerOnBehalfMessage`):
 `Hi {customer}, this is {manager}, Manager at Sejuk Sejuk Service {order branch}, on behalf of Technician {technician}. Job {order_no} was completed at {time}. Please check and leave feedback. Thank you!`
-with "Sent in your name, on behalf of the technician." There is no **Edit message** for Managers.
+with "Sent in your name, on behalf of the technician." There is no **Edit message** for Managers. Since 0005 the fixed `Leave feedback: <link>` line is added after it (`docs/0005-customer-feedback-workflow.md` stage 2).
 **Send:** as 0003 stage 4: WhatsApp opens with that text; "Have you sent it to the customer?" → **Yes, I sent it**. The database saves the on-behalf text as the sent `body` (the prepared text stays in `prepared_body`); audit `customer_messaged` with `on_behalf: true`. A landline is told by phone as in 0003 stage 5 (text unchanged).
 
 ### 5. Approve — `transition_order(…, 'reviewed', note)`
@@ -180,3 +180,4 @@ Managers and Finance have the bell and `/notifications` (0002 component). Tappin
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0010-insert-staff-management-feature.md` | Decision log | Staff screen moved to 0006 |
 | `docs/decisions/0011-review-and-close-implementation-details.md` | Decision log | Divergences from the 0004 plan |
+| `docs/0005-customer-feedback-workflow.md` | Workflow | Poor-rating notice, feedback card, Reviewed-tab rating column |

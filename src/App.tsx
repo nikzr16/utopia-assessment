@@ -1,8 +1,9 @@
-import { BrowserRouter } from 'react-router'
+import { BrowserRouter, Route, Routes } from 'react-router'
 import { AppHeader } from './components/AppHeader'
 import { Notice } from './components/Notice'
 import { SetupNotice } from './components/SetupNotice'
 import { AuthProvider, SignInForm, useAuth } from './features/auth'
+import { FeedbackPage } from './features/feedback'
 import { FinancePortal } from './features/finance'
 import { TechnicianPortal } from './features/jobs'
 import { AdminPortal } from './features/orders'
@@ -76,17 +77,33 @@ function Main() {
   return <FinancePortal staffId={id} staffName={name} />
 }
 
+function StaffApp() {
+  return (
+    <AuthProvider>
+      <div className="min-h-screen bg-slate-50 text-slate-900">
+        <AppHeader />
+        <main className="mx-auto max-w-6xl px-4 py-6">
+          <Main />
+        </main>
+      </div>
+    </AuthProvider>
+  )
+}
+
+/** The customer feedback page (0005) needs no sign-in; everything else is the staff app. */
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/f/:token" element={<FeedbackPage />} />
+      <Route path="*" element={<StaffApp />} />
+    </Routes>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <div className="min-h-screen bg-slate-50 text-slate-900">
-          <AppHeader />
-          <main className="mx-auto max-w-6xl px-4 py-6">
-            <Main />
-          </main>
-        </div>
-      </AuthProvider>
+      <AppRoutes />
     </BrowserRouter>
   )
 }

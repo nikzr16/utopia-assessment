@@ -12,6 +12,7 @@ import {
   type TechnicianMessageKind,
 } from '../../domain'
 import { CustomerMessagePanel } from '../customer-messages'
+import { FeedbackCard } from '../feedback'
 import { ReviewOutcome } from '../order-review'
 import { fetchOrder, fetchOrderHistory, type OrderDetail, type HistoryEntry } from './api'
 import { AssignDialog } from './actions/AssignDialog'
@@ -40,6 +41,7 @@ export function OrderDetailPage() {
   const [params, setParams] = useSearchParams()
   const [state, reload] = useLoad(() => loadDetail(orderNo), orderNo)
   const [dialog, setDialog] = useState<DialogName | null>(params.get('action') === 'reschedule' ? 'reschedule' : null)
+  const [feedbackKey, setFeedbackKey] = useState(0)
   const [flash, setFlash] = useState<{ text: string; kind?: TechnicianMessageKind } | null>(() => {
     if (params.get('created')) return { text: 'Order saved.', kind: 'assigned' }
     if (params.get('updated')) return { text: 'Changes saved.', kind: 'updated' }
@@ -172,8 +174,13 @@ export function OrderDetailPage() {
         orderId={order.id}
         orderStatus={order.status}
         canManage={canManageCustomerMessage(order.status, 'admin', false)}
-        onChange={reload}
+        onChange={() => {
+          reload()
+          setFeedbackKey((k) => k + 1)
+        }}
       />
+
+      <FeedbackCard orderId={order.id} orderStatus={order.status} role="admin" refreshKey={feedbackKey} />
 
       <OrderSummaryCard order={order} />
       {COMPLETION_STATUSES.includes(order.status) ? <CompletionSection order={order} /> : null}

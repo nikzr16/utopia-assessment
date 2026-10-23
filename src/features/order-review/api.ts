@@ -29,6 +29,9 @@ export interface OrderReview extends OrderSummary {
   review_note: string | null
   closed_at: string | null
   closed_by_name: string | null
+  /** 0005: the latest visit's customer rating (1-5), or null when there is none. */
+  latest_rating: number | null
+  latest_working_well: boolean | null
 }
 
 /** Who approved and closed an order, and when (shown to Admins and technicians too). */
@@ -46,6 +49,8 @@ export function toOrderReview(row: Record<string, unknown>): OrderReview {
     return_count: toNumber(row.return_count),
     payment_count: toNumber(row.payment_count),
     unverified_count: toNumber(row.unverified_count),
+    latest_rating: row.latest_rating === null || row.latest_rating === undefined ? null : Number(row.latest_rating),
+    latest_working_well: (row.latest_working_well as boolean | null | undefined) ?? null,
   }
 }
 

@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
+  FEEDBACK_LINK_PLACEHOLDER,
+  FEEDBACK_SOURCES,
+  FEEDBACK_STATE_MESSAGES,
+  canRecordPhoneFeedback,
+  customerMessageFullText,
+  isLowFeedback,
+  validateFeedbackForm,
   CUSTOMER_MESSAGE_CHANNELS,
   CUSTOMER_MESSAGE_STATES,
   CUSTOMER_MESSAGE_STATUSES,
@@ -784,4 +791,136 @@ describe('Rules parity: on-behalf message (src/domain/review.ts customerOnBehalf
       )
     },
   )
+})
+
+// ---------------------------------------------------------------------------
+// 0005 customer feedback
+// ---------------------------------------------------------------------------
+describe('Rules parity: poor rating (src/domain/feedback.ts isLowFeedback = _is_low_feedback)', () => {
+  it('agrees for every rating and answer', async () => {
+    for (const rating of [1, 2, 3, 4, 5]) {
+      for (const working of [true, false]) {
+        const [row] = await t.q<{ v: boolean }>('select _is_low_feedback($1, $2) as v', [rating, working])
+        expect({ rating, working, low: row.v }).toEqual({ rating, working, low: isLowFeedback(rating, working) })
+      }
+    }
+  })
+})
+
+const FEEDBACK_CASES: Array<{ rating: number | null; workingWell: boolean | null; comment: string }> = [
+  { rating: 5, workingWell: true, comment: '' },
+  { rating: 1, workingWell: false, comment: '  Still leaking \n' },
+  { rating: 3, workingWell: true, comment: ' \t\n ' },
+  { rating: 0, workingWell: true, comment: '' },
+  { rating: 6, workingWell: true, comment: '' },
+  { rating: null, workingWell: true, comment: '' },
+  { rating: 4, workingWell: null, comment: '' },
+  { rating: 4, workingWell: true, comment: 'x'.repeat(1000) },
+  { rating: 4, workingWell: true, comment: 'x'.repeat(1001) },
+  { rating: 4, workingWell: true, comment: '😀'.repeat(1000) },
+  { rating: 4, workingWell: true, comment: '😀'.repeat(1001) },
+]
+
+describe('Rules parity: feedback answers (src/domain/feedback.ts validateFeedbackForm = _check_feedback)', () => {
+  it.each(FEEDBACK_CASES.map((c) => [JSON.stringify(c).slice(0, 60), c] as const))('%s', async (_label, c) => {
+    let sql: { ok: true; comment: string | null } | { ok: false; error: string }
+    try {
+      const [row] = await t.q<{ v: string | null }>('select _check_feedback($1, $2, $3) as v', [c.rating, c.workingWell, c.comment])
+      sql = { ok: true, comment: row.v }
+    } catch (e) {
+      sql = { ok: false, error: (e as Error).message }
+    }
+    const ts = validateFeedbackForm(c)
+    if (ts.ok) {
+      expect(sql).toEqual({ ok: true, comment: ts.value.comment })
+    } else {
+      // The database stops at the first problem; the form shows every one.
+      expect(sql.ok).toBe(false)
+      expect(Object.values(ts.errors)).toContain((sql as { error: string }).error)
+    }
+  })
+})
+
+describe('Rules parity: feedback link text (src/domain/feedback.ts)', () => {
+  it('builds the same full text as _customer_message_full_text', async () => {
+    const token = 'q3Z8kP1xVb7nR2mT9wLc4A'
+    const [row] = await t.q<{ v: string; url: string }>(
+      `select _customer_message_full_text('Hi Puan Lim, done.', $1) as v, _feedback_link($1) as url`,
+      [token],
+    )
+    expect(row.url).toBe(`http://localhost:5173/f/${token}`)
+    expect(row.v).toBe(customerMessageFullText('Hi Puan Lim, done.', row.url))
+    const [none] = await t.q<{ v: string }>(`select _customer_message_full_text('Hi', null) as v`)
+    expect(none.v).toBe(customerMessageFullText('Hi', null))
+  })
+
+  it('uses the same placeholder address', async () => {
+    const [row] = await t.q<{ v: string }>('select _feedback_link_placeholder() as v')
+    expect(row.v).toBe(FEEDBACK_LINK_PLACEHOLDER)
+  })
+
+  it('has the same messages for links that cannot be used', async () => {
+    for (const [state, message] of Object.entries(FEEDBACK_STATE_MESSAGES)) {
+      const [row] = await t.q<{ v: string }>('select _feedback_state_error($1) as v', [state])
+      expect(row.v, state).toBe(message)
+    }
+  })
+
+  it('has the same sources as the table check', async () => {
+    const [row] = await t.q<{ def: string }>(
+      `select pg_get_constraintdef(oid) as def from pg_constraint where conname = 'customer_feedback_source_check'`,
+    )
+    expect([...row.def.matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]).sort()).toEqual([...FEEDBACK_SOURCES].sort())
+  })
+})
+
+describe('Rules parity: ratings taken by phone (src/domain/feedback.ts canRecordPhoneFeedback = _phone_feedback_error)', () => {
+  it('lets exactly the people, statuses and messages of canRecordPhoneFeedback record a rating', async () => {
+    const reached = await ordersInEveryStatus(t.people.ali) // all in Shah Alam
+    const actors: Array<[string, StaffRole, boolean]> = [
+      [t.people.ali, 'technician', false],
+      [t.people.admin, 'admin', false],
+      [t.people.managerSA, 'manager', true], // covers Shah Alam
+      [t.people.managerKL, 'manager', false],
+      [t.people.finance, 'finance', false],
+    ]
+    const messages: Array<{ channel: 'whatsapp' | 'phone'; status: 'not_sent' | 'sent' | 'told_by_phone' }> = [
+      { channel: 'phone', status: 'told_by_phone' },
+      { channel: 'phone', status: 'not_sent' },
+      { channel: 'whatsapp', status: 'sent' },
+    ]
+    for (const status of ORDER_STATUSES) {
+      for (const m of messages) {
+        for (const [staffId, role, covers] of actors) {
+          // A fresh message, the newest of its order, in the wanted state.
+          const [message] = await t.q<{ id: string }>(
+            `insert into customer_messages (order_id, channel, phone, prepared_body, body, status, confirmed_by, confirmed_at)
+             values ($1, $2, $3, 'Prepared', 'Prepared', $4,
+                     case when $4 = 'not_sent' then null else $5::uuid end,
+                     case when $4 = 'not_sent' then null else now() end)
+             returning id`,
+            [reached[status], m.channel, m.channel === 'phone' ? '60312345678' : '60123456789', m.status, t.people.admin],
+          )
+          const ok = await t
+            .rpcAs(staffId, 'record_phone_feedback', { p_message_id: message.id, p_rating: 4, p_working_well: true })
+            .then(
+              () => true,
+              () => false,
+            )
+          const which = { orderStatus: status, channel: m.channel, messageStatus: m.status, role }
+          expect({ ...which, ok }).toEqual({ ...which, ok: canRecordPhoneFeedback(role, covers, status, m, false) })
+          if (ok) {
+            // A second rating of the same visit is refused, as alreadyRated says.
+            const again = await t
+              .rpcAs(staffId, 'record_phone_feedback', { p_message_id: message.id, p_rating: 4, p_working_well: true })
+              .then(
+                () => true,
+                () => false,
+              )
+            expect(again).toBe(canRecordPhoneFeedback(role, covers, status, m, true))
+          }
+        }
+      }
+    }
+  })
 })
