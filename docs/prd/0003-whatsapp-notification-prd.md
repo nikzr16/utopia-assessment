@@ -23,7 +23,7 @@ Source: Module 3 of `docs/prd/0000-programmer-assessment-brief.docx`
 `status = Job Done`; WhatsApp deep link with a pre-filled message; key skill
 "back-end trigger logic + API / deep-link integration") and the Module 2
 bonus "Generate WhatsApp feedback message send to customer". Collecting the
-customer's feedback itself is a separate feature (0008, see Q6).
+customer's feedback itself is a separate feature (0005, see Q6).
 
 ## Goals
 
@@ -44,9 +44,9 @@ customer's feedback itself is a separate feature (0008, see Q6).
 - Messages to staff (0001 technician WhatsApp link, in-app notifications).
 - Marketing or bulk messages.
 - Automatic sending through the WhatsApp Business Cloud API (Q1).
-- Collecting customer feedback (feedback link, page, ratings): 0008
+- Collecting customer feedback (feedback link, page, ratings): 0005
   `customer-feedback` (Q6).
-- Manager review and Finance close screens: 0007 `review-and-close` (Q10).
+- Manager review and Finance close screens: 0004 `review-and-close` (Q10).
 
 ## Scope
 
@@ -55,8 +55,8 @@ customer's feedback itself is a separate feature (0008, see Q6).
 | Database trigger on Job Done that records a customer message (text, number, status) | Other customer message moments |
 | "Send to customer on WhatsApp" for the assigned technician (job page) and Admins (order detail) | Staff messaging changes |
 | The brief's message in English, in Malaysia time, with the technician's name | Bulk / marketing messages; Cloud API sending |
-| "Have you sent it?" confirmation; marked sent (who, when); button disabled after | Feedback link and feedback page (0008) |
-| Landline customers: Call, then "Did the customer pick up?" confirmation | Manager review / Finance close screens (0007) |
+| "Have you sent it?" confirmation; marked sent (who, when); button disabled after | Feedback link and feedback page (0005) |
+| Landline customers: Call, then "Did the customer pick up?" confirmation | Manager review / Finance close screens (0004) |
 | "Customer not told yet" badge until sent or told by phone | |
 
 ## User Stories
@@ -88,12 +88,12 @@ Decisions made by this PRD:
 | Both the assigned technician (job page) and Admins (order detail) can send it (Q2) | The customer is told even if one side forgets |
 | The button is offered while the order is Job Done, Reviewed, or Closed (Q3) | The message stays reachable after review |
 | Every Job Done, including a rework resubmission, prepares a new message; the screen offers the latest; earlier ones stay in the history (Q4) | The customer hears about the fixed job too |
-| The message is in English and uses the brief's sample wording, with no feedback link yet (Q5, Q6) | Brief sample; no broken link before 0008 exists |
-| Customer feedback is its own feature, 0008 `customer-feedback`: a private link in the message, no sign-in, one submission per job (Q6) | Keeps 0003 to Module 3; 0008 adds the link to this message |
+| The message is in English and uses the brief's sample wording, with no feedback link yet (Q5, Q6) | Brief sample; no broken link before 0005 exists |
+| Customer feedback is its own feature, 0005 `customer-feedback`: a private link in the message, no sign-in, one submission per job (Q6) | Keeps 0003 to Module 3; 0005 adds the link to this message |
 | A customer with a landline gets no WhatsApp button; the screen says so and offers Call, then asks "Did the customer pick up, and did you tell them the job is done?" Yes marks it "Told by phone" (who, when) (Q7) | The customer is still told, and it is tracked |
 | After tapping Send, the app asks "Have you sent it to the customer?" Yes marks the message sent (who, when) and disables the button; No leaves it unsent (Q8 b, Q2) | The app cannot see the Send press inside WhatsApp; the person confirms it |
 | A "Customer not told yet" badge shows on the technician's job card (Submitted tab), the job page, and the Admin order detail until the latest message is sent or told by phone (Q9 a) | Easy to spot without a scheduled job |
-| Manager review and Finance close screens move to a new PRD, 0007 `review-and-close`, next in Phase 2 (Q10 a) | Not WhatsApp notification; each feature stays reviewable |
+| Manager review and Finance close screens move to a new PRD, 0004 `review-and-close`, next in Phase 2 (Q10 a) | Not WhatsApp notification; each feature stays reviewable |
 
 ## Constraints
 
@@ -148,8 +148,8 @@ All answered on 2026-10-22; decisions are recorded in Product Decisions.
 - [x] **Q3. When the button is offered.** (a) While Job Done, Reviewed, or Closed.
 - [x] **Q4. Rework resubmissions.** (a) A new message on every Job Done; earlier ones stay in the history.
 - [x] **Q5. Message wording and language.** (a) The brief's sample, in English.
-- [x] **Q6. How the customer leaves feedback.** Separate feature 0008 `customer-feedback`: a private link, no sign-in, one submission per job. 0003's message has no link until then.
+- [x] **Q6. How the customer leaves feedback.** Separate feature 0005 `customer-feedback`: a private link, no sign-in, one submission per job. 0003's message has no link until then.
 - [x] **Q7. Customer with a landline only.** No WhatsApp button; Call, then "Did the customer pick up, and did you tell them the job is done?" Yes marks it "Told by phone".
 - [x] **Q8. Tracking "sent".** (b) "Have you sent it to the customer?" after tapping Send; Yes marks it sent.
 - [x] **Q9. Reminder for unsent messages.** (a) "Customer not told yet" badge.
-- [x] **Q10. Manager review and Finance close screens.** (a) New PRD 0007 `review-and-close`, next in Phase 2, before 0008.
+- [x] **Q10. Manager review and Finance close screens.** (a) New PRD 0004 `review-and-close`, next in Phase 2, before 0005.

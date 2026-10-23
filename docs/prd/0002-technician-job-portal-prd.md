@@ -117,7 +117,7 @@ Decisions made by this PRD (Open Questions answered 2026-10-22):
 | Accept is one tap; Start is one tap plus a short confirmation (Q3) | The technician cannot undo Start |
 | Each file uploads as soon as it is chosen, with progress, Retry, and Remove; Submit waits for all uploads (Q4) | A dropped signal costs one file, not the whole form |
 | Photos JPEG / PNG / WebP / HEIC resized to at most 2048 px, max 10 MB; videos MP4 / MOV / WebM max 50 MB; PDF max 10 MB; same limits in the screen and the bucket (Q5) | Fast on mobile data; 50 MB is the free-plan per-file cap |
-| Files are optional (0–6); submitting with none asks for confirmation (Q6) | Matches the brief ("≤ 6"); the 0006 AI supervisor can flag jobs with none |
+| Files are optional (0–6); submitting with none asks for confirmation (Q6) | Matches the brief ("≤ 6"); the 0008 AI supervisor can flag jobs with none |
 | Files are viewed by the assigned technician and every Admin, Manager, and Finance user; uploaded by the assigned technician and Admins; added or removed only while In Progress; removing deletes the stored file (Q7) | Office staff can check the work; other technicians cannot see customer files; files match the submitted record |
 | Extra charges follow the quoted price rule (RM 0.00 – 100,000.00, 2 decimals); Remarks is required when extra charges are above zero; enforced in the screen and the database (Q8) | Catches typing slips; every extra charge is explained for the manager and Finance |
 | Technician name and timestamp are read-only; the saved time is the server's, shown in Malaysia time (Q9) | The phone's clock cannot be trusted |
@@ -214,7 +214,7 @@ All answered 2026-10-22: option (a) for every question (see Product Decisions).
   - (b) As (a), but videos max 20 MB (faster on mobile data, about 15–20 s of video).
   - (c) No resizing; every file max 50 MB.
 - [x] **Q6. Are files required?**
-  - (a) Optional (0–6), but submitting with none asks "Submit without photos?" first. **(Recommended)** Matches the brief ("≤ 6"); the 0006 AI supervisor can flag jobs with none.
+  - (a) Optional (0–6), but submitting with none asks "Submit without photos?" first. **(Recommended)** Matches the brief ("≤ 6"); the 0008 AI supervisor can flag jobs with none.
   - (b) At least one photo required.
 - [x] **Q7. Who can see and add files, and when?** Answered 2026-10-22.
   - **Who:** viewing is limited to the assigned technician plus every Admin, Manager, and Finance user; other technicians cannot see them. Uploading is limited to the assigned technician and Admins (for example, a photo or receipt the technician sent by WhatsApp). Admin uploads count toward the 6-file limit too.

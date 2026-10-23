@@ -15,7 +15,7 @@ document reflects reality; record the divergence in the decision log.
 ## Purpose
 
 How a service order moves from creation to closing, who may move it at each
-step, and what the system records along the way. Every module (0001–0006)
+step, and what the system records along the way. Every module (0001–0008)
 writes through this workflow.
 
 ## Trigger

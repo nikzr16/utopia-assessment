@@ -624,7 +624,7 @@ describe('Who can read customer messages (row-level security)', () => {
     }
   })
 
-  it('keeps Manager and Finance out until 0007', async () => {
+  it('keeps Manager and Finance out until 0004', async () => {
     for (const who of [t.people.managerSA, t.people.managerKL, t.people.finance]) {
       expect(await idsFor(who, 'customer_messages')).toEqual([])
       expect(await idsFor(who, 'latest_customer_messages')).toEqual([])

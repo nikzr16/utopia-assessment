@@ -46,7 +46,7 @@ language sql stable as $$
 $$;
 
 -- The customer message for a finished job, in English (the brief's wording).
--- 0008 adds the feedback link here.
+-- 0005 adds the feedback link here.
 create function _customer_job_done_message(
   p_customer_name   text,
   p_order_no        text,
@@ -349,7 +349,7 @@ $$;
 -- ---------------------------------------------------------------------------
 alter table customer_messages enable row level security;
 
--- The assigned technician and Admins (Manager / Finance access comes with 0007).
+-- The assigned technician and Admins (Manager / Finance access comes with 0004).
 create policy customer_messages_read on customer_messages
   for select to authenticated
   using (

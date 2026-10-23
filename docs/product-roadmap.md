@@ -46,34 +46,34 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 ### Phase 2: Core workflow
 
 **Trigger:** Phase 1 shipped.
-**Graduation criteria:** An order can go from creation to Closed through the app's screens, and customers can leave feedback (0001–0003, 0007, 0008 shipped).
+**Graduation criteria:** An order can go from creation to Closed through the app's screens, and customers can leave feedback (0001–0005 shipped).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
 | `docs/prd/0001-admin-order-portal-prd.md` | `src/features/orders/`, `supabase/migrations/` | shipped | Brief Module 1 |
 | `docs/prd/0002-technician-job-portal-prd.md` | `src/features/jobs/`, `src/features/attachments/`, `src/features/notifications/`, `supabase/migrations/` | shipped | Brief Module 2 |
 | `docs/prd/0003-whatsapp-notification-prd.md` | `src/features/customer-messages/`, `supabase/migrations/` | shipped | Brief Module 3 |
-| 0007 `review-and-close` | — | planned | Manager review and Finance close screens (0002 PRD Q14; 0003 Q10); PRD not written yet |
-| 0008 `customer-feedback` | — | planned | Feedback link in the 0003 message; no sign-in; one submission per job (0003 Q6); PRD not written yet |
+| 0004 `review-and-close` | — | planned | Manager review and Finance close screens (0002 PRD Q14; 0003 Q10); PRD not written yet |
+| 0005 `customer-feedback` | — | planned | Feedback link in the 0003 message; no sign-in; one submission per job (0003 Q6); PRD not written yet |
 
 ### Phase 3: Insights
 
 **Trigger:** Phase 2 shipped.
-**Graduation criteria:** KPI dashboard and AI operations query window shipped (0004, 0005).
+**Graduation criteria:** KPI dashboard and AI operations query window shipped (0006, 0007).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
-| 0004 `kpi-dashboard` | — | planned | Brief bonus module; PRD not written yet |
-| 0005 `ai-ops-query` | — | planned | Brief AI module; PRD not written yet |
+| 0006 `kpi-dashboard` | — | planned | Brief bonus module; PRD not written yet |
+| 0007 `ai-ops-query` | — | planned | Brief AI module; PRD not written yet |
 
 ### Phase 4: Stretch
 
 **Trigger:** Phase 3 shipped.
-**Graduation criteria:** Chosen optional AI challenges shipped (0006).
+**Graduation criteria:** Chosen optional AI challenges shipped (0008).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
-| 0006 `ai-advanced` | — | planned | Optional advanced AI challenges; PRD not written yet |
+| 0008 `ai-advanced` | — | planned | Optional advanced AI challenges; PRD not written yet |
 
 ## Cross-Cutting Concerns
 
@@ -104,6 +104,7 @@ _When a feature moves between phases or priorities shift, record the change and 
 | 2026-10-22 | Phases 1–4 defined from the brief's modules (0000–0006) | Build in the order a job moves through the business; insight features need the data the workflow screens create |
 | 2026-10-22 | Manager review and Finance close screens are to be scoped in the 0003 PRD | Not part of Module 2 (0002 PRD Q14); Phase 2 cannot graduate without a screen path to Closed |
 | 2026-10-22 | Manager review and Finance close screens moved to new PRD 0007 `review-and-close`; customer feedback moved to new PRD 0008 `customer-feedback`; both in Phase 2 after 0003 | Neither is WhatsApp notification (0003 Q6, Q10); review/close first because Phase 2 needs a screen path to Closed |
+| 2026-10-23 | Features renumbered in build order: review-and-close 0007 → 0004, customer-feedback 0008 → 0005, kpi-dashboard 0004 → 0006, ai-ops-query 0005 → 0007, ai-advanced 0006 → 0008 (decision 0009) | Feature numbers now follow the order they are built; earlier rows keep the old numbers |
 
 ## Related Documents
 
