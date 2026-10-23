@@ -37,13 +37,13 @@ shared `src/features/order-review/` order page.
 
 ## Stages
 
-### 0. Branch cover and "Manager first" (setup, SQL until 0006)
+### 0. Branch cover and "Manager first" (setup; on screen since 0006)
 
 **Data:** `staff.branch_id` is a person's home branch; `staff.additional_branch_ids` (`uuid[]`, Managers only) lists the other branches a Manager covers. `staff_additional_branches_trg` refuses the list for non-Managers, unknown branches, the home branch again, and duplicates.
 **Rule:** A Manager covers their home branch plus every additional branch (`_covers_branch`, mirrored by `coversBranch`).
 **Manager first:** `staff_branch_manager_trg` (a constraint trigger checked when the transaction commits) refuses any staff change that leaves a branch with active non-Manager staff but no active covering Manager: "Penang has no Manager. Add a Manager to this branch first." One script may add a Manager and staff in either order. `orders_branch_manager_trg` refuses creating an order for, or moving an order to, a branch with no covering Manager (same message).
 **Seed:** one Manager per branch: Nurul Huda (Shah Alam), Tan Wei Ming (Kuala Lumpur), Lim Mei Ling (Penang), Hafiz Osman (Johor Bahru), Grace Lojuni (Kota Kinabalu).
-**Changing cover today:** `update staff set additional_branch_ids = array[<branch id>] where email = …` (0006 adds a staff screen).
+**Changing cover:** an Admin ticks "Also covers" on the Manager's staff form (0006, `docs/0006-staff-management-workflow.md`); the form warns before saving when a change would leave a branch without a Manager ("<Name> is the only Manager covering <branch>…"). This commit check stays the final word, also for plain SQL.
 
 ### 1. Who sees what
 

@@ -444,12 +444,12 @@ describe('my_jobs', () => {
 })
 
 describe('realtime', () => {
-  it('adds notifications to the supabase_realtime publication when it exists', async () => {
+  it('adds notifications (and, since 0006, staff) to the supabase_realtime publication when it exists', async () => {
     const r = await createTestDb({ beforeMigrations: 'create publication supabase_realtime', provisionLogins: false })
     const rows = await r.q(
       `select tablename from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public'`,
     )
-    expect(rows).toEqual([{ tablename: 'notifications' }])
+    expect(rows.map((r) => r.tablename).sort()).toEqual(['notifications', 'staff'])
     await r.close()
   })
 })

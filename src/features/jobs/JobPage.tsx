@@ -21,6 +21,7 @@ import { CustomerMessagePanel } from '../customer-messages'
 import { FeedbackCard } from '../feedback'
 import { ReviewOutcome } from '../order-review'
 import { useLoad } from '../../lib/useLoad'
+import { staffName } from '../../lib/staffStatus'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
 import { acceptJob, fetchJob, rescheduleJob, startJob, type JobDetail } from './api'
 import { ContactLinks } from './ContactLinks'
@@ -168,7 +169,7 @@ export function JobPage() {
           <p className="font-semibold">Returned for rework</p>
           <p className="mt-1 whitespace-pre-line break-words">{rework.note}</p>
           <p className="mt-1 text-amber-900">
-            {rework.by}, {formatMalaysiaDateTime(rework.at)}
+            {staffName(rework.by, rework.by_id)}, {formatMalaysiaDateTime(rework.at)}
           </p>
         </section>
       ) : null}
@@ -236,7 +237,7 @@ export function JobPage() {
             <Row label="Extra charges">{formatMYR(completion.extra_charges)}</Row>
             {completion.remarks ? <Row label="Remarks">{completion.remarks}</Row> : null}
             <Row label="Submitted">
-              {completion.technician_name}, {formatMalaysiaDateTime(completion.completed_at)}
+              {staffName(completion.technician_name, completion.technician_id)}, {formatMalaysiaDateTime(completion.completed_at)}
             </Row>
           </dl>
         </section>

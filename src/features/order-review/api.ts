@@ -32,10 +32,17 @@ export interface OrderReview extends OrderSummary {
   /** 0005: the latest visit's customer rating (1-5), or null when there is none. */
   latest_rating: number | null
   latest_working_well: boolean | null
+  /** 0006: the ids behind the names, for "(inactive)" tags. */
+  completion_technician_id?: string | null
+  reviewed_by_id?: string | null
+  closed_by_id?: string | null
 }
 
 /** Who approved and closed an order, and when (shown to Admins and technicians too). */
-export type ReviewFacts = Pick<OrderReview, 'reviewed_at' | 'reviewed_by_name' | 'review_note' | 'closed_at' | 'closed_by_name'>
+export type ReviewFacts = Pick<
+  OrderReview,
+  'reviewed_at' | 'reviewed_by_name' | 'reviewed_by_id' | 'review_note' | 'closed_at' | 'closed_by_name' | 'closed_by_id'
+>
 
 export interface BranchOption {
   id: string
@@ -70,7 +77,7 @@ export async function fetchReviewFacts(orderId: string): Promise<ReviewFacts | n
   const rows = await run(
     client()
       .from('order_review_summary')
-      .select('reviewed_at, reviewed_by_name, review_note, closed_at, closed_by_name')
+      .select('reviewed_at, reviewed_by_name, reviewed_by_id, review_note, closed_at, closed_by_name, closed_by_id')
       .eq('id', orderId)
       .limit(1),
   )

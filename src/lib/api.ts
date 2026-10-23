@@ -46,9 +46,19 @@ export function client(): SupabaseClient {
 
 export const NETWORK_ERROR_MESSAGE = 'Could not reach the server. Check your connection and try again.'
 
+/**
+ * Fired on `window` when the database says the signed-in person has no active
+ * staff profile (they were deactivated); the auth provider checks and signs
+ * them out (0006).
+ */
+export const ACCESS_LOST_EVENT = 'sejuk:access-lost'
+
 /** Database errors → a sentence for staff. Rule errors are already plain language. */
 export function toApiError(error: { message?: string; code?: string } | null | undefined): ApiError {
   const message = error?.message?.trim() ?? ''
+  if (message === 'Your account has no active staff profile' && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ACCESS_LOST_EVENT))
+  }
   if (error?.code === '42501') return new ApiError('You do not have permission to do that.')
   if (!message || /failed to fetch|network|load failed/i.test(message)) {
     return new ApiError(NETWORK_ERROR_MESSAGE)

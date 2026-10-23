@@ -149,6 +149,12 @@ export interface TestDb {
   applyMigration: (name: string) => Promise<void>
   /** Create a Supabase Auth user (the link trigger fires) and return its id. */
   createAuthUser: (email: string) => Promise<string>
+  /**
+   * Activate / deactivate a staff member by SQL even while they own open jobs
+   * (the 0006 rule is skipped), as happens when a job is returned for rework
+   * to a technician who has left.
+   */
+  setActiveIgnoringOpenJobs: (staffId: string, active: boolean) => Promise<void>
   people: People
   branchId: (name: string) => Promise<string>
   serviceTypeId: (name: string) => Promise<string>
@@ -385,6 +391,16 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
     return rows[0].id
   }
 
+  const setActiveIgnoringOpenJobs = async (staffId: string, active: boolean): Promise<void> => {
+    await db.transaction(async (tx) => {
+      await tx.exec('alter table staff disable trigger staff_rules_trg')
+      await tx.query('update staff set active = $2 where id = $1', [staffId, active])
+      // Run the commit-time checks now: a table with pending events cannot be altered.
+      await tx.exec('set constraints all immediate')
+      await tx.exec('alter table staff enable trigger staff_rules_trg')
+    })
+  }
+
   const idByName = async (table: string, name: string): Promise<string> => {
     const rows = await q<{ id: string }>(`select id from ${table} where name = $1`, [name])
     if (rows.length !== 1) throw new Error(`Expected exactly one ${table} named ${name}`)
@@ -588,6 +604,7 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
     identityOf,
     applyMigration,
     createAuthUser,
+    setActiveIgnoringOpenJobs,
     people,
     branchId,
     serviceTypeId,

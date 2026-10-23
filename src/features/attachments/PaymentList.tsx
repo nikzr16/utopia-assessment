@@ -8,6 +8,7 @@ import {
   verifiedLabel,
 } from '../../domain'
 import type { Payment } from '../../lib/orderRecords'
+import { staffName, useInactiveStaff } from '../../lib/staffStatus'
 import { ReceiptLink } from './ReceiptLink'
 
 /**
@@ -32,6 +33,7 @@ export function PaymentList({
   verifying?: PaymentVerifying
 }) {
   const [pending, setPending] = useState<string | null>(null)
+  useInactiveStaff() // re-render with "(inactive)" tags once known
   const [error, setError] = useState<{ id: string; message: string } | null>(null)
 
   async function toggle(p: Payment) {
@@ -52,11 +54,11 @@ export function PaymentList({
     <ul className={`space-y-2 text-sm ${className}`} aria-label="Payments">
       {payments.map((p) => {
         const needsTick = paymentNeedsVerifying(p.method)
-        const verified = verifiedLabel({ verified_at: p.verified_at ?? null, verified_by_name: p.verified_by_name ?? null })
+        const verified = verifiedLabel({ verified_at: p.verified_at ?? null, verified_by_name: staffName(p.verified_by_name, p.verified_by) })
         return (
           <li key={p.id}>
             {formatMYR(p.amount)} · {PAYMENT_METHOD_LABELS[p.method]} · {formatMalaysiaDateTime(p.recorded_at)} ·{' '}
-            {p.recorded_by_name}
+            {staffName(p.recorded_by_name, p.recorded_by)}
             {p.receipt ? (
               <>
                 {' · '}

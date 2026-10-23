@@ -37,7 +37,7 @@ describe('AC13 workflow events create in-app notifications', () => {
   it('Job Done notifies every manager when a branch has more than one', async () => {
     const extra = await t.q<{ id: string }>(
       `insert into staff (name, email, phone, role, branch_id)
-       select 'Lim Hui Yee', 'huiyee@sejuk.example.com', '60120000023', 'manager', id
+       select 'Lim Hui Yee', 'huiyee@sejuk.example.com', '60120000071', 'manager', id
          from branches where name = 'Shah Alam'
        returning id`,
     )
@@ -64,7 +64,7 @@ describe('AC13 workflow events create in-app notifications', () => {
   it('Reviewed notifies Finance (every Finance user)', async () => {
     const extra = await t.q<{ id: string }>(
       `insert into staff (name, email, phone, role, branch_id)
-       select 'Hassan Ibrahim', 'hassan@sejuk.example.com', '60120000032', 'finance', id
+       select 'Hassan Ibrahim', 'hassan@sejuk.example.com', '60120000072', 'finance', id
          from branches where name = 'Penang'
        returning id`,
     )

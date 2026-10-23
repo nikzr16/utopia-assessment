@@ -161,9 +161,12 @@ describe('AC17 a signed-in account with no active staff profile cannot read or a
     'order_reschedules', 'audit_log', 'notifications', 'order_status_transitions', 'order_summary',
   ]
 
-  async function expectNoAccess(who: Identity) {
+  /** `ownStaffId`: a deactivated person still reads their own staff row (0006 live sign-out). */
+  async function expectNoAccess(who: Identity, ownStaffId?: string) {
     for (const table of STAFF_TABLES) {
-      expect(await t.qAs(who, `select * from ${table}`), `${table} should be empty`).toEqual([])
+      const rows = await t.qAs<{ id: string }>(who, `select * from ${table}`)
+      if (table === 'staff' && ownStaffId) expect(rows.map((r) => r.id)).toEqual([ownStaffId])
+      else expect(rows, `${table} should be empty`).toEqual([])
     }
     for (const [fn, args] of await everyRpc(orderId, notificationId)) {
       await expectRejects(t.rpcAs(who, fn, args), 'Your account has no active staff profile')
@@ -186,11 +189,12 @@ describe('AC17 a signed-in account with no active staff profile cannot read or a
     const ali = await t.identityOf(t.people.ali)
     expect((await t.qAs(ali, 'select id from orders')).length).toBeGreaterThan(0)
 
-    await t.q('update staff set active = false where id = $1', [t.people.ali])
+    // Ali still owns jobs, as after a rework return to an inactive technician.
+    await t.setActiveIgnoringOpenJobs(t.people.ali, false)
     try {
-      await expectNoAccess(ali)
+      await expectNoAccess(ali, t.people.ali)
     } finally {
-      await t.q('update staff set active = true where id = $1', [t.people.ali])
+      await t.setActiveIgnoringOpenJobs(t.people.ali, true)
     }
     expect((await t.qAs(ali, 'select id from orders')).length).toBeGreaterThan(0)
     expect((await t.rpcAs(ali, 'current_staff')).name).toBe('Ali')
@@ -315,7 +319,7 @@ describe('Linking sign-in accounts to staff', () => {
     const [ali] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali@sejuk.example.com'`)
     await expect(
       t.q('update staff set auth_user_id = $1 where email = $2', [ali.auth_user_id, 'bala@sejuk.example.com']),
-    ).rejects.toThrow(/unique|duplicate/i)
+    ).rejects.toThrow(/unique|duplicate|already used/i)
   })
 
   it('treats staff emails as unique regardless of letter case, and requires one', async () => {
@@ -325,7 +329,7 @@ describe('Linking sign-in accounts to staff', () => {
          select 'Dup', $1, '60120000050', 'admin', id from branches where name = 'Penang'`,
         [email],
       )
-    await expect(insert('ALI@Sejuk.Example.com')).rejects.toThrow(/unique|duplicate/i)
+    await expect(insert('ALI@Sejuk.Example.com')).rejects.toThrow(/unique|duplicate|already used/i)
     await expect(insert(null)).rejects.toThrow(/null/i)
     await expect(insert('  ')).rejects.toThrow(/check|violates/i)
   })

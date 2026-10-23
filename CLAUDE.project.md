@@ -46,12 +46,14 @@ when structure, routes, schemas, or config change).
   `attachments` (job files), `notifications`, `customer-messages` (0003),
   `payments` (shared payment form), `order-review` (Manager / Finance order
   page and queues), `review` (Manager), `finance` (Finance) (0004),
-  `feedback` (public feedback page and staff feedback card, 0005)),
+  `feedback` (public feedback page and staff feedback card, 0005),
+  `staff` (staff screens, 0006)),
   `components/` (shared UI),
   `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
-- **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning)
-- **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `db/` PGlite database tests;
+- **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning for a fresh project)
+- **`supabase/functions/`** — Edge Functions (`staff-access`, 0006); logic in plain TS tested from `tests/functions/`
+- **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `functions/` Edge Function logic; `db/` PGlite database tests;
   `ui/` component tests (jsdom; `src/features/*/api.ts` replaced by test doubles)
 - **`docs/`** — docs-first source of truth: `docs/product-roadmap.md`,
   `docs/prd/`, `docs/plan/`, `docs/reference/`, `docs/decisions/`. `docs/draft/` is the
@@ -66,7 +68,8 @@ when structure, routes, schemas, or config change).
 | Build | `npm run build` | `tsc -b` then `vite build` |
 | Typecheck | `npm run typecheck` | |
 | Test | `npm test` | Vitest; DB tests run on PGlite, UI tests on jsdom; no Docker or Supabase needed |
-| Create staff logins | `npm run auth:create-staff-logins` | Needs `SUPABASE_SECRET_KEY` + `STAFF_DEMO_PASSWORD` in `.env.local`; `-- --reset-passwords` to update |
+| Create staff logins | `npm run auth:create-staff-logins` | Fresh-project set-up only (staff are added on screen since 0006). Needs `SUPABASE_SECRET_KEY` + `STAFF_DEMO_PASSWORD` in `.env.local`; `-- --reset-passwords` to update |
+| Deploy the staff function | `npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt --use-api` | After `npx supabase login` (the user signs in); redeploy when `supabase/functions/staff-access/` changes |
 
 ## Code Conventions
 
@@ -115,8 +118,8 @@ when structure, routes, schemas, or config change).
    acts only on those branches; every branch needs an active covering
    Manager before it has other staff or orders (checked at commit). Approve
    needs the customer told; Close needs full payment and every non-cash
-   payment verified by Finance. Staff and branch cover change by SQL until
-   0006 `staff-management`.
+   payment verified by Finance. Staff and branch cover are managed on screen
+   since 0006 (rule 10).
 9. Customer feedback: `docs/0005-customer-feedback-workflow.md`. Each WhatsApp
    Job Done message gets a random token; the text sent ends with a fixed
    `Leave feedback: <address>/f/<token>` line. The public page at `/f/:token`
@@ -126,6 +129,18 @@ when structure, routes, schemas, or config change).
    Admin or covering Manager. The link address is
    `app_settings.feedback_link_base` (local until 0010). Feedback rows are
    never changed or deleted (cleanup must disable `customer_feedback_guard_trg`).
+10. Staff management: `docs/0006-staff-management-workflow.md`. Admins manage
+   everyone and branch cover; a Manager manages technicians of branches they
+   cover (never roles, emails or cover); nobody changes their own role or
+   deactivates themselves; the last active Admin / Finance user stays. New
+   staff get an invite email and choose their own password; sign-ins are
+   changed only by the `staff-access` Edge Function (the only holder of the
+   secret key; deploy with `--no-verify-jwt --use-api`). Technicians need a
+   mobile; a phone belongs to one active staff member; a technician with open
+   jobs cannot be deactivated. Deactivation blocks sign-in and signs the
+   person out at once. Staff are never deleted; every change goes to the
+   append-only `staff_history`. Test cleanup deletes test staff (history
+   follows) and their `auth.users` rows.
 
 ## Environment And Secrets
 
@@ -148,8 +163,11 @@ when structure, routes, schemas, or config change).
 
 ## Operational Notes
 
-- Hosted Supabase project (Singapore). Public sign-up must stay OFF; staff accounts
-  are created only by `npm run auth:create-staff-logins`.
+- Hosted Supabase project (Singapore). Public sign-up must stay OFF. Staff
+  sign-ins come from Staff screen invites (custom SMTP: Gmail app password;
+  Invite / Reset templates link to `/auth/confirm` with a token hash; links
+  last 24 h; Redirect URLs list each local address's `/auth/confirm`), or the
+  login script on a fresh project. Set-up steps: `docs/draft/0006-auth-setup.md`.
 - Demo staff emails are `<name>@sejuk.example.com` (see `supabase/seed.sql`).
 - `docs/draft/` is local-only and partly ignored via `.git/info/exclude`.
 - Storage files cannot be deleted with SQL (Supabase blocks it); remove test

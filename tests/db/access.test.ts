@@ -13,8 +13,9 @@ const TABLES = [
   'customer_messages', 'customer_feedback',
 ]
 const VIEWS = ['order_summary', 'latest_customer_messages', 'order_review_summary', 'order_feedback']
-// 0005: settings only the definer functions read; RLS on, no policy, no grants.
-const PRIVATE_TABLES = ['app_settings']
+// 0005: settings only the definer functions read; 0006: staff history (read
+// through staff_detail). RLS on, no policy, no grants.
+const PRIVATE_TABLES = ['app_settings', 'staff_history']
 // 0005: the only functions signed-out visitors may call (the customer feedback page).
 const ANON_FUNCTIONS = ['feedback_form', 'submit_feedback']
 const ORDER_CHILDREN = ['order_completions', 'attachments', 'payments', 'order_reschedules', 'audit_log']
@@ -39,7 +40,8 @@ describe('Access migration: row-level security and grants', () => {
     const policies = await t.q<{ tablename: string; cmd: string; roles: string }>(
       `select tablename, cmd, roles::text as roles from pg_policies where schemaname = 'public'`,
     )
-    expect(policies.map((p) => p.tablename).sort()).toEqual([...TABLES].sort())
+    // staff has two: every active staff member, and (0006) a person's own row.
+    expect(policies.map((p) => p.tablename).sort()).toEqual([...TABLES, 'staff'].sort())
     for (const p of policies) {
       expect(p.cmd).toBe('SELECT')
       expect(p.roles).toBe('{authenticated}')
@@ -117,11 +119,13 @@ describe('Access migration: row-level security and grants', () => {
         '_current_staff_covers', 'verify_payment', 'unverify_payment',
         'manager_orders', 'finance_orders', 'covered_branches',
         'feedback_form', 'submit_feedback', 'record_phone_feedback', '_feedback_link', '_customer_message_full_text',
+        'create_staff', 'update_staff', 'set_staff_active', 'staff_access_check', 'staff_access_event',
+        'staff_list', 'staff_detail', 'branch_cover_overview', 'staff_form_check',
       ].sort(),
     )
   })
 
-  it('gives service_role only: read staff, and run link_staff_accounts', async () => {
+  it('gives service_role only: read staff, and run link_staff_accounts / link_invited_staff', async () => {
     const tables = await t.q<{ rel: string; priv: string }>(
       `select r.rel, p.priv
          from unnest($1::text[]) as r(rel),
@@ -136,7 +140,7 @@ describe('Access migration: row-level security and grants', () => {
         where n.nspname = 'public' and p.prokind = 'f'
           and has_function_privilege('service_role', p.oid, 'execute')`,
     )
-    expect(fns).toEqual([{ proname: 'link_staff_accounts' }])
+    expect(fns.map((f) => f.proname).sort()).toEqual(['link_invited_staff', 'link_staff_accounts'])
 
     expect((await t.qAs(SERVICE_ROLE, 'select count(*)::int as n from staff'))[0].n).toBe(12)
     await expectRejects(t.qAs(SERVICE_ROLE, 'select * from orders'), /permission denied/i)
@@ -158,6 +162,12 @@ describe('Access migration: row-level security and grants', () => {
       '_new_feedback_token', '_feedback_link_placeholder', 'customer_feedback_guard', '_is_low_feedback',
       '_check_feedback', '_feedback_link_state', '_feedback_state_error', '_notify_low_feedback',
       '_phone_feedback_error',
+      'staff_history_append_only', '_branch_names', 'staff_history_record', '_role_label',
+      '_check_staff_name', '_check_staff_email', '_staff_phone_role_error', '_staff_phone_taken_by',
+      '_staff_email_taken_by', '_staff_open_job_count', '_staff_open_jobs_error', '_staff_last_role_error',
+      '_staff_cover_error', '_staff_manage_error', '_staff_change_errors', 'staff_rules_check',
+      'staff_left_at', 'staff_last_role_check', '_staff_sign_in_state', '_staff_require_change',
+      '_staff_access_target', '_staff_check_branch', '_staff_visible_to', '_require_staff_screen',
     ]
     const rows = await t.q<{ proname: string; role: string; ok: boolean }>(
       `select p.proname, r.role, has_function_privilege(r.role, p.oid, 'execute') as ok
@@ -425,19 +435,23 @@ describe('AC17 an account with no active staff profile can read nothing', () => 
        select 'Unlinked Una', 'una@sejuk.example.com', '60120000060', 'manager', id
          from branches where name = 'Penang'`,
     )
+    // Bala still owns a job, as after a rework return to an inactive technician.
     const deactivated = await t.identityOf(t.people.bala)
-    await t.q('update staff set active = false where id = $1', [t.people.bala])
+    await t.setActiveIgnoringOpenJobs(t.people.bala, false)
     try {
       for (const who of [stranger, deactivated]) {
         for (const table of [...TABLES, ...VIEWS]) {
-          expect(await t.qAs(who, `select * from ${table}`), table).toEqual([])
+          // 0006: a deactivated person still reads their own staff row (live sign-out).
+          const own = who === deactivated && table === 'staff'
+          const rows = await t.qAs<{ id: string }>(who, `select * from ${table}`)
+          expect(own ? rows.map((r) => r.id) : rows, table).toEqual(own ? [t.people.bala] : [])
         }
         expect(await t.qAs(who, 'select * from technician_jobs()').catch((e: Error) => e.message)).toMatch(
           /no active staff profile/,
         )
       }
     } finally {
-      await t.q('update staff set active = true where id = $1', [t.people.bala])
+      await t.setActiveIgnoringOpenJobs(t.people.bala, true)
     }
     // Reactivated: reads work again.
     expect((await t.qAs(deactivated, 'select id from orders')).length).toBeGreaterThan(0)

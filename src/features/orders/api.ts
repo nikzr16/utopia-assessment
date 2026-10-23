@@ -76,6 +76,8 @@ export interface HistoryEntry {
   id: number
   action: string
   actor_role: StaffRole
+  /** 0006: for the "(inactive)" tag. */
+  actor_id?: string
   actor_name: string
   from_status: OrderStatus | null
   to_status: OrderStatus | null
@@ -145,7 +147,7 @@ export async function fetchOrderHistory(orderId: string): Promise<HistoryEntry[]
   const rows = await run(
     client()
       .from('audit_log')
-      .select('id, action, actor_role, from_status, to_status, note, details, created_at, actor:staff!audit_log_actor_id_fkey(name)')
+      .select('id, action, actor_id, actor_role, from_status, to_status, note, details, created_at, actor:staff!audit_log_actor_id_fkey(name)')
       .eq('order_id', orderId)
       .order('id', { ascending: false }),
   )

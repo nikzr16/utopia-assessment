@@ -45,6 +45,13 @@ import {
   parseQuotedPrice,
   receiptRequired,
   validateCompletionForm,
+  OPEN_JOB_STATUSES,
+  STAFF_HISTORY_ACTIONS,
+  checkStaffEmail,
+  checkStaffName,
+  openJobsError,
+  staffManageError,
+  staffPhoneRoleError,
   type OrderStatus,
   type StaffRole,
 } from '../../src/domain'
@@ -922,5 +929,107 @@ describe('Rules parity: ratings taken by phone (src/domain/feedback.ts canRecord
         }
       }
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 0006 staff management
+// ---------------------------------------------------------------------------
+const STAFF_NAMES = ['Ravi', '  Ravi Kumar \t', '', '   ', 'x'.repeat(100), 'x'.repeat(101), '😀'.repeat(100), '😀'.repeat(101)]
+const STAFF_EMAILS = [
+  'ravi@example.com', ' Ravi@Example.COM ', '', 'ravi', 'ravi@example', '@example.com', 'ra vi@example.com',
+  'ravi@@example.com', 'a@b.c', `${'x'.repeat(242)}@example.com`, `${'x'.repeat(243)}@example.com`,
+]
+
+describe('Rules parity: staff name and email (src/domain/staff.ts = _check_staff_name / _check_staff_email)', () => {
+  const sqlCheck = async (fn: string, value: string) => {
+    try {
+      const [row] = await t.q<{ v: string }>(`select ${fn}($1) as v`, [value])
+      return { ok: true as const, value: row.v }
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message }
+    }
+  }
+  it.each(STAFF_NAMES.map((n) => [JSON.stringify(n).slice(0, 30), n]))('name %s', async (_l, n) => {
+    expect(await sqlCheck('_check_staff_name', n)).toEqual(checkStaffName(n))
+  })
+  it.each(STAFF_EMAILS.map((e) => [JSON.stringify(e).slice(0, 30), e]))('email %s', async (_l, e) => {
+    expect(await sqlCheck('_check_staff_email', e)).toEqual(checkStaffEmail(e))
+  })
+})
+
+describe('Rules parity: phone by role and open jobs (src/domain/staff.ts)', () => {
+  it('staffPhoneRoleError = _staff_phone_role_error for every role and phone kind', async () => {
+    for (const role of STAFF_ROLES) {
+      for (const phone of ['60123456789', '601123456789', '60312345678', '6082123456']) {
+        const [row] = await t.q<{ v: string | null }>('select _staff_phone_role_error($1::staff_role, $2) as v', [role, phone])
+        expect({ role, phone, v: staffPhoneRoleError(role, phone) }).toEqual({ role, phone, v: row.v })
+      }
+    }
+  })
+
+  it('openJobsError = _staff_open_jobs_error, and the open statuses match _staff_open_job_count', async () => {
+    for (const n of [0, 1, 2, 7]) {
+      const [row] = await t.q<{ v: string | null }>(`select _staff_open_jobs_error('Ali', $1) as v`, [n])
+      expect(openJobsError('Ali', n)).toBe(row.v)
+    }
+    const [fn] = await t.q<{ src: string }>(`select prosrc as src from pg_proc where proname = '_staff_open_job_count'`)
+    const statuses = [...fn.src.matchAll(/'([a-z_]+)'/g)].map((m) => m[1])
+    expect(statuses).toEqual([...OPEN_JOB_STATUSES])
+  })
+
+  it('history actions match staff_history_action_check', async () => {
+    const [c] = await t.q<{ def: string }>(
+      `select pg_get_constraintdef(oid) as def from pg_constraint where conname = 'staff_history_action_check'`,
+    )
+    expect([...c.def.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort()).toEqual([...STAFF_HISTORY_ACTIONS].sort())
+  })
+})
+
+describe('Rules parity: who may change whom (src/domain/staff.ts staffManageError = _staff_manage_error)', () => {
+  it('agrees for every actor, target and change shape', async () => {
+    const branches = await t.q<{ id: string; name: string }>('select id, name from branches')
+    const branchName = (id: string) => branches.find((b) => b.id === id)?.name ?? ''
+    const sa = await t.branchId('Shah Alam')
+    const penang = await t.branchId('Penang')
+    const actors = await t.q<{ id: string; role: StaffRole; branch_id: string; a: string[] }>(
+      'select id, role, branch_id, additional_branch_ids as a from staff where id = any($1::uuid[])',
+      [[t.people.admin, t.people.managerSA, t.people.managerKL, t.people.ali, t.people.finance]],
+    )
+    const targets = await t.q<{ id: string; name: string; role: StaffRole; branch_id: string; a: string[] }>(
+      'select id, name, role, branch_id, additional_branch_ids as a from staff where id = any($1::uuid[])',
+      [[t.people.bala, t.people.john, t.people.managerPG, t.people.finance]],
+    )
+    const afters: { role: StaffRole; branch: string; cover: string[] }[] = [
+      { role: 'technician', branch: sa, cover: [] },
+      { role: 'technician', branch: penang, cover: [] },
+      { role: 'finance', branch: sa, cover: [] },
+      { role: 'manager', branch: sa, cover: [penang] },
+    ]
+    let checked = 0
+    for (const actor of actors) {
+      for (const before of [null, ...targets]) {
+        for (const after of afters) {
+          const [row] = await t.q<{ v: string | null }>(
+            `select _staff_manage_error(
+                (select s from staff s where s.id = $1),
+                (select s from staff s where s.id = $2),
+                row(null, null, null, null, $3::staff_role, $4::uuid, true, null, $5::uuid[], null, null)::staff) as v`,
+            [actor.id, before?.id ?? null, after.role, after.branch, after.cover],
+          )
+          const ts = staffManageError(
+            { role: actor.role, branchId: actor.branch_id, additionalBranchIds: actor.a },
+            before ? { name: before.name, role: before.role, branchId: before.branch_id, additionalBranchIds: before.a } : null,
+            { role: after.role, branchId: after.branch, additionalBranchIds: after.cover },
+            branchName,
+          )
+          expect({ actor: actor.role, before: before?.name, after, v: ts }).toEqual({
+            actor: actor.role, before: before?.name, after, v: row.v,
+          })
+          checked += 1
+        }
+      }
+    }
+    expect(checked).toBe(5 * 5 * 4)
   })
 })

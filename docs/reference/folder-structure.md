@@ -14,7 +14,7 @@ current state; record the divergence in the decision log.
 ## Overview
 
 Where the application, database, tests, and docs live. Covers everything up to
-and including feature 0005 (customer feedback).
+and including feature 0006 (staff management).
 
 ## Directory Layout
 
@@ -28,11 +28,11 @@ and including feature 0005 (customer feedback).
 ├── .env.example                Env template → copy to .env.local (browser + script-only vars)
 ├── src/
 │   ├── main.tsx                React root
-│   ├── App.tsx                 App shell (BrowserRouter): public `/f/:token` feedback page (0005); otherwise setup notice → sign-in → Admin, Technician, Manager or Finance portal
+│   ├── App.tsx                 App shell (BrowserRouter): public `/f/:token` feedback page (0005) and `/auth/confirm` email link page (0006); otherwise setup notice → sign-in → `/account/password` or the Admin, Technician, Manager or Finance portal
 │   ├── index.css               Tailwind entry
-│   ├── components/             Shared UI: AppHeader, SetupNotice, Notice, Field, Dialog, StatusBadge, RescheduleDialog, styles
+│   ├── components/             Shared UI: AppHeader (Change password, Sign out), SetupNotice, Notice, Field, Dialog, StatusBadge, Pager, RescheduleDialog, styles
 │   ├── domain/                 Pure business rules mirrored from the database
-│   ├── features/auth/          Supabase Auth: session context, sign-in form, staff profile
+│   ├── features/auth/          Supabase Auth: session context, sign-in form, staff profile, live sign-out, email link and change-password pages (0006)
 │   ├── features/orders/        Admin order portal (0001): routes, pages, dialogs, data access; Completion section (0002)
 │   ├── features/jobs/          Technician job portal (0002): job list, job page, completion and payment forms
 │   ├── features/attachments/   Job files and receipts in Supabase Storage (0002): uploader, gallery, payments list
@@ -43,11 +43,14 @@ and including feature 0005 (customer feedback).
 │   ├── features/review/        Manager portal (0004): review queue
 │   ├── features/finance/       Finance portal (0004): payment queue, record payment
 │   ├── features/feedback/      Customer feedback (0005): public page, staff feedback card, phone rating dialog
-│   └── lib/                    Supabase client and config, shared API plumbing, order records, hooks, drafts
+│   ├── features/staff/         Staff management (0006): list, branch cover panel, add / edit form, staff page, data access
+│   └── lib/                    Supabase client and config, shared API plumbing, order records, inactive-staff tags, hooks, drafts
 ├── scripts/
 │   ├── create-staff-logins.ts  Creates/links Supabase Auth accounts for staff (secret key)
 │   └── lib/                    Pure planning logic for the script
 ├── supabase/
+│   ├── config.toml             Supabase CLI: `staff-access` deploys with the JWT check off (0006)
+│   ├── functions/staff-access/ Edge Function (0006): the only holder of the secret key; creates / changes sign-ins
 │   ├── migrations/             Ordered SQL migrations (Supabase CLI layout)
 │   └── seed.sql                Reference data and staff (with emails)
 ├── tests/
@@ -55,6 +58,7 @@ and including feature 0005 (customer feedback).
 │   ├── auth/                   Unit tests for auth helpers
 │   ├── scripts/                Unit tests for the login script's planning logic
 │   ├── ui/                     Component tests (jsdom + Testing Library; api.ts replaced by test doubles)
+│   ├── functions/              Edge Function logic tests (fake database and Auth clients, 0006)
 │   └── db/                     PGlite database tests (Supabase shim + migrations + seed)
 └── docs/                       Roadmap, PRDs, plans, workflows, reference, decisions
 ```
@@ -80,6 +84,7 @@ and including feature 0005 (customer feedback).
 | `customerMessages.ts` | 0003: customer message channels, states and audit actions, `CUSTOMER_MESSAGE_STATUSES` (Job Done / Reviewed / Closed), edited-text rule (mirror of `_check_customer_message_body`), `canManageCustomerMessage` (edit), `canConfirmCustomerMessage` (send, incl. covering Managers, 0004), `customerNotTold`, send / call / edit rules, "Sent by" / "Edited by" labels |
 | `jobs.ts` | Job list tabs and statuses (mirror of `my_jobs`), Malaysia-day grouping (Overdue / Today / Upcoming / No date), area, `tel:` / maps links, customer WhatsApp greeting, notification events (mirror of the event check) and labels |
 | `feedback.ts` | 0005: rating range, `FEEDBACK_LOW_RATING_MAX`, comment limit, `FEEDBACK_LINK_DAYS`, token pattern, `FEEDBACK_LINK_PLACEHOLDER`, link states and their messages (mirror of `_feedback_state_error`), sources, `isLowFeedback` (mirror of `_is_low_feedback`), `customerMessageFullText` (mirror of `_customer_message_full_text`), `validateFeedbackForm` (mirror of `_check_feedback`), `canRecordPhoneFeedback` (mirror of `_phone_feedback_error`), `EMPTY_FEEDBACK_FORM`, `ratingStars`, `feedbackSourceLabel`; `FeedbackForm` / `OrderFeedback` rows |
+| `staff.ts` | 0006: `STAFF_PAGE_SIZE`, status filters, `OPEN_JOB_STATUSES`, sign-in states and labels, `checkStaffName` / `checkStaffEmail` (mirrors of `_check_staff_name` / `_check_staff_email`), `staffPhoneRoleError` (mirror of `_staff_phone_role_error`), `validateStaffForm`, `staffManageError` (mirror of `_staff_manage_error`), `assignableRoles`, `openJobsError` (mirror of `_staff_open_jobs_error`), `staffLabel` ("(inactive)"), history actions / labels, `describeStaffChanges` |
 | `review.ts` | 0004: `coversBranch` (mirror of `_covers_branch`), Manager / Finance tabs and labels (`managerViewOf` / `financeViewOf`, mirrors of `manager_orders` / `finance_orders`), `NEEDS_ATTENTION_RETURNS`, `approveBlockReason`, `closeBlockReason`, `paymentNeedsVerifying`, `canVerifyPayment`, Approved / Closed / Verified labels, `customerOnBehalfMessage` (mirror of `_customer_on_behalf_message`) |
 | `index.ts` | Barrel export |
 
@@ -87,22 +92,26 @@ and including feature 0005 (customer feedback).
 
 | File | Purpose |
 |---|---|
-| `AuthContext.ts`, `AuthProvider.tsx`, `useAuth.ts` | Supabase session, staff profile state, sign in / sign out |
-| `SignInForm.tsx` | Email + password sign-in screen |
+| `AuthContext.ts`, `AuthProvider.tsx`, `useAuth.ts` | Supabase session, staff profile state, sign in / sign out; 0006: `notice` (why signed out), live sign-out on deactivation (Realtime on the person's own staff row, re-check on focus / return / `ACCESS_LOST_EVENT`) |
+| `SignInForm.tsx` | Email + password sign-in screen; shows the sign-out `notice` |
 | `profile.ts` | `current_staff()` result → profile state (ready / no profile / error) |
-| `errors.ts` | Maps Supabase auth errors to friendly messages |
+| `errors.ts` | Maps Supabase auth errors to friendly messages; `DEACTIVATED_MESSAGE` (also for `user_banned`) |
+| `api.ts` | 0006: `verifyEmailLink` (`verifyOtp` with the token hash), `setNewPassword`, `changeOwnPassword` (re-checks the current password); `LINK_EXPIRED_MESSAGE` |
+| `password.ts` | 0006: `checkNewPassword` (8–72 characters, typed twice) |
+| `ConfirmLinkPage.tsx` | 0006: public `/auth/confirm`: Continue → choose a password; expired / incomplete link pages; `PasswordPair` |
+| `ChangePasswordPage.tsx` | 0006: `/account/password` for every signed-in staff member |
 | `index.ts` | Barrel export |
 
 ## Admin Order Portal (`src/features/orders/`)
 
 | File | Purpose |
 |---|---|
-| `AdminPortal.tsx` | Admin navigation and routes: `/orders`, `/orders/new`, `/orders/:orderNo`, `/orders/:orderNo/edit` (others → `/orders`) |
+| `AdminPortal.tsx` | Admin navigation and routes: `/orders`, `/orders/new`, `/orders/:orderNo`, `/orders/:orderNo/edit`, `/staff/*` (0006) (others → `/orders`) |
 | `api.ts` | All portal database calls (RPCs and reads), row types; re-exports `ApiError` / `toApiError` / `OrderSummary` and `fetchOrderRecords` from `src/lib/` |
 | `OrderListPage.tsx` | Search, filters, pagination over `list_orders`; `toListQuery` maps URL params |
 | `NewOrderPage.tsx`, `EditOrderPage.tsx` | Create / edit pages around `OrderForm` |
 | `OrderForm.tsx`, `TechnicianSelect.tsx` | Shared order form; technician dropdown grouped by branch with open-job counts |
-| `OrderDetailPage.tsx` | Summary, WhatsApp, actions, history, banners (`?created`, `?updated`, `?action=reschedule`); Approved / Closed lines (0004); Customer message panel (0003), which reloads the history |
+| `OrderDetailPage.tsx` | Summary, WhatsApp, actions, history, banners (`?created`, `?updated`, `?action=reschedule`); Approved / Closed lines (0004); Customer message panel (0003), which reloads the history; "<Name> is no longer active" for an open job of an inactive technician (0006) |
 | `OrderSummaryCard.tsx`, `OrderHistory.tsx`, `WhatsAppButton.tsx` | Detail page parts (history names payment methods, receipts, file events, 0003 customer message events, and 0004 payment verification) |
 | `CompletionSection.tsx` | 0002: technician's record, job files (Admin add / remove while In Progress), payments with receipts; `COMPLETION_STATUSES`; 0004: `canChangeFiles`, Finance `toggleVerified` / `onPaymentsChange` for the shared order page |
 | `actions/AssignDialog.tsx`, `CancelDialog.tsx` | Assign / reassign and cancel dialogs |
@@ -160,6 +169,17 @@ and including feature 0005 (customer feedback).
 | `FeedbackCard.tsx` | "Customer feedback" card for the Admin, technician and Manager / Finance order pages (every visit, latest first; link status while waiting); `PhoneFeedbackDialog` for Admins and covering Managers |
 | `index.ts` | Barrel export |
 
+## Staff Management (`src/features/staff/`, 0006)
+
+| File | Purpose |
+|---|---|
+| `api.ts` | `listStaff` (`staff_list`), `fetchStaffDetail` (`staff_detail`), `fetchBranchCover` (`branch_cover_overview`), `fetchBranchOptions` (branches / `covered_branches`), `checkStaffForm` (`staff_form_check`); `staffAccess` (every write, through the `staff-access` function); `confirmAddress` (`<app>/auth/confirm`, `localhost` for `[::1]` / `127.0.0.1`) |
+| `StaffRoutes.tsx` | Routes under `/staff`: list, `new`, `:staffId`, `:staffId/edit`; `orderPath` per portal |
+| `StaffListPage.tsx` | Search, role / branch / status filters and paging in the address (`toStaffQuery`), table / cards, `BranchCoverPanel` |
+| `StaffFormPage.tsx` | `NewStaffPage`, `EditStaffPage`: the form, live database warnings, role / email / cover per permission, save through the function |
+| `StaffPage.tsx` | Details, sign-in state, actions with confirm dialogs (deactivation blocker and open-job links), "Saved, but…" banner with retry, open jobs, history |
+| `index.ts` | Barrel export (`StaffRoutes`) |
+
 ## Payments (`src/features/payments/`, 0004)
 
 | File | Purpose |
@@ -183,7 +203,7 @@ and including feature 0005 (customer feedback).
 
 | File | Purpose |
 |---|---|
-| `ManagerPortal.tsx` | `NotificationsProvider`; nav (Review queue, Notifications); routes `/review`, `/review/:orderNo`, `/notifications` (others → `/review`) |
+| `ManagerPortal.tsx` | `NotificationsProvider`; nav (Review queue, Staff, Notifications); routes `/review`, `/review/:orderNo`, `/staff/*` (0006), `/notifications` (others → `/review`) |
 | `ReviewQueuePage.tsx` | To review / Returned / Reviewed tabs and branch filter over `manager_orders` |
 | `index.ts` | Barrel export |
 
@@ -201,8 +221,9 @@ and including feature 0005 (customer feedback).
 | File | Purpose |
 |---|---|
 | `supabase.ts`, `supabaseConfig.ts` | Supabase client and config detection |
-| `api.ts` | `ApiError`, `toApiError`, `NETWORK_ERROR_MESSAGE` / `isNetworkError`, `client`, `run`, `OrderSummary` / `toOrderSummary` |
-| `orderRecords.ts` | `fetchOrderRecords`: completion record, payments with receipts and verification (0004), latest rework note |
+| `api.ts` | `ApiError`, `toApiError` (fires `ACCESS_LOST_EVENT` on "no active staff profile", 0006), `NETWORK_ERROR_MESSAGE` / `isNetworkError`, `client`, `run`, `OrderSummary` / `toOrderSummary` |
+| `orderRecords.ts` | `fetchOrderRecords`: completion record, payments with receipts and verification (0004), latest rework note; the staff ids behind the names (0006) |
+| `staffStatus.ts` | 0006: inactive staff ids (`loadInactiveStaff`, `useInactiveStaff`, `forgetInactiveStaff`) and `staffName` ("(inactive)" tag) for staff screens |
 | `useLoad.ts` | Load-on-key hook with reload; ignores stale responses (moved from `features/orders/`) |
 | `useRefreshOnReturn.ts` | Calls a refresh when the page becomes visible or the connection returns |
 | `drafts.ts` | Form drafts in `localStorage` (`sejuk-draft:` prefix); `clearAllDrafts` on sign-out |
@@ -213,6 +234,20 @@ and including feature 0005 (customer feedback).
 |---|---|
 | `create-staff-logins.ts` | `npm run auth:create-staff-logins`: Admin API with `SUPABASE_SECRET_KEY`; creates confirmed accounts for active staff (`--reset-passwords` to update), then `link_staff_accounts()` |
 | `lib/plan-staff-logins.ts` | Pure logic: which accounts to create / update / skip |
+
+Since 0006 the script is for setting up a fresh project (seed / demo staff and
+the first Admin); staff are added on screen afterwards.
+
+## Server Function (`supabase/functions/staff-access/`, 0006)
+
+| File | Purpose |
+|---|---|
+| `handler.ts` | Plain TypeScript (tested in `tests/functions/`): `parseStaffAccessRequest` (actions, staff fields, `redirectTo` must be an app address's `/auth/confirm`), `handleStaffAccess`: staff RPC as the caller first, then the Auth step; "Saved, but…" answers with a retry; `authProblem` / database errors → fixed sentences; `DEFAULT_APP_ORIGINS` |
+| `index.ts` | Deno entry: CORS, caller token check (`auth.getUser`), caller client (publishable / anon key + token), secret-key client (`inviteUserByEmail`, `resetPasswordForEmail`, `updateUserById` email / ban, `deleteUser`, `link_invited_staff`); keys from `SUPABASE_SECRET_KEYS` / `SUPABASE_PUBLISHABLE_KEYS` or the legacy variables; extra app addresses from the `APP_ORIGINS` secret; raw errors to the function log |
+
+Actions: `create`, `update`, `deactivate`, `reactivate`, `resend_invite`,
+`reset_password`, `retry_block`, `retry_unblock`, `retry_email`. Deploy:
+`npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt --use-api`.
 
 ## Database (`supabase/`)
 
@@ -227,6 +262,7 @@ and including feature 0005 (customer feedback).
 | `migrations/20261023000001_whatsapp_notification.sql` | 0003: `_is_my_mobile`, `_malaysia_date_time`, `_customer_job_done_message`, `_check_customer_message_body`; `customer_messages` table with checks and `customer_messages_guard_trg` (no deletes, confirmed rows frozen); `orders_customer_message_trg` (Job Done → message); backfill for orders already Job Done / Reviewed / Closed; `edit_customer_message`, `confirm_customer_message`; `latest_customer_messages` view; RLS (assigned technician, Admins); grants |
 | `migrations/20261023000002_review_and_close.sql` | 0004: `staff.additional_branch_ids` + `staff_additional_branches_trg`; `_covers_branch`, `_branch_has_manager`; `staff_branch_manager_trg` (constraint trigger, at commit) and `orders_branch_manager_trg` (every branch needs a Manager); `payments.verified_by` / `verified_at` + `payments_verified_check`; notification events `job_approved`, `job_closed`; `_current_staff_covers`; `orders_read` and `customer_messages_read` policies replaced (Managers: covered branches); `_can_access_job_file`, `_authorize_transition`, `submit_completion`, `transition_order`, `_customer_message_error`, `confirm_customer_message` replaced (same signatures); `verify_payment`, `unverify_payment`; `_customer_on_behalf_message`; `order_review_summary` view; `manager_orders`, `finance_orders`, `covered_branches`; grants |
 | `migrations/20261023000003_customer_feedback.sql` | 0005: `app_settings` (`feedback_link_base`); `customer_messages.feedback_token` (unique, WhatsApp only) + backfill for unsent messages; `_new_feedback_token`; `customer_messages_guard` and `orders_customer_message` replaced (token frozen / set on Job Done); `_feedback_link_placeholder`, `_feedback_link`, `_customer_message_full_text`; `confirm_customer_message` replaced (audit keeps the full text); `latest_customer_messages` gains `feedback_url`, `full_body`; `customer_feedback` table + `customer_feedback_guard_trg`; `_is_low_feedback`, `_check_feedback`, `_feedback_link_state`, `_feedback_state_error`, `_notify_low_feedback`; notification event `low_feedback`; `feedback_form`, `submit_feedback` (anon + authenticated); `_phone_feedback_error`, `record_phone_feedback`; RLS `customer_feedback_read`; `order_feedback` view; `order_review_summary` gains `latest_rating`, `latest_working_well`; grants (`anon`: schema usage + the two page functions) |
+| `migrations/20261023000004_staff_management.sql` | 0006: `staff.joined_at` / `left_at` (+ backfill, `staff_left_check`, `staff_left_at_trg`); `staff_history` (append-only, RLS on, no client access) + `staff_history_trg` and backfill; `_role_label`, `_branch_names`, `_check_staff_name`, `_check_staff_email`, `_staff_phone_role_error`, `_staff_phone_taken_by`, `_staff_email_taken_by`, `_staff_open_job_count`, `_staff_open_jobs_error`, `_staff_last_role_error`, `_staff_cover_error`, `_staff_manage_error`, `_staff_change_errors`; `staff_rules_trg` (stored phone, technician mobile, phone in use, email in use, open jobs), unique index `staff_active_phone_key`, `staff_last_role_trg` (deferred, advisory lock per role); `_staff_sign_in_state` (from `auth.users`); type `staff_access_target`; `create_staff`, `update_staff`, `set_staff_active`, `staff_access_check`, `staff_access_event`, `link_invited_staff` (service role); `staff_list`, `staff_detail`, `branch_cover_overview`, `staff_form_check`; `order_review_summary` gains `completion_technician_id`, `reviewed_by_id`, `closed_by_id`; RLS `staff_read_own`; `staff` in the `supabase_realtime` publication (guarded); grants |
 | `seed.sql` | 5 branches, service types, staff with `@sejuk.example.com` emails (incl. Ali, John, Bala, Yusoff; one Manager per branch since 0004); no auth accounts |
 
 ### Tables
@@ -234,12 +270,15 @@ and including feature 0005 (customer feedback).
 `branches`, `staff`, `service_types`, `orders`, `order_completions`,
 `attachments`, `payments`, `order_reschedules`, `audit_log`, `notifications`,
 `order_status_transitions`, `customer_messages` (0003), `customer_feedback`,
-`app_settings` (0005; RLS on, no policy, no client access). Views:
+`app_settings` (0005; RLS on, no policy, no client access), `staff_history`
+(0006; RLS on, no policy, no client access; read through `staff_detail`). Views:
 `order_summary`, `latest_customer_messages` (0003; `feedback_url`,
 `full_body` since 0005), `order_review_summary` (0004; `latest_rating`,
 `latest_working_well` since 0005), `order_feedback` (0005). New columns
 (0004): `staff.additional_branch_ids`, `payments.verified_by`, `payments.verified_at`;
-(0005): `customer_messages.feedback_token`.
+(0005): `customer_messages.feedback_token`; (0006): `staff.joined_at`, `staff.left_at`.
+Policies on `staff`: `staff_read` (any active staff member) and
+`staff_read_own` (0006: a person's own row, even when inactive).
 
 ### RPCs
 
@@ -249,19 +288,24 @@ and including feature 0005 (customer feedback).
 `technician_jobs`, `my_jobs`, `current_staff`, `edit_customer_message`,
 `confirm_customer_message`, `verify_payment`, `unverify_payment`,
 `manager_orders`, `finance_orders`, `covered_branches` (0004),
-`record_phone_feedback` (0005) (no actor
+`record_phone_feedback` (0005), `create_staff`, `update_staff`,
+`set_staff_active`, `staff_access_check`, `staff_access_event`, `staff_list`,
+`staff_detail`, `branch_cover_overview`, `staff_form_check` (0006) (no actor
 parameter; actor = signed-in user). Signed-out (`anon`) and signed-in:
 `feedback_form`, `submit_feedback` (0005; the link token is the only key). Read functions (security invoker, RLS applies):
 `list_orders`, `technician_options`. Policy helpers for
 `authenticated`: `_can_access_job_file`, `_current_staff_covers` (0004);
 view helpers `_feedback_link`, `_customer_message_full_text` (0005). Service-role only:
-`link_staff_accounts`.
+`link_staff_accounts`, `link_invited_staff` (0006).
 
 Triggers on `orders` (0003): `orders_customer_message_trg` prepares the
 customer message when the status becomes `job_done`; (0004)
 `orders_branch_manager_trg` refuses a branch with no covering Manager.
 Triggers on `staff` (0004): `staff_additional_branches_trg`,
-`staff_branch_manager_trg` (deferred constraint trigger). Trigger on
+`staff_branch_manager_trg` (deferred constraint trigger); (0006)
+`staff_left_at_trg`, `staff_rules_trg`, `staff_history_trg`,
+`staff_last_role_trg` (deferred). Trigger on `staff_history` (0006):
+`staff_history_no_update_trg`. Trigger on
 `customer_feedback` (0005): `customer_feedback_guard_trg` (no updates or deletes).
 
 Notification events: `assigned`, `job_done`, `rework`, `reviewed`,
@@ -301,6 +345,11 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `db/feedback.test.ts` | 0005 AC1–AC13: tokens and link line, address setting, `feedback_form` states and fields, `submit_feedback` (once, answers, after Close, rework), poor-rating notices, `record_phone_feedback` rules and audit, RLS reads, Manager rating column |
 | `ui/feedback.test.tsx` | 0005 AC1–AC5, AC7, AC9, AC13, AC14: public route, form validation and single submit, retry, link states, feedback card, phone dialog by role, link line and placeholder warning in the message panel |
 | `domain/feedback.test.ts` | 0005 form rule, poor rating, link line, phone-rating rule, labels |
+| `db/staff.test.ts` | 0006 AC1, AC7–AC17: backfill on existing staff, `create_staff` / `update_staff` / `set_staff_active` by role, self and last-role guards, open jobs, phone / email rules, "Manager first" messages, rules by plain SQL, history (incl. cleanup deletes), sign-in steps and state, `staff_list` / `staff_detail` / `branch_cover_overview` / `staff_form_check`, `order_review_summary` ids |
+| `functions/staff-access.test.ts` | 0006 AC4–AC6, AC11, AC12, AC19: request checks, database-then-Auth order, partial failures and retries, unused-invite restart, error text never leaked |
+| `ui/staff.test.tsx` | 0006 AC2, AC3, AC9, AC13, AC18: list query and filters in the address, paging, branch cover panel, add / edit forms by role, warnings, staff page actions, deactivation blocker, retry banner, `confirmAddress` |
+| `ui/password.test.tsx` | 0006 AC5, AC6, AC11: email link page, change password, live sign-out (Realtime and re-check) |
+| `domain/staff.test.ts` | 0006 form rule, who may manage whom, labels, history lines |
 | `db/admin-orders.test.ts` | 0001 AC4, AC5, AC8, AC10, AC11: phone / price rules, `update_order`, `list_orders`, `technician_options` |
 | `ui/*.test.tsx` | 0001 AC1–AC3, AC6, AC7, AC9, AC12, AC13: portal access, form, summary, WhatsApp link, detail actions, list, edit |
 | `ui/job-list.test.tsx`, `job-page.test.tsx`, `job-files.test.tsx`, `resize.test.ts`, `completion-form.test.tsx`, `payment-form.test.tsx`, `notifications.test.tsx`, `drafts.test.ts` | 0002 AC1–AC6, AC8–AC13, AC15: technician portal screens (api modules replaced by test doubles) |
@@ -310,8 +359,9 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 ## Wiring
 
 - `App.tsx` wraps everything in `BrowserRouter`. `AppRoutes` sends `/f/:token`
-  to the public `FeedbackPage` (no `AuthProvider`, no staff header); every
-  other path is the staff app. An Admin gets `AdminPortal`,
+  to the public `FeedbackPage` and `/auth/confirm` to `ConfirmLinkPage` (no
+  `AuthProvider`, no staff header); every other path is the staff app, where
+  `/account/password` is `ChangePasswordPage` for every role. An Admin gets `AdminPortal`,
   a Technician `TechnicianPortal` (with their staff id), a Manager
   `ManagerPortal` and Finance `FinancePortal` (with their staff id and name). Screens call only their feature's `api.ts` (which builds on
   `src/lib/api.ts`).
@@ -331,6 +381,13 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 - `SUPABASE_SECRET_KEY` and `STAFF_DEMO_PASSWORD` are read only by
   `scripts/create-staff-logins.ts` (via `node --env-file=.env.local`); they are
   never `VITE_`-prefixed and never reach the browser bundle.
+- Staff writes (0006) go browser → `supabase.functions.invoke('staff-access')`
+  with the session token → the function calls the staff RPC as that person,
+  then Supabase Auth with the secret key from its own environment. Invite and
+  reset emails go through the project's custom SMTP and link to
+  `<app>/auth/confirm`.
+- `AuthProvider` (0006) also subscribes to Realtime `postgres_changes` on the
+  person's own `staff` row and signs them out when it turns inactive.
 - The Supabase CLI applies `supabase/migrations/*` in filename order and then
   `supabase/seed.sql`; `tests/db/helpers.ts` does the same in PGlite.
 
@@ -351,4 +408,6 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `docs/0004-review-and-close-workflow.md` | Workflow | Review, verification, close and branch cover runtime behavior |
 | `docs/prd/0005-customer-feedback-prd.md` | Intent | Customer feedback goals |
 | `docs/0005-customer-feedback-workflow.md` | Workflow | Feedback link, page, card and phone rating runtime behavior |
-| `docs/decisions/0001-*.md` – `0013-*.md` | Decision log | Structural changes that diverged from the plans |
+| `docs/prd/0006-staff-management-prd.md` | Intent | Staff management goals |
+| `docs/0006-staff-management-workflow.md` | Workflow | Staff screens, sign-ins and live sign-out runtime behavior |
+| `docs/decisions/0001-*.md` – `0014-*.md` | Decision log | Structural changes that diverged from the plans |

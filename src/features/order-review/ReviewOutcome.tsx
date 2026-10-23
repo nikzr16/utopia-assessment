@@ -1,5 +1,6 @@
 import { approvedLabel, closedLabel, type OrderStatus } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
+import { staffName, useInactiveStaff } from '../../lib/staffStatus'
 import { fetchReviewFacts, type ReviewFacts } from './api'
 
 /** Statuses that have been approved, so there is something to show. */
@@ -7,8 +8,9 @@ const REVIEWED_STATUSES: readonly OrderStatus[] = ['reviewed', 'closed']
 
 /** "Approved by X at T" (with the note) and "Closed by X at T" (0004 PRD Q12). */
 export function ReviewOutcomeLines({ facts }: { facts: ReviewFacts }) {
-  const approved = approvedLabel(facts)
-  const closed = closedLabel(facts)
+  useInactiveStaff() // re-render with "(inactive)" tags once known
+  const approved = approvedLabel({ ...facts, reviewed_by_name: staffName(facts.reviewed_by_name, facts.reviewed_by_id) })
+  const closed = closedLabel({ ...facts, closed_by_name: staffName(facts.closed_by_name, facts.closed_by_id) })
   if (!approved && !closed) return null
   return (
     <div role="status" className="space-y-1 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900">

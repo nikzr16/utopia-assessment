@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { CARD } from '../../components/styles'
 import { canChangeJobFiles, formatMYR, formatMalaysiaDateTime, type OrderStatus } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
+import { staffName, useInactiveStaff } from '../../lib/staffStatus'
 import { JobFiles, PaymentList } from '../attachments'
 import type { Payment } from '../../lib/orderRecords'
 import { fetchOrderRecords, type OrderSummary } from './api'
@@ -28,6 +29,7 @@ export function CompletionSection({
   toggleVerified?: (payment: Payment) => Promise<void>
   onPaymentsChange?: () => void
 }) {
+  useInactiveStaff() // re-render with "(inactive)" tags once known
   const [state, reload] = useLoad(() => fetchOrderRecords(order.id), `${order.id}|${order.updated_at}`)
   const verifying = toggleVerified
     ? {
@@ -72,7 +74,7 @@ export function CompletionSection({
             </Item>
           ) : null}
           <Item label="Submitted by" wide>
-            {state.data.completion.technician_name}, {formatMalaysiaDateTime(state.data.completion.completed_at)}
+            {staffName(state.data.completion.technician_name, state.data.completion.technician_id)}, {formatMalaysiaDateTime(state.data.completion.completed_at)}
           </Item>
         </dl>
       ) : (

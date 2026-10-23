@@ -10,6 +10,7 @@ import {
   type ManagerView,
 } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
+import { staffName } from '../../lib/staffStatus'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
 import { BranchFilter, QueueList, QueueTabs, type QueueColumn } from '../order-review'
 import { fetchCoveredBranches, fetchManagerOrders } from '../order-review/api'
@@ -43,20 +44,20 @@ function rating(stars: number | null, workingWell: boolean | null) {
 
 const COLUMNS: Record<ManagerView, QueueColumn[]> = {
   to_review: [
-    { header: 'Technician', cell: (o) => o.technician_name ?? '—' },
+    { header: 'Technician', cell: (o) => staffName(o.technician_name, o.assigned_technician_id) ?? '—' },
     { header: 'Done', cell: (o) => (o.completed_at ? formatMalaysiaDateTime(o.completed_at) : '—') },
     { header: 'Customer told', cell: (o) => told(o.latest_message_status) },
     { header: 'Final amount', cell: (o) => formatMYR(o.final_amount) },
   ],
   returned: [
-    { header: 'Technician', cell: (o) => o.technician_name ?? '—' },
+    { header: 'Technician', cell: (o) => staffName(o.technician_name, o.assigned_technician_id) ?? '—' },
     { header: 'Returned', cell: (o) => (o.last_returned_at ? formatMalaysiaDateTime(o.last_returned_at) : '—') },
     { header: 'Note', cell: (o) => o.last_return_note ?? '—' },
   ],
   reviewed: [
-    { header: 'Technician', cell: (o) => o.technician_name ?? '—' },
+    { header: 'Technician', cell: (o) => staffName(o.technician_name, o.assigned_technician_id) ?? '—' },
     { header: 'Approved', cell: (o) => (o.reviewed_at ? formatMalaysiaDateTime(o.reviewed_at) : '—') },
-    { header: 'By', cell: (o) => o.reviewed_by_name ?? '—' },
+    { header: 'By', cell: (o) => staffName(o.reviewed_by_name, o.reviewed_by_id) ?? '—' },
     { header: 'Customer rating', cell: (o) => rating(o.latest_rating, o.latest_working_well) },
   ],
 }

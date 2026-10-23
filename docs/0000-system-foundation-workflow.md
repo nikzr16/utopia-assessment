@@ -37,6 +37,7 @@ the user's session token; the RPC takes no actor parameter.
 **Input:** Seeded staff rows with emails; `SUPABASE_SECRET_KEY` and `STAFF_DEMO_PASSWORD` in `.env.local`.
 **Actions:** `npm run auth:create-staff-logins` creates a confirmed Supabase Auth account per active staff email (`--reset-passwords` updates existing ones). The `auth.users` trigger and `link_staff_accounts()` set `staff.auth_user_id` by case-insensitive email, for confirmed emails only.
 **Output:** Every active staff member can sign in. Public sign-up is turned off in the Supabase dashboard.
+**Since 0006:** the script is for setting up a fresh project (seed / demo staff and the first Admin). Staff added later get an invite email from the Staff screen and choose their own password (`docs/0006-staff-management-workflow.md`).
 **On failure:** The script prints email → created/existing → linked and exits non-zero if any account failed or is unlinked.
 
 ### 1. Sign in

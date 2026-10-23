@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router'
 import { FINANCE_VIEWS, FINANCE_VIEW_LABELS, formatMYR, formatMalaysiaDateTime, type FinanceView } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
+import { staffName } from '../../lib/staffStatus'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
 import { BranchFilter, QueueList, QueueTabs, type QueueColumn } from '../order-review'
 import { fetchBranches, fetchFinanceOrders } from '../order-review/api'
@@ -34,7 +35,7 @@ const COLUMNS: Record<FinanceView, QueueColumn[]> = {
   closed: [
     { header: 'Final amount', cell: (o) => formatMYR(o.final_amount) },
     { header: 'Closed', cell: (o) => (o.closed_at ? formatMalaysiaDateTime(o.closed_at) : '—') },
-    { header: 'By', cell: (o) => o.closed_by_name ?? '—' },
+    { header: 'By', cell: (o) => staffName(o.closed_by_name, o.closed_by_id) ?? '—' },
   ],
 }
 
