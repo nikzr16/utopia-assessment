@@ -1,9 +1,10 @@
-import type { CompletionInput, JobView, PaymentInput, RescheduleParty, RescheduleReason } from '../../domain'
+import type { CompletionInput, JobView, RescheduleParty, RescheduleReason } from '../../domain'
 import { client, run, toOrderSummary, type OrderSummary } from '../../lib/api'
 import { fetchOrderRecords, type OrderRecords } from '../../lib/orderRecords'
 
 export { ApiError, type OrderSummary } from '../../lib/api'
 export type { Completion, Payment, ReworkNote } from '../../lib/orderRecords'
+export { recordPayment } from '../payments/api'
 
 /**
  * Every database call the Technician portal makes. Reads run under row-level
@@ -75,29 +76,6 @@ export async function submitCompletion(orderId: string, input: CompletionInput):
       p_work_done: input.workDone,
       p_extra_charges: input.extraCharges,
       p_remarks: input.remarks,
-    }),
-  )
-}
-
-/**
- * Record a payment, with its receipt when there is one. `clientKey` makes a
- * retry return the first payment instead of recording it twice.
- */
-export async function recordPayment(
-  orderId: string,
-  input: PaymentInput,
-  clientKey: string,
-  receipt: { path: string; fileName: string | null } | null,
-): Promise<void> {
-  await run(
-    client().rpc('record_payment', {
-      p_order_id: orderId,
-      p_amount: input.amount,
-      p_method: input.method,
-      p_note: input.note,
-      p_client_key: clientKey,
-      p_receipt_path: receipt?.path ?? null,
-      p_receipt_file_name: receipt?.fileName ?? null,
     }),
   )
 }

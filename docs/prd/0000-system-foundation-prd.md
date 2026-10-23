@@ -15,7 +15,7 @@ the intent described here, add an entry to the decision log instead.
 Sejuk Sejuk Service Sdn Bhd (5 branches, 40+ field technician teams) wants to
 digitise its service workflow: Order → Assignment → Service Completion →
 Manager / Finance Review. This PRD defines the shared foundation every module
-(0001–0008) builds on: who the users are, what an order is, which states it
+(0001–0009) builds on: who the users are, what an order is, which states it
 moves through, who may move it, and what gets recorded along the way.
 
 Source: `docs/prd/0000-programmer-assessment-brief.docx`.
@@ -34,7 +34,7 @@ Source: `docs/prd/0000-programmer-assessment-brief.docx`.
 ## Non-Goals
 
 - Building the module screens themselves (order form, technician job page,
-  dashboard, AI window). Those belong to PRDs 0001–0008.
+  dashboard, AI window). Those belong to PRDs 0001–0009.
 - Self-service sign-up, password reset emails, SSO, and multi-factor
   authentication. Staff accounts are created by the company.
 - Fully automatic WhatsApp sending through the WhatsApp Business Cloud API.
@@ -45,7 +45,7 @@ Source: `docs/prd/0000-programmer-assessment-brief.docx`.
 
 | In Scope | Out of Scope |
 |---|---|
-| Entities: branches, users, orders, service types, payments, attachments, reschedule log, audit log, notifications | Module UIs (0001–0008) |
+| Entities: branches, users, orders, service types, payments, attachments, reschedule log, audit log, notifications | Module UIs (0001–0009) |
 | Order status lifecycle and transition rules | Self sign-up, password reset emails, SSO, MFA |
 | Role permissions for every transition | WhatsApp Business API integration |
 | Email/password sign-in linked to staff profiles; data access requires sign-in | Multi-currency |

@@ -55,7 +55,7 @@ Source: Module 1 of `docs/prd/0000-programmer-assessment-brief.docx`.
 | New order form with every brief field, writing through `create_order` | Technician job screens (0002) |
 | Order summary after submission | Customer WhatsApp message on Job Done (0003) |
 | WhatsApp deep link (`wa.me`) to notify the assigned technician | WhatsApp Business Cloud API |
-| Admin order list with search and filters | KPI dashboard (0006) |
+| Admin order list with search and filters | KPI dashboard (0007) |
 | Order detail with current state and history | Customer records / lookup |
 | Editing an order's details (new database function, audited) | Changing completion, payment, or review data |
 | Assign, reassign, and cancel from the screen through `transition_order` | Bulk actions, import/export |

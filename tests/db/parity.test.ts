@@ -3,7 +3,10 @@ import {
   CUSTOMER_MESSAGE_CHANNELS,
   CUSTOMER_MESSAGE_STATES,
   CUSTOMER_MESSAGE_STATUSES,
+  APPROVE_CUSTOMER_NOT_TOLD_MESSAGE,
   EDITABLE_STATUSES,
+  FINANCE_VIEWS,
+  MANAGER_VIEWS,
   JOB_VIEWS,
   JOB_VIEW_STATUSES,
   NOTIFICATION_EVENTS,
@@ -13,8 +16,16 @@ import {
   RESCHEDULABLE_STATUSES,
   STAFF_ROLES,
   TRANSITION_RULES,
+  approveBlockReason,
   canAddReceipt,
   canChangeJobFiles,
+  canConfirmCustomerMessage,
+  canVerifyPayment,
+  closeBlockReason,
+  coversBranch,
+  customerOnBehalfMessage,
+  financeViewOf,
+  managerViewOf,
   canManageCustomerMessage,
   canRecordPayment,
   checkCustomerMessageBody,
@@ -532,4 +543,245 @@ describe('Rules parity: customer message states (src/domain/customerMessages.ts)
       ...CUSTOMER_MESSAGE_STATUSES,
     ])
   })
+})
+
+// ---------------------------------------------------------------------------
+// 0004 review and close
+// ---------------------------------------------------------------------------
+describe('Rules parity: customer message senders (src/domain/customerMessages.ts canConfirmCustomerMessage)', () => {
+  it('lets exactly the people and statuses of canConfirmCustomerMessage confirm a message', async () => {
+    const reached = await ordersInEveryStatus(t.people.ali) // all in Shah Alam
+    const actors: Array<[string, StaffRole, boolean]> = [
+      [t.people.ali, 'technician', true],
+      [t.people.bala, 'technician', false],
+      [t.people.admin, 'admin', false],
+      [t.people.managerSA, 'manager', true], // covers Shah Alam
+      [t.people.managerKL, 'manager', false],
+      [t.people.finance, 'finance', false],
+    ]
+    for (const status of ORDER_STATUSES) {
+      for (const [staffId, role, related] of actors) {
+        // A fresh not_sent WhatsApp message, the newest of its order.
+        const [message] = await t.q<{ id: string }>(
+          `insert into customer_messages (order_id, channel, phone, prepared_body, body)
+           values ($1, 'whatsapp', '60123456789', 'Prepared', 'Prepared') returning id`,
+          [reached[status]],
+        )
+        // The New order has no technician, so Ali is not assigned to it.
+        const isRelated = related && !(role === 'technician' && status === 'new')
+        const ok = await t.rpcAs(staffId, 'confirm_customer_message', { p_message_id: message.id }).then(
+          () => true,
+          () => false,
+        )
+        expect({ status, role, ok }).toEqual({ status, role, ok: canConfirmCustomerMessage(status, role, isRelated) })
+      }
+    }
+  })
+})
+
+describe('Rules parity: branch cover (src/domain/review.ts coversBranch = _covers_branch)', () => {
+  it('agrees for every active staff member and branch, with an additional branch', async () => {
+    const penang = await t.branchId('Penang')
+    await t.q('update staff set additional_branch_ids = array[$2::uuid] where id = $1', [t.people.managerKL, penang])
+    try {
+      const rows = await t.q<{ role: StaffRole; branch_id: string; additional: string[]; b: string; v: boolean }>(
+        `select s.role, s.branch_id, s.additional_branch_ids as additional, b.id as b, _covers_branch(s, b.id) as v
+           from staff s cross join branches b where s.active`,
+      )
+      for (const r of rows) {
+        const ts = coversBranch({ role: r.role, branchId: r.branch_id, additionalBranchIds: r.additional }, r.b)
+        expect(ts).toBe(r.v)
+      }
+      expect(rows.filter((r) => r.v)).toHaveLength(6) // five home branches + Wei Ming's Penang
+    } finally {
+      await t.q(`update staff set additional_branch_ids = '{}' where id = $1`, [t.people.managerKL])
+    }
+  })
+})
+
+describe('Rules parity: review and payment queues (src/domain/review.ts = manager_orders / finance_orders)', () => {
+  it('puts every order in the same tab', async () => {
+    const tech = t.people.yusoff
+    const make = () => t.createOrder({ technician: tech }).then((o) => o.id as string)
+    const inProgress = await make()
+    await t.advance(inProgress, 'in_progress')
+    const paidEarly = await make()
+    await t.advance(paidEarly, 'in_progress')
+    await t.pay(tech, paidEarly, 50)
+    const done = await make()
+    await t.advance(done, 'job_done')
+    const donePaid = await make()
+    await t.advance(donePaid, 'job_done')
+    await t.pay(tech, donePaid, 50, 'bank_transfer')
+    const returned = await make()
+    await t.advance(returned, 'job_done')
+    await t.transition(t.people.managerSA, returned, 'in_progress', 'Redo')
+    const resubmitted = await make()
+    await t.advance(resubmitted, 'job_done')
+    await t.transition(t.people.managerSA, resubmitted, 'in_progress', 'Redo')
+    await t.submit(tech, resubmitted)
+    const reviewedUnpaid = await make()
+    await t.advance(reviewedUnpaid, 'reviewed')
+    const reviewedPartial = await make()
+    await t.advance(reviewedPartial, 'reviewed')
+    await t.pay(t.people.finance, reviewedPartial, 100)
+    const reviewedPaid = await make()
+    await t.advance(reviewedPaid, 'reviewed')
+    await t.pay(t.people.finance, reviewedPaid, 250, 'card')
+    const closed = await make()
+    await t.closeOrder(closed)
+    const cancelled = await make()
+    await t.transition(t.people.admin, cancelled, 'cancelled', 'No longer needed')
+    const orders = [inProgress, paidEarly, done, donePaid, returned, resubmitted, reviewedUnpaid, reviewedPartial,
+      reviewedPaid, closed, cancelled]
+    const mine = new Set(orders)
+
+    const facts = await t.q<{
+      id: string
+      status: OrderStatus
+      return_count: number
+      reviewed_at: string | null
+      payment_status: 'paid' | 'partial' | 'unpaid'
+      payment_count: number
+    }>(
+      `select id, status, return_count, reviewed_at, payment_status, payment_count
+         from order_review_summary where id = any($1::uuid[])`,
+      [orders],
+    )
+
+    for (const view of MANAGER_VIEWS) {
+      const rows = await t.qAs<{ id: string }>(t.people.managerSA, 'select id from manager_orders($1)', [view])
+      const got = rows.map((r) => r.id).filter((id) => mine.has(id)).sort()
+      const want = facts.filter((f) => managerViewOf(f) === view).map((f) => f.id).sort()
+      expect({ view, got }).toEqual({ view, got: want })
+    }
+    for (const view of FINANCE_VIEWS) {
+      const rows = await t.qAs<{ id: string }>(t.people.finance, 'select id from finance_orders($1)', [view])
+      const got = rows.map((r) => r.id).filter((id) => mine.has(id)).sort()
+      const want = facts.filter((f) => financeViewOf(f) === view).map((f) => f.id).sort()
+      expect({ view, got }).toEqual({ view, got: want })
+    }
+    // Every case lands in a tab except a plain In Progress job and a cancelled one.
+    const nowhere = facts.filter((f) => managerViewOf(f) === null && financeViewOf(f) === null).map((f) => f.id)
+    expect(nowhere.sort()).toEqual([inProgress, cancelled].sort())
+  })
+})
+
+describe('Rules parity: approve and close guards (src/domain/review.ts = _authorize_transition)', () => {
+  const sqlError = (p: Promise<unknown>) =>
+    p.then(
+      () => null,
+      (e: Error) => e.message,
+    )
+
+  it('approve: blocked with the same message until the customer is told', async () => {
+    const id = (await t.createOrder({ technician: t.people.ali })).id as string
+    await t.advance(id, 'job_done')
+    const [facts] = await t.q<{ status: OrderStatus; latest_message_status: string }>(
+      'select status, latest_message_status from order_review_summary where id = $1',
+      [id],
+    )
+    expect(approveBlockReason(facts)).toBe(APPROVE_CUSTOMER_NOT_TOLD_MESSAGE)
+    expect(await sqlError(t.transition(t.people.managerSA, id, 'reviewed'))).toBe(APPROVE_CUSTOMER_NOT_TOLD_MESSAGE)
+    await t.tellCustomer(id)
+    const [after] = await t.q<{ status: OrderStatus; latest_message_status: string }>(
+      'select status, latest_message_status from order_review_summary where id = $1',
+      [id],
+    )
+    expect(approveBlockReason(after)).toBeNull()
+    expect(await sqlError(t.transition(t.people.managerSA, id, 'reviewed'))).toBeNull()
+  })
+
+  it('close: the same message for unpaid, partly paid and unverified orders; none when ready', async () => {
+    const id = (await t.createOrder({ technician: t.people.ali })).id as string
+    await t.advance(id, 'reviewed')
+    const facts = async () => {
+      const [r] = await t.q<{
+        status: OrderStatus
+        payment_status: 'paid' | 'partial' | 'unpaid'
+        balance: string
+        unverified_count: number
+      }>('select status, payment_status, balance, unverified_count from order_review_summary where id = $1', [id])
+      return { ...r, balance: Number(r.balance) }
+    }
+    const check = async () => {
+      const ts = closeBlockReason(await facts())
+      expect(ts).not.toBeNull()
+      expect(await sqlError(t.transition(t.people.finance, id, 'closed'))).toBe(ts)
+    }
+    await check() // unpaid
+    await t.pay(t.people.finance, id, 100, 'ewallet')
+    await check() // partly paid
+    const card = await t.pay(t.people.finance, id, 150, 'card')
+    await check() // paid, 2 not verified
+    await t.rpcAs(t.people.finance, 'verify_payment', { p_payment_id: card.id })
+    await check() // paid, 1 not verified
+    const rest = await t.q<{ id: string }>('select id from payments where order_id = $1 and verified_at is null', [id])
+    for (const r of rest) await t.rpcAs(t.people.finance, 'verify_payment', { p_payment_id: r.id })
+    expect(closeBlockReason(await facts())).toBeNull()
+    expect((await t.transition(t.people.finance, id, 'closed')).status).toBe('closed')
+  })
+
+  it('verify: exactly the roles, methods and statuses of canVerifyPayment', async () => {
+    const actors: Array<[string, StaffRole]> = [
+      [t.people.finance, 'finance'],
+      [t.people.admin, 'admin'],
+      [t.people.managerSA, 'manager'],
+      [t.people.ali, 'technician'],
+    ]
+    for (const target of ['in_progress', 'job_done', 'reviewed', 'closed'] as const) {
+      for (const method of ['cash', 'bank_transfer'] as const) {
+        const id = (await t.createOrder({ technician: t.people.ali })).id as string
+        await t.advance(id, 'in_progress')
+        const p = await t.pay(t.people.ali, id, 10, method)
+        if (target !== 'in_progress') await t.submit(t.people.ali, id)
+        if (target === 'reviewed' || target === 'closed') {
+          await t.tellCustomer(id)
+          await t.transition(t.people.managerSA, id, 'reviewed')
+        }
+        if (target === 'closed') {
+          if (method !== 'cash') await t.rpcAs(t.people.finance, 'verify_payment', { p_payment_id: p.id })
+          await t.pay(t.people.finance, id, Number((await t.summary(id)).balance))
+          await t.transition(t.people.finance, id, 'closed')
+        }
+        for (const [staffId, role] of actors) {
+          // Untick first where it is ticked, so each try starts unverified.
+          const ok =
+            target === 'closed'
+              ? await t.rpcAs(staffId, 'unverify_payment', { p_payment_id: p.id }).then(
+                  () => true,
+                  () => false,
+                )
+              : await t.rpcAs(staffId, 'verify_payment', { p_payment_id: p.id }).then(
+                  () => true,
+                  () => false,
+                )
+          if (ok && target !== 'closed') await t.rpcAs(staffId, 'unverify_payment', { p_payment_id: p.id })
+          expect({ target, method, role, ok }).toEqual({ target, method, role, ok: canVerifyPayment(role, method, target) })
+        }
+      }
+    }
+  })
+})
+
+describe('Rules parity: on-behalf message (src/domain/review.ts customerOnBehalfMessage = _customer_on_behalf_message)', () => {
+  it.each(['2026-10-22T07:15:00Z', '2026-10-22T16:05:00Z', '2026-12-31T23:59:59Z', '2027-01-01T04:00:00.123Z'])(
+    '%s',
+    async (at) => {
+      const [row] = await t.q<{ v: string }>(
+        `select _customer_on_behalf_message('Puan Lim', 'ORDER1042', 'Nurul Huda', 'Shah Alam', 'Ali', $1::timestamptz) as v`,
+        [at],
+      )
+      expect(row.v).toBe(
+        customerOnBehalfMessage({
+          customerName: 'Puan Lim',
+          orderNo: 'ORDER1042',
+          managerName: 'Nurul Huda',
+          branchName: 'Shah Alam',
+          technicianName: 'Ali',
+          completedAt: at,
+        }),
+      )
+    },
+  )
 })

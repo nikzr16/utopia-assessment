@@ -33,6 +33,21 @@ async function doneOrder(
   return id
 }
 
+/**
+ * A not_sent message for an order already Reviewed or Closed. Since 0004 the
+ * customer is told before approval, so only a backfilled message (0003
+ * migration) can be in this state; this inserts one the same way.
+ */
+async function unsentMessageOn(orderId: string): Promise<Row> {
+  const [m] = await t.q<Row>(
+    `insert into customer_messages (order_id, channel, phone, prepared_body, body)
+     select id, 'whatsapp', customer_phone, 'Backfilled', 'Backfilled' from orders where id = $1
+     returning *`,
+    [orderId],
+  )
+  return m
+}
+
 /** Manager returns the job; the technician submits it again (a new Job Done). */
 async function rework(orderId: string, technician = t.people.ali) {
   await t.transition(t.people.managerSA, orderId, 'in_progress', 'Please redo the gas check')
@@ -162,6 +177,7 @@ describe('Job Done prepares a customer message', () => {
   it('does not write a message for other status changes', async () => {
     const id = await doneOrder()
     expect(await messagesOf(id)).toHaveLength(1)
+    await t.tellCustomer(id)
     await t.transition(t.people.managerSA, id, 'reviewed')
     expect(await messagesOf(id)).toHaveLength(1)
     await t.pay(t.people.finance, id, 250)
@@ -202,7 +218,8 @@ describe('Job Done prepares a customer message', () => {
 // ---------------------------------------------------------------------------
 describe('Existing orders get a message when the migration runs (backfill)', () => {
   it('prepares a not_sent message for every Job Done, Reviewed and Closed order with a completion record', async () => {
-    const L = await createTestDb({ holdBackMigrations: ['20261023000001'] })
+    // 0004 builds on the 0003 tables, so it is held back too and runs after.
+    const L = await createTestDb({ holdBackMigrations: ['20261023000001', '20261023000002'] })
     try {
       const order = (opts: Parameters<TestDb['createOrder']>[0]) => L.createOrder(opts).then((o) => o.id as string)
       const done = await order({ technician: L.people.ali })
@@ -228,6 +245,7 @@ describe('Existing orders get a message when the migration runs (backfill)', () 
 
       expect((await L.q(`select to_regclass('customer_messages') as t`))[0].t).toBeNull()
       await L.applyMigration('20261023000001')
+      await L.applyMigration('20261023000002')
 
       const rows = await L.q<Row>('select * from customer_messages order by order_id')
       expect(rows.map((r) => r.order_id).sort()).toEqual([done, reviewed, closed, landline, reworked].sort())
@@ -344,12 +362,17 @@ describe('edit_customer_message', () => {
   it('is rejected for another technician, a Manager, Finance and signed-out callers', async () => {
     const id = await doneOrder()
     const [msg] = await messagesOf(id)
-    for (const who of [t.people.bala, t.people.john, t.people.managerSA, t.people.managerKL, t.people.finance]) {
+    for (const who of [t.people.bala, t.people.john, t.people.managerKL, t.people.finance]) {
       await expectRejects(
         edit(who, msg.id, 'Not mine'),
-        'Only the assigned technician or an Admin can change the customer message of an order',
+        'Only the assigned technician, an Admin or a Manager of the branch can send the customer message of an order',
       )
     }
+    // 0004: the branch's Manager may send it, but not edit it.
+    await expectRejects(
+      edit(t.people.managerSA, msg.id, 'Not mine'),
+      'Managers send the prepared message as it is; only the assigned technician or an Admin can edit it',
+    )
     await expectRejects(edit(SIGNED_OUT, msg.id, 'Not mine'), /permission denied/i)
     await expectRejects(edit({ role: 'authenticated', sub: null }, msg.id, 'Not mine'), 'You must be signed in')
     expect((await messagesOf(id))[0]).toMatchObject({ body: msg.body, edited_by: null })
@@ -363,7 +386,7 @@ describe('edit_customer_message', () => {
   it('works while the order is Job Done, Reviewed or Closed', async () => {
     for (const status of ['job_done', 'reviewed', 'closed'] as const) {
       const id = await doneOrder({ status })
-      const [msg] = await messagesOf(id)
+      const msg = status === 'job_done' ? (await messagesOf(id))[0] : await unsentMessageOn(id)
       expect((await edit(t.people.ali, msg.id, `Edited in ${status}`)).body).toBe(`Edited in ${status}`)
     }
   })
@@ -501,10 +524,10 @@ describe('confirm_customer_message', () => {
   it('is rejected for another technician, a Manager, Finance and signed-out callers', async () => {
     const id = await doneOrder()
     const [msg] = await messagesOf(id)
-    for (const who of [t.people.bala, t.people.john, t.people.managerSA, t.people.managerKL, t.people.finance]) {
+    for (const who of [t.people.bala, t.people.john, t.people.managerKL, t.people.finance]) {
       await expectRejects(
         confirm(who, msg.id),
-        'Only the assigned technician or an Admin can change the customer message of an order',
+        'Only the assigned technician, an Admin or a Manager of the branch can send the customer message of an order',
       )
     }
     await expectRejects(confirm(SIGNED_OUT, msg.id), /permission denied/i)
@@ -520,7 +543,7 @@ describe('confirm_customer_message', () => {
   it('works while the order is Reviewed or Closed', async () => {
     for (const status of ['reviewed', 'closed'] as const) {
       const id = await doneOrder({ status })
-      const [msg] = await messagesOf(id)
+      const msg = await unsentMessageOn(id)
       expect((await confirm(t.people.ali, msg.id)).status).toBe('sent')
     }
   })
@@ -624,10 +647,19 @@ describe('Who can read customer messages (row-level security)', () => {
     }
   })
 
-  it('keeps Manager and Finance out until 0004', async () => {
-    for (const who of [t.people.managerSA, t.people.managerKL, t.people.finance]) {
-      expect(await idsFor(who, 'customer_messages')).toEqual([])
-      expect(await idsFor(who, 'latest_customer_messages')).toEqual([])
+  it('lets Finance read all messages and a Manager those of the branches they cover (0004)', async () => {
+    const total = (await t.q<{ n: number }>('select count(*)::int as n from customer_messages'))[0].n
+    expect(await idsFor(t.people.finance, 'customer_messages')).toHaveLength(total)
+    // The fixture orders are all in Shah Alam.
+    expect(await idsFor(t.people.managerSA, 'customer_messages')).toEqual(
+      expect.arrayContaining([aliOrder, balaOrder, reworked]),
+    )
+    expect(await idsFor(t.people.managerSA, 'latest_customer_messages')).toEqual(
+      expect.arrayContaining([aliOrder, balaOrder, reworked]),
+    )
+    for (const who of [t.people.managerKL, t.people.managerPG]) {
+      const seen = await idsFor(who, 'customer_messages')
+      for (const id of [aliOrder, balaOrder, reworked]) expect(seen).not.toContain(id)
     }
   })
 

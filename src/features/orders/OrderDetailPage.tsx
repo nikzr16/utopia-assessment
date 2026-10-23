@@ -12,6 +12,7 @@ import {
   type TechnicianMessageKind,
 } from '../../domain'
 import { CustomerMessagePanel } from '../customer-messages'
+import { ReviewOutcome } from '../order-review'
 import { fetchOrder, fetchOrderHistory, type OrderDetail, type HistoryEntry } from './api'
 import { AssignDialog } from './actions/AssignDialog'
 import { CancelDialog } from './actions/CancelDialog'
@@ -164,6 +165,8 @@ export function OrderDetailPage() {
           />
         </section>
       ) : null}
+
+      <ReviewOutcome orderId={order.id} status={order.status} />
 
       <CustomerMessagePanel
         orderId={order.id}

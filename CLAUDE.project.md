@@ -23,9 +23,10 @@ assistant that answers operational questions from controlled queries.
 
 Source brief: `docs/prd/0000-programmer-assessment-brief.docx`. Feature
 numbers follow the build order: 0000 foundation, 0001–0003 brief Modules 1–3,
-0004 review and close screens, 0005 customer feedback, 0006 KPI dashboard,
-0007 AI operations query, 0008 optional AI challenges (see
-`docs/product-roadmap.md`; renumbered in decision 0009).
+0004 review and close screens, 0005 customer feedback, 0006 staff
+management, 0007 KPI dashboard, 0008 AI operations query, 0009 optional AI
+challenges (see `docs/product-roadmap.md`; renumbered in decisions 0009
+and 0010).
 
 ## Tech Stack
 
@@ -42,7 +43,9 @@ when structure, routes, schemas, or config change).
 
 - **`src/`** — React app: `domain/` (pure rules mirrored from the DB),
   `features/` (per-feature UI: `auth`, `orders` (Admin), `jobs` (Technician),
-  `attachments` (job files), `notifications`, `customer-messages` (0003)),
+  `attachments` (job files), `notifications`, `customer-messages` (0003),
+  `payments` (shared payment form), `order-review` (Manager / Finance order
+  page and queues), `review` (Manager), `finance` (Finance) (0004)),
   `components/` (shared UI),
   `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
@@ -106,6 +109,13 @@ when structure, routes, schemas, or config change).
    Malaysia time); it is sent by `wa.me` deep link and confirmed by a person.
    Editable until confirmed; a confirmed message never changes and messages
    are never deleted (cleanup must disable `customer_messages_guard_trg`).
+8. Review and close: `docs/0004-review-and-close-workflow.md`. A Manager
+   covers their home branch plus `staff.additional_branch_ids` and sees and
+   acts only on those branches; every branch needs an active covering
+   Manager before it has other staff or orders (checked at commit). Approve
+   needs the customer told; Close needs full payment and every non-cash
+   payment verified by Finance. Staff and branch cover change by SQL until
+   0006 `staff-management`.
 
 ## Environment And Secrets
 

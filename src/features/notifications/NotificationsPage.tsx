@@ -15,9 +15,16 @@ import { useNotifications } from './NotificationsProvider'
 
 /**
  * The signed-in staff member's notifications, newest first (PRD AC12).
- * Tapping one marks it read and opens its job.
+ * Tapping one marks it read and opens its job in the portal's own page
+ * (`jobPath`); `goneMessage` explains an order the person can no longer read.
  */
-export function NotificationsPage({ jobPath = (orderNo: string) => `/jobs/${encodeURIComponent(orderNo)}` }) {
+export function NotificationsPage({
+  jobPath = (orderNo: string) => `/jobs/${encodeURIComponent(orderNo)}`,
+  goneMessage = 'This job is no longer assigned to you.',
+}: {
+  jobPath?: (orderNo: string) => string
+  goneMessage?: string
+}) {
   const { version, refresh, unread } = useNotifications()
   const [state, reload] = useLoad(fetchNotifications, `notifications-${version}`)
   const navigate = useNavigate()
@@ -109,7 +116,7 @@ export function NotificationsPage({ jobPath = (orderNo: string) => `/jobs/${enco
                   <span className="mt-1 block text-xs text-slate-500">{formatMalaysiaDateTime(n.created_at)}</span>
                   {gone === n.id ? (
                     <span role="status" className="mt-2 block text-sm text-amber-900">
-                      This job is no longer assigned to you.
+                      {goneMessage}
                     </span>
                   ) : null}
                 </button>

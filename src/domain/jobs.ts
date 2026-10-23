@@ -103,6 +103,8 @@ export const NOTIFICATION_EVENTS = [
   'cancelled',
   'reassigned_away',
   'payment_recorded',
+  'job_approved',
+  'job_closed',
 ] as const
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number]
 
@@ -133,4 +135,6 @@ export const NOTIFICATION_EVENT_LABELS: Record<NotificationEvent, string> = {
   cancelled: 'Cancelled',
   reassigned_away: 'Reassigned',
   payment_recorded: 'Payment recorded',
+  job_approved: 'Approved',
+  job_closed: 'Closed',
 }

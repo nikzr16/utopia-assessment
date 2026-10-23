@@ -1,11 +1,12 @@
 import { BrowserRouter } from 'react-router'
 import { AppHeader } from './components/AppHeader'
 import { Notice } from './components/Notice'
-import { RoleHome } from './components/RoleHome'
 import { SetupNotice } from './components/SetupNotice'
 import { AuthProvider, SignInForm, useAuth } from './features/auth'
+import { FinancePortal } from './features/finance'
 import { TechnicianPortal } from './features/jobs'
 import { AdminPortal } from './features/orders'
+import { ManagerPortal } from './features/review'
 
 const PRIMARY_BUTTON =
   'mt-3 rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-300'
@@ -68,9 +69,11 @@ function Main() {
     )
   }
 
-  if (profile.profile.role === 'admin') return <AdminPortal branchName={profile.profile.branchName} />
-  if (profile.profile.role === 'technician') return <TechnicianPortal staffId={profile.profile.id} />
-  return <RoleHome role={profile.profile.role} />
+  const { id, name, role, branchName } = profile.profile
+  if (role === 'admin') return <AdminPortal branchName={branchName} />
+  if (role === 'technician') return <TechnicianPortal staffId={id} />
+  if (role === 'manager') return <ManagerPortal staffId={id} staffName={name} />
+  return <FinancePortal staffId={id} staffName={name} />
 }
 
 export default function App() {

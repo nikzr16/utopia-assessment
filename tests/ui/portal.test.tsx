@@ -9,6 +9,7 @@ import type { AuthState } from '../../src/features/auth'
 import * as auth from '../../src/features/auth'
 import * as jobsApi from '../../src/features/jobs/api'
 import * as notificationsApi from '../../src/features/notifications/api'
+import * as reviewApi from '../../src/features/order-review/api'
 import * as api from '../../src/features/orders/api'
 import { reference } from './fixtures'
 
@@ -27,6 +28,16 @@ vi.mock('../../src/features/jobs/api', async (importOriginal) => {
 vi.mock('../../src/features/notifications/api', async (importOriginal) => {
   const actual = await importOriginal<typeof notificationsApi>()
   return { ...actual, fetchUnreadCount: vi.fn(), subscribeToNotifications: vi.fn() }
+})
+vi.mock('../../src/features/order-review/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof reviewApi>()
+  return {
+    ...actual,
+    fetchManagerOrders: vi.fn(),
+    fetchFinanceOrders: vi.fn(),
+    fetchCoveredBranches: vi.fn(),
+    fetchBranches: vi.fn(),
+  }
 })
 vi.mock('../../src/features/orders/api', async (importOriginal) => {
   const actual = await importOriginal<typeof api>()
@@ -51,6 +62,10 @@ beforeEach(() => {
   vi.mocked(jobsApi.fetchMyJobs).mockReset().mockResolvedValue([])
   vi.mocked(notificationsApi.fetchUnreadCount).mockReset().mockResolvedValue(1)
   vi.mocked(notificationsApi.subscribeToNotifications).mockReset().mockReturnValue(() => {})
+  vi.mocked(reviewApi.fetchManagerOrders).mockReset().mockResolvedValue([])
+  vi.mocked(reviewApi.fetchFinanceOrders).mockReset().mockResolvedValue([])
+  vi.mocked(reviewApi.fetchCoveredBranches).mockReset().mockResolvedValue([{ id: 'b-sa', name: 'Shah Alam' }])
+  vi.mocked(reviewApi.fetchBranches).mockReset().mockResolvedValue([])
   window.history.replaceState(null, '', '/')
 })
 
@@ -68,14 +83,47 @@ describe('Admin portal is for Admins only (AC1)', () => {
     expect(window.location.pathname).toBe('/orders/new')
   })
 
-  it.each(['manager', 'finance'] as const)('a %s does not get the portal, even at /orders', (role) => {
+  it.each(['manager', 'finance'] as const)('a %s does not get the portal, even at /orders', async (role) => {
     signedInAs(role)
     window.history.replaceState(null, '', '/orders/new')
     render(<App />)
+    expect(await screen.findByRole('navigation', { name: role === 'manager' ? 'Manager' : 'Finance' })).toBeTruthy()
     expect(screen.queryByRole('navigation', { name: 'Admin' })).toBeNull()
     expect(screen.queryByRole('form', { name: 'New order' })).toBeNull()
-    expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/home$/)
     expect(api.listOrders).not.toHaveBeenCalled()
+  })
+})
+
+describe('Manager and Finance portals (0004 AC1, AC14)', () => {
+  it('a Manager lands on the review queue with the bell, whatever the URL', async () => {
+    signedInAs('manager')
+    window.history.replaceState(null, '', '/jobs')
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Review queue' })).toBeTruthy()
+    expect(window.location.pathname).toBe('/review')
+    expect(reviewApi.fetchManagerOrders).toHaveBeenCalledWith('to_review', null)
+    expect(await screen.findByRole('link', { name: 'Notifications, 1 unread' })).toBeTruthy()
+    expect(notificationsApi.subscribeToNotifications).toHaveBeenCalledWith('s-1', expect.any(Function))
+    expect(jobsApi.fetchMyJobs).not.toHaveBeenCalled()
+  })
+
+  it('Finance lands on Ready to close with the bell, whatever the URL', async () => {
+    signedInAs('finance')
+    window.history.replaceState(null, '', '/orders')
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Payments and closing' })).toBeTruthy()
+    expect(window.location.pathname).toBe('/finance')
+    expect(reviewApi.fetchFinanceOrders).toHaveBeenCalledWith('ready', null)
+    expect(await screen.findByRole('link', { name: 'Notifications, 1 unread' })).toBeTruthy()
+  })
+
+  it.each(['admin', 'technician', 'finance'] as const)('a %s does not get the review queue, even at /review', async (role) => {
+    signedInAs(role)
+    window.history.replaceState(null, '', '/review')
+    render(<App />)
+    await screen.findAllByRole('navigation')
+    expect(screen.queryByRole('navigation', { name: 'Manager' })).toBeNull()
+    expect(reviewApi.fetchManagerOrders).not.toHaveBeenCalled()
   })
 })
 

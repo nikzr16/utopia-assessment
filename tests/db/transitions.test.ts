@@ -83,6 +83,7 @@ describe('AC3 every allowed transition succeeds for the listed role and conditio
   it('Job Done -> Reviewed by a Manager', async () => {
     const o = await t.createOrder({ technician: t.people.ali })
     await t.advance(o.id as string, 'job_done')
+    await t.tellCustomer(o.id as string)
     const r = await t.transition(t.people.managerSA, o.id as string, 'reviewed')
     expect(r.status).toBe('reviewed')
   })

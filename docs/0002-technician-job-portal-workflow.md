@@ -24,8 +24,8 @@ and Storage rules in `supabase/migrations/20261022000006_technician_job_portal.s
 
 A signed-in staff member whose active profile has role `technician` opens the
 app. `App.tsx` renders `TechnicianPortal` (with their staff id) for
-technicians; Admins get the 0001 portal; Managers and Finance keep their
-`RoleHome` placeholder.
+technicians; Admins get the 0001 portal; Managers and Finance get the 0004
+portals (`docs/0004-review-and-close-workflow.md`).
 
 ## Preconditions
 
@@ -64,6 +64,7 @@ Layout is phone first (375 px, tap targets ≥ 44 px, sticky action bar).
 
 **Reads:** The order from `order_summary` (RLS: own jobs only), the completion record, payments with their receipts, and the latest `returned_for_rework` audit entry.
 **Shows:** Order number, status, service type, date; **Customer** (name, formatted phone, address) with **Call** (`tel:+60…`), **WhatsApp** (`wa.me` with "Hi <customer>, this is <technician> from Sejuk Sejuk Service about your aircond job <order>.") and **Open in Maps** (Google Maps search); **Job** (problem, notes from the office, branch); **Money** (quoted, extra charges, final, paid with payment status, To collect) and the payments list with **Receipt** links; **Photos and files** (In Progress, Job Done, Reviewed, Closed); the **Completion record** ("Previous completion record" during rework).
+**Approved / Closed (0004):** Reviewed and Closed jobs show "Approved by X at T" (with the Manager's note) and "Closed by X at T" under the header.
 **Customer message (0003):** Job Done, Reviewed and Closed jobs show the Customer message panel under the header: send on WhatsApp (or call a landline customer), edit before sending, confirm. Details: `docs/0003-whatsapp-notification-workflow.md`.
 **Banners:** "Returned for rework" with the manager's note, name and time (In Progress with a record and a rework entry); "This job was cancelled. Nothing more to do." (cancelled: contact links hidden).
 **Actions (sticky bar):** Accept job (Assigned), Start job (Assigned / Acknowledged), Complete job or **Fix and resubmit** (In Progress), Record payment (In Progress, Job Done, Reviewed), Reschedule (`RESCHEDULABLE_STATUSES`).
@@ -93,7 +94,7 @@ The shared Reschedule dialog (also used by Admins): new date and time (Malaysia 
 **Form (`/complete`):** Order ID (read-only), Work done, Extra charges (RM, `inputmode="decimal"`, empty = 0), live **Final amount** (quoted + extra; "—" while the extra charges are not a valid amount), Photos, videos and PDFs (stage 5), Remarks (required when extra charges > 0), Technician (read-only) and Timestamp ("Recorded when you submit"). A reworked job opens pre-filled with the previous record.
 **Draft:** Every change is saved on the phone (`localStorage` `sejuk-draft:completion:<order id>`); reopening restores it with "Restored what you typed earlier on this phone." Cleared on submit and on sign-out.
 **Submit:** Field errors are shown and the first invalid field is focused. Files still uploading → "Wait for the files to finish uploading."; failed files → "Retry or remove the files that did not upload."; no files → "Submit without photos?" (Add photos / Submit without photos). The button locks while saving (ref guard: one save however often it is tapped).
-**Output:** Status Job Done; managers of the branch notified (0000). Redirect to `/jobs/<order>?submitted=1`: "Job submitted. Your manager has been told and will review it." plus "Record the payment (RM x)" when a balance is owed.
+**Output:** Status Job Done; every Manager covering the branch notified (0000, 0004). Redirect to `/jobs/<order>?submitted=1`: "Job submitted. Your manager has been told and will review it." plus "Record the payment (RM x)" when a balance is owed.
 **On failure:** If the connection failed or the database says the job is already Job Done, the job is re-read: Job Done → treated as submitted. Otherwise the message is shown and everything typed stays in the form.
 
 ### 7. Record a payment — `record_payment` with client key and receipt
@@ -108,7 +109,7 @@ The shared Reschedule dialog (also used by Admins): new date and time (Malaysia 
 ### 8. Notifications — `notifications` + Realtime
 
 **Count:** `NotificationsProvider` loads the unread count, subscribes to Realtime changes on `notifications` filtered to the technician's staff id, and refreshes again when the app becomes visible or the connection returns. The nav shows the count (red badge, "99+" above 99).
-**List (`/notifications`):** The latest 50, newest first: event tag (New job, Job done, Returned for rework, Reviewed, Details changed, Cancelled, Reassigned, Payment recorded), message, Malaysia time, unread highlighted. Tapping one opens the job at once and marks it read in the background (`mark_notification_read`). A "Reassigned" notification does not open the job: "This job is no longer assigned to you." **Mark all as read** (`mark_all_notifications_read`) when anything is unread.
+**List (`/notifications`):** The latest 50, newest first: event tag (New job, Job done, Returned for rework, Reviewed, Details changed, Cancelled, Reassigned, Payment recorded, Approved, Closed; the last two since 0004), message, Malaysia time, unread highlighted. Tapping one opens the job at once and marks it read in the background (`mark_notification_read`). A "Reassigned" notification does not open the job: "This job is no longer assigned to you." **Mark all as read** (`mark_all_notifications_read`) when anything is unread.
 **Events a technician receives:** `assigned` (new or reassigned to them), `order_updated` (0001), `rework`, `cancelled` (with the reason), `reassigned_away`.
 
 ### 9. Sign out
@@ -184,3 +185,4 @@ Signing out removes every `sejuk-draft:` entry from the phone before ending the 
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0007-technician-job-portal-implementation-details.md` | Decision log | Divergences from the 0002 plan |
 | `docs/0003-whatsapp-notification-workflow.md` | Workflow | Customer message panel on the job page and the Submitted-tab flag |
+| `docs/0004-review-and-close-workflow.md` | Workflow | Approve / close notices and "Approved by / Closed by" on the job page; the payment form shared with Finance |
