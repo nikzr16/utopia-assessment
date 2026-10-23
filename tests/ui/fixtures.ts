@@ -1,6 +1,6 @@
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
-import type { CustomerMessage } from '../../src/domain'
+import { customerMessageFullText, type CustomerMessage } from '../../src/domain'
 import type { HistoryEntry, OrderSummary, ReferenceData } from '../../src/features/orders/api'
 
 // Component tests replace src/features/orders/api.ts with test doubles; the
@@ -88,7 +88,7 @@ export const CUSTOMER_MESSAGE_TEXT =
 
 /** A row of `latest_customer_messages`: a WhatsApp message that is not sent yet. */
 export function makeCustomerMessage(overrides: Partial<CustomerMessage> = {}): CustomerMessage {
-  return {
+  const message: CustomerMessage = {
     id: 'm-1',
     order_id: 'o-1',
     channel: 'whatsapp',
@@ -103,6 +103,10 @@ export function makeCustomerMessage(overrides: Partial<CustomerMessage> = {}): C
     confirmed_by_name: null,
     confirmed_at: null,
     created_at: '2026-10-22T07:15:00Z',
+    feedback_url: null,
+    full_body: '',
     ...overrides,
   }
+  // 0005: what is sent is the text plus the fixed feedback link line.
+  return { ...message, full_body: overrides.full_body ?? customerMessageFullText(message.body, message.feedback_url) }
 }

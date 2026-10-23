@@ -25,8 +25,8 @@ Source brief: `docs/prd/0000-programmer-assessment-brief.docx`. Feature
 numbers follow the build order: 0000 foundation, 0001–0003 brief Modules 1–3,
 0004 review and close screens, 0005 customer feedback, 0006 staff
 management, 0007 KPI dashboard, 0008 AI operations query, 0009 optional AI
-challenges (see `docs/product-roadmap.md`; renumbered in decisions 0009
-and 0010).
+challenges, 0010 production deployment (see `docs/product-roadmap.md`;
+renumbered in decisions 0009 and 0010; 0010 added in decision 0012).
 
 ## Tech Stack
 
@@ -45,7 +45,8 @@ when structure, routes, schemas, or config change).
   `features/` (per-feature UI: `auth`, `orders` (Admin), `jobs` (Technician),
   `attachments` (job files), `notifications`, `customer-messages` (0003),
   `payments` (shared payment form), `order-review` (Manager / Finance order
-  page and queues), `review` (Manager), `finance` (Finance) (0004)),
+  page and queues), `review` (Manager), `finance` (Finance) (0004),
+  `feedback` (public feedback page and staff feedback card, 0005)),
   `components/` (shared UI),
   `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
@@ -116,6 +117,15 @@ when structure, routes, schemas, or config change).
    needs the customer told; Close needs full payment and every non-cash
    payment verified by Finance. Staff and branch cover change by SQL until
    0006 `staff-management`.
+9. Customer feedback: `docs/0005-customer-feedback-workflow.md`. Each WhatsApp
+   Job Done message gets a random token; the text sent ends with a fixed
+   `Leave feedback: <address>/f/<token>` line. The public page at `/f/:token`
+   needs no sign-in; signed-out visitors may call only `feedback_form` and
+   `submit_feedback`. One feedback per visit, link valid 7 days; 1–2 stars or
+   "not working" alerts covering Managers; landline ratings are recorded by an
+   Admin or covering Manager. The link address is
+   `app_settings.feedback_link_base` (local until 0010). Feedback rows are
+   never changed or deleted (cleanup must disable `customer_feedback_guard_trg`).
 
 ## Environment And Secrets
 

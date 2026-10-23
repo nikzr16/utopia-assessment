@@ -47,6 +47,7 @@ rework return.
   `Hi {customer}, Job {order_no} has been completed by Technician {name} at {time}. Please check and leave feedback. Thank you!`
   `{time}` is the completion time in Malaysia time, in the app's format (`Fri 23 Oct 2026, 3:30 AM`, `_malaysia_date_time`).
 - `status`: `not_sent`.
+- `feedback_token` (0005): a random token for a WhatsApp message (none for a landline). The text actually sent is `body` plus a fixed last line `Leave feedback: <address>/f/<token>` that editing cannot remove (`docs/0005-customer-feedback-workflow.md` stage 2).
 **Output:** A new row for every Job Done; a rework resubmission adds a new row and the screens show the newest one. Earlier rows stay.
 **On failure:** The trigger runs inside `submit_completion`; if it fails the whole submission rolls back. With no completion record (not reachable today) it uses now() and the assigned technician.
 
@@ -140,8 +141,9 @@ The migration wrote one `not_sent` message for every order already Job Done, Rev
 - The screen trims Unicode spaces; the database trims spaces, tabs and line
   breaks. Text made only of non-breaking spaces is refused by the screen but
   not by the database.
-- 0005 (`customer-feedback`) adds the feedback link to
-  `_customer_job_done_message`.
+- 0005 (`customer-feedback`) adds the feedback link as a fixed last line
+  after `body` (`_customer_message_full_text`); `_customer_job_done_message`
+  is unchanged. The `customer_messaged` audit entry records the full text.
 
 ## Related Documents
 
@@ -155,3 +157,4 @@ The migration wrote one `not_sent` message for every order already Job Done, Rev
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0008-whatsapp-notification-implementation-details.md` | Decision log | Divergences from the 0003 PRD and plan |
 | `docs/0004-review-and-close-workflow.md` | Workflow | Manager sending on behalf; approval waits for this message |
+| `docs/0005-customer-feedback-workflow.md` | Workflow | Feedback link line added to this message |

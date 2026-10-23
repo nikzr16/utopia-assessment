@@ -18,6 +18,7 @@ import {
 } from '../../domain'
 import { JobFiles, PaymentList } from '../attachments'
 import { CustomerMessagePanel } from '../customer-messages'
+import { FeedbackCard } from '../feedback'
 import { ReviewOutcome } from '../order-review'
 import { useLoad } from '../../lib/useLoad'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
@@ -45,6 +46,7 @@ export function JobPage() {
   })
   const [actionError, setActionError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [feedbackKey, setFeedbackKey] = useState(0)
   const inFlight = useRef(false)
 
   if (state.status === 'loading') {
@@ -156,7 +158,10 @@ export function JobPage() {
         orderId={job.id}
         orderStatus={job.status}
         canManage={canManageCustomerMessage(job.status, 'technician', true)}
+        onChange={() => setFeedbackKey((k) => k + 1)}
       />
+
+      <FeedbackCard orderId={job.id} orderStatus={job.status} role="technician" refreshKey={feedbackKey} />
 
       {inRework ? (
         <section role="note" aria-label="Returned for rework" className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">

@@ -105,6 +105,7 @@ export const NOTIFICATION_EVENTS = [
   'payment_recorded',
   'job_approved',
   'job_closed',
+  'low_feedback',
 ] as const
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number]
 
@@ -137,4 +138,5 @@ export const NOTIFICATION_EVENT_LABELS: Record<NotificationEvent, string> = {
   payment_recorded: 'Payment recorded',
   job_approved: 'Approved',
   job_closed: 'Closed',
+  low_feedback: 'Poor rating',
 }

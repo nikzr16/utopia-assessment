@@ -17,6 +17,7 @@ import {
 import type { Payment } from '../../lib/orderRecords'
 import { useLoad } from '../../lib/useLoad'
 import { CustomerMessagePanel } from '../customer-messages'
+import { FeedbackCard } from '../feedback'
 import { CompletionSection } from '../orders/CompletionSection'
 import { OrderHistory } from '../orders/OrderHistory'
 import { OrderSummaryCard } from '../orders/OrderSummaryCard'
@@ -63,6 +64,7 @@ export function OrderReviewPage({
   const [dialog, setDialog] = useState<DialogName | null>(null)
   const [params] = useSearchParams()
   const [flash, setFlash] = useState<string | null>(params.get('paid') ? 'Payment recorded.' : null)
+  const [feedbackKey, setFeedbackKey] = useState(0)
 
   if (state.status === 'loading') {
     return (
@@ -270,7 +272,18 @@ export function OrderReviewPage({
             canManage={isManager && canConfirmCustomerMessage(order.status, 'manager', true)}
             onBehalfBody={onBehalfBody}
             canEdit={false}
-            onChange={reload}
+            onChange={() => {
+              reload()
+              setFeedbackKey((k) => k + 1)
+            }}
+          />
+
+          <FeedbackCard
+            orderId={order.id}
+            orderStatus={order.status}
+            role={role}
+            coversBranch={isManager}
+            refreshKey={feedbackKey}
           />
         </div>
       </div>

@@ -28,6 +28,11 @@ vi.mock('../../src/features/attachments/api', async (importOriginal) => {
   return { ...actual, fetchJobFiles: vi.fn(), signedUrls: vi.fn() }
 })
 
+// 0005: the order pages show the customer feedback card; no feedback here.
+vi.mock('../../src/features/feedback/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/feedback/api')>()),
+  fetchOrderFeedback: async () => [],
+}))
 vi.mock('../../src/features/customer-messages/api', async (importOriginal) => {
   const actual = await importOriginal<typeof messagesApi>()
   return { ...actual, fetchLatestCustomerMessage: vi.fn(), confirmCustomerMessage: vi.fn(), editCustomerMessage: vi.fn() }

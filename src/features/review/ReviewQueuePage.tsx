@@ -1,5 +1,14 @@
 import { useSearchParams } from 'react-router'
-import { MANAGER_VIEWS, MANAGER_VIEW_LABELS, formatMYR, formatMalaysiaDateTime, type ManagerView } from '../../domain'
+import {
+  FEEDBACK_RATING_MAX,
+  MANAGER_VIEWS,
+  MANAGER_VIEW_LABELS,
+  formatMYR,
+  formatMalaysiaDateTime,
+  isLowFeedback,
+  ratingStars,
+  type ManagerView,
+} from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
 import { BranchFilter, QueueList, QueueTabs, type QueueColumn } from '../order-review'
@@ -18,6 +27,20 @@ function told(status: string | null) {
   return '—'
 }
 
+/** 0005: the latest visit's customer rating; poor ones in red. */
+function rating(stars: number | null, workingWell: boolean | null) {
+  if (stars === null) return '—'
+  const low = isLowFeedback(stars, workingWell ?? true)
+  return (
+    <span className={low ? 'font-medium text-red-800' : undefined}>
+      <span role="img" aria-label={`${stars} out of ${FEEDBACK_RATING_MAX} stars`} className="text-amber-500">
+        {ratingStars(stars)}
+      </span>
+      {workingWell === false ? ' Not working' : ''}
+    </span>
+  )
+}
+
 const COLUMNS: Record<ManagerView, QueueColumn[]> = {
   to_review: [
     { header: 'Technician', cell: (o) => o.technician_name ?? '—' },
@@ -34,6 +57,7 @@ const COLUMNS: Record<ManagerView, QueueColumn[]> = {
     { header: 'Technician', cell: (o) => o.technician_name ?? '—' },
     { header: 'Approved', cell: (o) => (o.reviewed_at ? formatMalaysiaDateTime(o.reviewed_at) : '—') },
     { header: 'By', cell: (o) => o.reviewed_by_name ?? '—' },
+    { header: 'Customer rating', cell: (o) => rating(o.latest_rating, o.latest_working_well) },
   ],
 }
 

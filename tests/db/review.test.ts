@@ -68,7 +68,13 @@ describe('A Manager sends the customer message on behalf of the technician', () 
     })
     const [entry] = (await t.audit(id)).filter((e) => e.action === 'customer_messaged')
     expect(entry).toMatchObject({ actor_id: t.people.managerSA, actor_role: 'manager' })
-    expect(entry.details).toMatchObject({ on_behalf: true, body: sent.body })
+    // The audit keeps the full text sent, with the fixed feedback link line (0005).
+    expect(entry.details).toMatchObject({
+      on_behalf: true,
+      body: `${sent.body as string}
+
+Leave feedback: http://localhost:5173/f/${sent.feedback_token as string}`,
+    })
     // Now the Manager can approve.
     expect((await t.transition(t.people.managerSA, id, 'reviewed')).status).toBe('reviewed')
   })

@@ -51,6 +51,10 @@ export interface CustomerMessage {
   confirmed_by_name: string | null
   confirmed_at: string | null
   created_at: string
+  /** 0005: the feedback link of this visit (`<address>/f/<token>`); null for a landline. */
+  feedback_url: string | null
+  /** 0005: the text that is (or was) sent: `body` plus the fixed feedback link line. */
+  full_body: string
 }
 
 export type CustomerMessageBodyResult = { ok: true; value: string } | { ok: false; error: string }

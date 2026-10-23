@@ -218,8 +218,8 @@ describe('Job Done prepares a customer message', () => {
 // ---------------------------------------------------------------------------
 describe('Existing orders get a message when the migration runs (backfill)', () => {
   it('prepares a not_sent message for every Job Done, Reviewed and Closed order with a completion record', async () => {
-    // 0004 builds on the 0003 tables, so it is held back too and runs after.
-    const L = await createTestDb({ holdBackMigrations: ['20261023000001', '20261023000002'] })
+    // 0004 and 0005 build on the 0003 tables, so they are held back too and run after.
+    const L = await createTestDb({ holdBackMigrations: ['20261023000001', '20261023000002', '20261023000003'] })
     try {
       const order = (opts: Parameters<TestDb['createOrder']>[0]) => L.createOrder(opts).then((o) => o.id as string)
       const done = await order({ technician: L.people.ali })
@@ -246,6 +246,7 @@ describe('Existing orders get a message when the migration runs (backfill)', () 
       expect((await L.q(`select to_regclass('customer_messages') as t`))[0].t).toBeNull()
       await L.applyMigration('20261023000001')
       await L.applyMigration('20261023000002')
+      await L.applyMigration('20261023000003')
 
       const rows = await L.q<Row>('select * from customer_messages order by order_id')
       expect(rows.map((r) => r.order_id).sort()).toEqual([done, reviewed, closed, landline, reworked].sort())
@@ -468,12 +469,16 @@ describe('confirm_customer_message', () => {
     await edit(t.people.ali, waMsg.id, 'Edited text')
     await confirm(t.people.admin, waMsg.id)
     const [sent] = await auditOf(wa, 'customer_messaged')
+    // The text that was sent: the edited text plus the fixed feedback link line (0005).
+    const sentText = `Edited text
+
+Leave feedback: http://localhost:5173/f/${waMsg.feedback_token}`
     expect(sent).toMatchObject({ actor_id: t.people.admin, actor_role: 'admin', from_status: null, to_status: null })
     expect(sent.details).toMatchObject({
       message_id: waMsg.id,
       channel: 'whatsapp',
       phone: MOBILE,
-      body: 'Edited text',
+      body: sentText,
       edited: true,
       status: 'job_done',
     })
