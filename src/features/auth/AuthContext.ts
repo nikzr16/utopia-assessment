@@ -14,6 +14,8 @@ export interface AuthState {
   signOut: () => Promise<void>
   /** Re-run the staff profile lookup (e.g. after a load error). */
   reloadProfile: () => void
+  /** Why the person was signed out (e.g. deactivated), shown on the sign-in form. */
+  notice: string | null
 }
 
 export const AuthContext = createContext<AuthState | null>(null)

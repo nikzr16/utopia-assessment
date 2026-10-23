@@ -22,6 +22,7 @@ import {
 } from '../../domain'
 import { isNetworkError } from '../../lib/api'
 import { useLoad } from '../../lib/useLoad'
+import { staffName } from '../../lib/staffStatus'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
 import { confirmCustomerMessage, editCustomerMessage, fetchLatestCustomerMessage } from './api'
 
@@ -134,8 +135,14 @@ function MessageCard({
   const canSend = canSendCustomerMessage(message)
   const canCall = canCallCustomer(message)
   const canEdit = allowEdit && canEditCustomerMessage(message)
-  const stateLabel = customerMessageStateLabel(message)
-  const editedLabel = customerMessageEditedLabel(message)
+  // 0006: who edited / confirmed it, tagged "(inactive)" once they have left.
+  const named = {
+    ...message,
+    edited_by_name: staffName(message.edited_by_name, message.edited_by),
+    confirmed_by_name: staffName(message.confirmed_by_name, message.confirmed_by),
+  }
+  const stateLabel = customerMessageStateLabel(named)
+  const editedLabel = customerMessageEditedLabel(named)
   // Until it is sent, a Manager sends their own wording; afterwards the sent text shows.
   const onBehalf = canManage && canSend && onBehalfBody !== undefined
   const body = onBehalf ? onBehalfBody : message.body

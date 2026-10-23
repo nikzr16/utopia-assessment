@@ -19,3 +19,6 @@ dist/
 .pytest_cache/
 .ruff_cache/
 .claude/settings.local.json
+
+# Supabase CLI working files (project link, CLI version)
+supabase/.temp/

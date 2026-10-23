@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import { AppHeader } from './components/AppHeader'
 import { Notice } from './components/Notice'
 import { SetupNotice } from './components/SetupNotice'
-import { AuthProvider, SignInForm, useAuth } from './features/auth'
+import { AuthProvider, ChangePasswordPage, ConfirmLinkPage, SignInForm, useAuth } from './features/auth'
 import { FeedbackPage } from './features/feedback'
 import { FinancePortal } from './features/finance'
 import { TechnicianPortal } from './features/jobs'
@@ -71,10 +71,22 @@ function Main() {
   }
 
   const { id, name, role, branchName } = profile.profile
-  if (role === 'admin') return <AdminPortal branchName={branchName} />
-  if (role === 'technician') return <TechnicianPortal staffId={id} />
-  if (role === 'manager') return <ManagerPortal staffId={id} staffName={name} />
-  return <FinancePortal staffId={id} staffName={name} />
+  const portal =
+    role === 'admin' ? (
+      <AdminPortal branchName={branchName} />
+    ) : role === 'technician' ? (
+      <TechnicianPortal staffId={id} />
+    ) : role === 'manager' ? (
+      <ManagerPortal staffId={id} staffName={name} />
+    ) : (
+      <FinancePortal staffId={id} staffName={name} />
+    )
+  return (
+    <Routes>
+      <Route path="/account/password" element={<ChangePasswordPage />} />
+      <Route path="*" element={portal} />
+    </Routes>
+  )
 }
 
 function StaffApp() {
@@ -90,11 +102,15 @@ function StaffApp() {
   )
 }
 
-/** The customer feedback page (0005) needs no sign-in; everything else is the staff app. */
+/**
+ * The customer feedback page (0005) and the invite / password email link
+ * (0006) need no sign-in; everything else is the staff app.
+ */
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/f/:token" element={<FeedbackPage />} />
+      <Route path="/auth/confirm" element={<ConfirmLinkPage />} />
       <Route path="*" element={<StaffApp />} />
     </Routes>
   )

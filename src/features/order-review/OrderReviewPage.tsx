@@ -16,6 +16,7 @@ import {
 } from '../../domain'
 import type { Payment } from '../../lib/orderRecords'
 import { useLoad } from '../../lib/useLoad'
+import { staffName as tagStaff } from '../../lib/staffStatus'
 import { CustomerMessagePanel } from '../customer-messages'
 import { FeedbackCard } from '../feedback'
 import { CompletionSection } from '../orders/CompletionSection'
@@ -145,7 +146,7 @@ export function OrderReviewPage({
 
       <header className="flex flex-col gap-2">
         <p className="text-sm text-slate-600">
-          {order.branch_name} · {order.technician_name ?? 'No technician'}
+          {order.branch_name} · {tagStaff(order.technician_name, order.assigned_technician_id) ?? 'No technician'}
         </p>
         <h2 className="flex flex-wrap items-center gap-3 text-2xl font-semibold">
           {order.order_no} <StatusBadge status={order.status} />
@@ -258,7 +259,7 @@ export function OrderReviewPage({
                   <li key={r.id} className="border-l-2 border-amber-300 pl-3">
                     <p className="break-words">{r.note}</p>
                     <p className="text-xs text-slate-500">
-                      {r.actor_name} · {formatMalaysiaDateTime(r.created_at)}
+                      {tagStaff(r.actor_name, r.actor_id)} · {formatMalaysiaDateTime(r.created_at)}
                     </p>
                   </li>
                 ))}

@@ -17,7 +17,8 @@ describe('mapAuthError', () => {
 
   it('maps unconfirmed and disabled accounts', () => {
     expect(mapAuthError({ code: 'email_not_confirmed' })).toMatch(/not confirmed/i)
-    expect(mapAuthError({ code: 'user_banned' })).toMatch(/disabled/i)
+    // 0006: a deactivated person's sign-in is blocked (banned).
+    expect(mapAuthError({ code: 'user_banned' })).toBe('Your account is no longer active. Ask your administrator if this is a mistake.')
   })
 
   it('maps rate limiting', () => {

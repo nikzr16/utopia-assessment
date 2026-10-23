@@ -57,6 +57,7 @@ function signedInAs(role: StaffRole, branchName = 'Shah Alam') {
     signIn: vi.fn(),
     signOut: vi.fn(),
     reloadProfile: vi.fn(),
+    notice: null,
   }
   vi.mocked(auth.useAuth).mockReturnValue(state)
 }

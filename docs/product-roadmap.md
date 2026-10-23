@@ -55,7 +55,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | `docs/prd/0003-whatsapp-notification-prd.md` | `src/features/customer-messages/`, `supabase/migrations/` | shipped | Brief Module 3 |
 | `docs/prd/0004-review-and-close-prd.md` | `src/features/review/`, `src/features/finance/`, `src/features/order-review/`, `src/features/payments/`, `supabase/migrations/` | shipped | Manager review and Finance close screens (0002 PRD Q14; 0003 Q10); Manager branch cover; every branch needs a Manager |
 | `docs/prd/0005-customer-feedback-prd.md` | `src/features/feedback/`, `supabase/migrations/` | shipped | Private feedback link in the 0003 / 0004 message; public page with no sign-in; staff see ratings; poor ratings alert Managers; data for 0007 |
-| 0006 `staff-management` | — | planned | Staff screen: create staff and sign-ins, assign Manager branch cover, deactivate (0004 Q13); PRD not written yet |
+| `docs/prd/0006-staff-management-prd.md` | `src/features/staff/`, `supabase/migrations/`, `supabase/functions/` | shipped | Staff screen: list, add with an invite email, edit, Manager branch cover, deactivate (instant sign-out) / reactivate within the 0004 rules (0004 Q13); staff history and joined / left dates for 0007; only Admins change emails (decision 0014) |
 
 ### Phase 3: Insights
 
@@ -89,11 +89,11 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 
 | Concern | Introduced In | Matured In | Current State |
 |---|---|---|---|
-| Authentication and access (Supabase Auth, RLS, actor from `auth.uid()`) | 0000 | 0005 | Real email/password sign-in; public sign-up off; Managers read and act on the branches they cover (home + additional); signed-out visitors may call only the two feedback page functions, keyed by a random link token |
-| Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0005 | Transitions, enums, phone, price, editable / reschedulable statuses, extra charges, file types / sizes / paths, file and receipt permissions, payment rules, job list tabs, notification events, mobile check, Malaysia time format, customer message rules, branch cover, review / payment tabs, approve / close guards, payment verification, on-behalf message, feedback answers, poor rating, link text and states, phone rating rule |
-| Deployment (Vercel) | 0001 | 0010 | `vercel.json` SPA rewrite in place; not deployed yet; 0005 feedback links use a database setting for the public address (local for now) |
+| Authentication and access (Supabase Auth, RLS, actor from `auth.uid()`) | 0000 | 0006 | Real email/password sign-in; public sign-up off; Managers read and act on the branches they cover (home + additional); signed-out visitors may call only the two feedback page functions, keyed by a random link token; staff and sign-ins managed on screen: invite / reset emails (custom SMTP), the `staff-access` Edge Function is the only holder of the secret key, deactivation blocks sign-in and signs the person out at once |
+| Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0006 | Transitions, enums, phone, price, editable / reschedulable statuses, extra charges, file types / sizes / paths, file and receipt permissions, payment rules, job list tabs, notification events, mobile check, Malaysia time format, customer message rules, branch cover, review / payment tabs, approve / close guards, payment verification, on-behalf message, feedback answers, poor rating, link text and states, phone rating rule, staff name / email, phone by role, open jobs, who may manage whom, staff history actions |
+| Deployment (Vercel) | 0001 | 0010 | `vercel.json` SPA rewrite in place; app not deployed yet; 0005 feedback links use a database setting for the public address (local for now); the 0006 `staff-access` Edge Function is deployed to the hosted project, and its email links accept the local addresses until 0010 adds the deployed one (`APP_ORIGINS`) |
 | File storage (Supabase Storage) | 0002 | 0002 | Private `job-files` bucket; policies follow order visibility; files registered by RPC from the stored object's real type and size |
-| Live updates (Supabase Realtime) | 0002 | 0002 | `notifications` streamed to the recipient under RLS; refresh on return as a fallback |
+| Live updates (Supabase Realtime) | 0002 | 0006 | `notifications` streamed to the recipient under RLS; a person's own `staff` row streamed so deactivation signs them out at once (0006); refresh on return as a fallback |
 | In-app notifications UI | 0002 | 0005 | Technicians, Managers and Finance (bell and list open the order in each portal); Managers also get poor-rating notices; Admins have none |
 
 ## PRD Registry
@@ -106,6 +106,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | `docs/prd/0003-whatsapp-notification-prd.md` | 2 – Core workflow | `src/features/customer-messages/`, `supabase/migrations/` | shipped |
 | `docs/prd/0004-review-and-close-prd.md` | 2 – Core workflow | `src/features/review/`, `src/features/finance/`, `src/features/order-review/`, `src/features/payments/`, `supabase/migrations/` | shipped |
 | `docs/prd/0005-customer-feedback-prd.md` | 2 – Core workflow | `src/features/feedback/`, `supabase/migrations/` | shipped |
+| `docs/prd/0006-staff-management-prd.md` | 2 – Core workflow | `src/features/staff/`, `supabase/migrations/`, `supabase/functions/` | shipped |
 
 ## Prioritization Log
 
@@ -119,6 +120,7 @@ _When a feature moves between phases or priorities shift, record the change and 
 | 2026-10-23 | Features renumbered in build order: review-and-close 0007 → 0004, customer-feedback 0008 → 0005, kpi-dashboard 0004 → 0006, ai-ops-query 0005 → 0007, ai-advanced 0006 → 0008 (decision 0009) | Feature numbers now follow the order they are built; earlier rows keep the old numbers |
 | 2026-10-23 | New feature 0006 `staff-management` in Phase 2 after 0005; kpi-dashboard 0006 → 0007, ai-ops-query 0007 → 0008, ai-advanced 0008 → 0009 (decision 0010) | 0004 Q13 requires a Manager in every branch; a staff screen keeps that manageable without SQL, and numbers keep following the build order |
 | 2026-10-23 | New Phase 5 Production with feature 0010 `production-deployment` (decision 0012) | 0005 Q10: build and test locally now; deploy to Vercel and test everything, incl. the feedback link on a real phone, once in its own phase |
+| 2026-10-23 | Phase 2 graduated: 0001–0006 shipped (0006 staff management last) | Every graduation criterion met: an order goes from creation to Closed on screen, customers leave feedback, staff are managed on screen; Phase 3 (0007, 0008) can start |
 
 ## Related Documents
 

@@ -2,6 +2,9 @@
 
 export const GENERIC_SIGN_IN_ERROR = 'Could not sign in. Please try again.'
 
+/** Shown when a deactivated person signs in, or is signed out because they were deactivated (0006). */
+export const DEACTIVATED_MESSAGE = 'Your account is no longer active. Ask your administrator if this is a mistake.'
+
 export interface AuthErrorLike {
   message?: unknown
   code?: unknown
@@ -31,7 +34,7 @@ export function mapAuthError(error: unknown): string {
     return 'Your account is not confirmed yet. Ask your administrator for help.'
   }
   if (code === 'user_banned' || message.includes('banned')) {
-    return 'This account has been disabled. Ask your administrator for help.'
+    return DEACTIVATED_MESSAGE
   }
   if (
     code === 'over_request_rate_limit' ||

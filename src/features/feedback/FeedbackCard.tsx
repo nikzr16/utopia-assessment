@@ -22,6 +22,7 @@ import {
 } from '../../domain'
 import { isNetworkError } from '../../lib/api'
 import { useLoad } from '../../lib/useLoad'
+import { staffName, useInactiveStaff } from '../../lib/staffStatus'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
 import { fetchLatestCustomerMessage } from '../customer-messages/api'
 import { fetchOrderFeedback, recordPhoneFeedback } from './api'
@@ -149,6 +150,7 @@ function waitingText(latest: CustomerMessage): string {
 }
 
 function FeedbackItem({ feedback: f, showVisit }: { feedback: OrderFeedback; showVisit: boolean }) {
+  useInactiveStaff() // re-render with "(inactive)" tags once known
   const low = isLowFeedback(f.rating, f.working_well)
   return (
     <div className="space-y-1 text-sm">
@@ -176,7 +178,7 @@ function FeedbackItem({ feedback: f, showVisit }: { feedback: OrderFeedback; sho
         </blockquote>
       ) : null}
       <p className="text-xs text-slate-500">
-        {feedbackSourceLabel(f)}
+        {feedbackSourceLabel({ ...f, recorded_by_name: staffName(f.recorded_by_name, f.recorded_by) })}
         {showVisit ? ` · visit done ${formatMalaysiaDateTime(f.job_done_at)}` : ''}
       </p>
     </div>

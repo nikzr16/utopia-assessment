@@ -4,6 +4,7 @@ import { Notice } from '../../components/Notice'
 import { StatusBadge } from '../../components/StatusBadge'
 import { BUTTON, CARD, LINK } from '../../components/styles'
 import {
+  OPEN_JOB_STATUSES,
   availableTransitions,
   canEditOrder,
   canManageCustomerMessage,
@@ -21,6 +22,7 @@ import { COMPLETION_STATUSES, CompletionSection } from './CompletionSection'
 import { RescheduleDialog } from './actions/RescheduleDialog'
 import { OrderHistory } from './OrderHistory'
 import { OrderSummaryCard } from './OrderSummaryCard'
+import { useInactiveStaff } from '../../lib/staffStatus'
 import { useLoad } from '../../lib/useLoad'
 import { WhatsAppButton } from './WhatsAppButton'
 
@@ -42,6 +44,7 @@ export function OrderDetailPage() {
   const [state, reload] = useLoad(() => loadDetail(orderNo), orderNo)
   const [dialog, setDialog] = useState<DialogName | null>(params.get('action') === 'reschedule' ? 'reschedule' : null)
   const [feedbackKey, setFeedbackKey] = useState(0)
+  const inactive = useInactiveStaff()
   const [flash, setFlash] = useState<{ text: string; kind?: TechnicianMessageKind } | null>(() => {
     if (params.get('created')) return { text: 'Order saved.', kind: 'assigned' }
     if (params.get('updated')) return { text: 'Changes saved.', kind: 'updated' }
@@ -96,7 +99,12 @@ export function OrderDetailPage() {
   const canCancel = actions.some((a) => a.to === 'cancelled')
   const canEdit = canEditOrder(order.status)
   const canReschedule = canRescheduleOrder(order.status)
-  const showWhatsApp = order.technician_name !== null && WHATSAPP_STATUSES.includes(order.status)
+  // 0006: a job returned for rework to a technician who has since left.
+  const technicianLeft =
+    order.assigned_technician_id !== null &&
+    inactive.has(order.assigned_technician_id) &&
+    OPEN_JOB_STATUSES.includes(order.status)
+  const showWhatsApp = order.technician_name !== null && WHATSAPP_STATUSES.includes(order.status) && !technicianLeft
   const justCreated = Boolean(params.get('created'))
 
   return (
@@ -152,6 +160,12 @@ export function OrderDetailPage() {
           ) : null}
         </div>
       </header>
+
+      {technicianLeft ? (
+        <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {order.technician_name} is no longer active. {canAssign ? 'Reassign this job to another technician.' : 'It needs another technician.'}
+        </p>
+      ) : null}
 
       {showWhatsApp ? (
         <section className={`${CARD} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`} aria-label="Notify technician">

@@ -38,6 +38,19 @@ vi.mock('../../src/features/customer-messages/api', async (importOriginal) => {
   return { ...actual, fetchLatestCustomerMessage: vi.fn(), confirmCustomerMessage: vi.fn(), editCustomerMessage: vi.fn() }
 })
 
+// 0006: Gopal (t-gone) has left; staff screens tag him "(inactive)".
+vi.mock('../../src/lib/staffStatus', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/staffStatus')>()
+  const { staffLabel } = await import('../../src/domain')
+  const left = new Set(['t-gone'])
+  return {
+    ...actual,
+    useInactiveStaff: () => left,
+    staffName: (name: string | null | undefined, id: string | null | undefined) =>
+      name === null || name === undefined ? null : staffLabel(name, !(id && left.has(id))),
+  }
+})
+
 const m = vi.mocked(api)
 
 function renderDetail(url = '/orders/ORDER1001') {
@@ -428,5 +441,28 @@ describe('Customer message (0003)', () => {
     expect(historyList.getByText('Message: Hello again')).toBeTruthy()
     expect(historyList.getByText('Told the customer by phone')).toBeTruthy()
     expect(historyList.getByText('Called +60 3-1234 5678')).toBeTruthy()
+  })
+})
+
+describe('0006: a technician who has left', () => {
+  it('is tagged "(inactive)" in the summary, history and payments, and the open job asks for a reassign', async () => {
+    m.fetchOrder.mockResolvedValue({
+      order: makeOrder({ status: 'in_progress', assigned_technician_id: 't-gone', technician_name: 'Gopal' }),
+      technicianPhone: '60120000019',
+    })
+    m.fetchOrderHistory.mockResolvedValue([{ ...history[0], actor_id: 't-gone', actor_name: 'Gopal', actor_role: 'technician' }])
+    m.fetchOrderRecords.mockResolvedValue({
+      completion: null,
+      payments: [
+        { id: 'p1', amount: 50, method: 'cash', note: null, recorded_at: '2026-10-22T03:00:00+00:00',
+          recorded_by_name: 'Gopal', recorded_by: 't-gone', receipt: null },
+      ],
+      rework: null,
+    })
+    await renderDetail()
+    expect(screen.getAllByText('Gopal (inactive)').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText(/Gopal \(inactive\) \(Technician\)/)).toBeTruthy()
+    expect(screen.getByRole('alert').textContent).toContain('Gopal is no longer active.')
+    expect(screen.queryByRole('region', { name: 'Notify technician' })).toBeNull()
   })
 })

@@ -1,0 +1,7 @@
+# Supabase CLI settings used when deploying the server function (0006):
+#   npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt
+# The function checks the caller's token itself (see its index.ts).
+project_id = "utopia-assessment"
+
+[functions.staff-access]
+verify_jwt = false

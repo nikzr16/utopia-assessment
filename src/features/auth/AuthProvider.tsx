@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { ACCESS_LOST_EVENT } from '../../lib/api'
 import { clearAllDrafts } from '../../lib/drafts'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { AuthContext, type AuthState } from './AuthContext'
-import { mapAuthError } from './errors'
+import { DEACTIVATED_MESSAGE, mapAuthError } from './errors'
 import { deriveProfileState, PROFILE_LOADING, type ProfileState } from './profile'
 
 interface Identity {
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Keyed by user id so a previous user's profile is never shown to the next one.
   const [loaded, setLoaded] = useState<{ userId: string; state: ProfileState } | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
+  const [notice, setNotice] = useState<string | null>(null)
 
   // Track the Supabase session. Token refreshes keep the same user id, so they do not re-render.
   useEffect(() => {
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!supabase) return 'Supabase is not configured.'
+    setNotice(null)
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
       return error ? mapAuthError(error) : null
@@ -82,6 +85,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setReloadToken((n) => n + 1)
   }, [])
 
+  // 0006: sign out the moment this person is deactivated. Their own staff row
+  // stays readable to them, so Realtime tells this tab at once; a focus or a
+  // refused action checks again in case the live connection was down.
+  const profileId =
+    loaded && loaded.userId === identity.userId && loaded.state.status === 'ready' ? loaded.state.profile.id : null
+  useEffect(() => {
+    if (!supabase || !profileId) return
+    const db = supabase
+    let ended = false
+    const lost = () => {
+      if (ended) return
+      ended = true
+      setNotice(DEACTIVATED_MESSAGE)
+      void signOut()
+    }
+    const recheck = () => {
+      void db.rpc('current_staff').then(({ data, error }) => {
+        if (!error && deriveProfileState(data, null).status === 'no-profile') lost()
+      })
+    }
+    const channel = db
+      .channel(`staff-self-${profileId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'staff', filter: `id=eq.${profileId}` }, (payload) => {
+        if ((payload.new as { active?: boolean }).active === false) lost()
+      })
+      .subscribe()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') recheck()
+    }
+    window.addEventListener('focus', recheck)
+    window.addEventListener(ACCESS_LOST_EVENT, recheck)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      ended = true
+      void db.removeChannel(channel)
+      window.removeEventListener('focus', recheck)
+      window.removeEventListener(ACCESS_LOST_EVENT, recheck)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [profileId, signOut])
+
   const value = useMemo<AuthState>(() => {
     const status: AuthState['status'] = !isSupabaseConfigured
       ? 'not-configured'
@@ -91,8 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ? 'signed-in'
           : 'signed-out'
     const profile = loaded && loaded.userId === identity.userId ? loaded.state : PROFILE_LOADING
-    return { status, email: identity.email, profile, signIn, signOut, reloadProfile }
-  }, [identity, loaded, signIn, signOut, reloadProfile])
+    return { status, email: identity.email, profile, signIn, signOut, reloadProfile, notice }
+  }, [identity, loaded, signIn, signOut, reloadProfile, notice])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

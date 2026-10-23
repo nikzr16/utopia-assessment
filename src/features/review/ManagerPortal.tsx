@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from '../notifications'
 import { OrderReviewPage } from '../order-review'
+import { StaffRoutes } from '../staff'
 import { ReviewQueuePage } from './ReviewQueuePage'
 
 const TAB =
@@ -15,6 +16,9 @@ export function ManagerPortal({ staffId, staffName }: { staffId: string; staffNa
         <NavLink to="/review" className={({ isActive }) => tab(isActive)}>
           Review queue
         </NavLink>
+        <NavLink to="/staff" className={({ isActive }) => tab(isActive)}>
+          Staff
+        </NavLink>
         <NotificationBell className={tab} />
       </nav>
       <Routes>
@@ -22,6 +26,10 @@ export function ManagerPortal({ staffId, staffName }: { staffId: string; staffNa
         <Route
           path="/review/:orderNo"
           element={<OrderReviewPage role="manager" basePath="/review" staffName={staffName} />}
+        />
+        <Route
+          path="/staff/*"
+          element={<StaffRoutes actorRole="manager" orderPath={(orderNo) => `/review/${encodeURIComponent(orderNo)}`} />}
         />
         <Route
           path="/notifications"

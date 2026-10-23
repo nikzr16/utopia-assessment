@@ -5,6 +5,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { CARD, INPUT, LINK } from '../../components/styles'
 import { NEEDS_ATTENTION_RETURNS, needsAttention } from '../../domain'
 import type { LoadState } from '../../lib/useLoad'
+import { useInactiveStaff } from '../../lib/staffStatus'
 import type { BranchOption, OrderReview } from './api'
 
 export interface QueueColumn {
@@ -118,6 +119,7 @@ export function QueueList({
   label: string
   empty: string
 }) {
+  useInactiveStaff() // re-render with "(inactive)" tags once known
   if (state.status === 'loading') {
     return (
       <p className="text-sm text-slate-600" role="status">

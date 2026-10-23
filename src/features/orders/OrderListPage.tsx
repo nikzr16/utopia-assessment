@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Notice } from '../../components/Notice'
+import { Pager } from '../../components/Pager'
 import { StatusBadge } from '../../components/StatusBadge'
 import { BUTTON, CARD, INPUT, LINK } from '../../components/styles'
 import {
@@ -15,6 +16,7 @@ import {
 } from '../../domain'
 import { fetchReferenceData, listOrders, type OrderListQuery, type OrderListRow, type ReferenceData } from './api'
 import { useLoad } from '../../lib/useLoad'
+import { staffName, useInactiveStaff } from '../../lib/staffStatus'
 
 export const PAGE_SIZE = 25
 
@@ -134,6 +136,7 @@ export function OrderListPage() {
           <OrderTable rows={state.data.rows} />
           <Pager
             page={page}
+            pageSize={PAGE_SIZE}
             total={state.data.total}
             onPage={(p) => update({ page: p > 1 ? String(p) : '' })}
           />
@@ -201,6 +204,7 @@ function Filters({
 }
 
 function OrderTable({ rows }: { rows: OrderListRow[] }) {
+  useInactiveStaff() // re-render with "(inactive)" tags once known
   const link = (row: OrderListRow) => `/orders/${encodeURIComponent(row.order_no)}`
   return (
     <>
@@ -217,7 +221,7 @@ function OrderTable({ rows }: { rows: OrderListRow[] }) {
             <p className="mt-2 text-sm font-medium">{row.customer_name}</p>
             <p className="text-sm text-slate-600">{formatMyPhone(row.customer_phone)}</p>
             <p className="mt-1 text-sm text-slate-600">
-              {row.service_type_name} · {row.technician_name ?? 'Not assigned'} · {row.branch_name}
+              {row.service_type_name} · {staffName(row.technician_name, row.assigned_technician_id) ?? 'Not assigned'} · {row.branch_name}
             </p>
             <p className="text-sm text-slate-600">
               {row.scheduled_at ? formatMalaysiaDateTime(row.scheduled_at) : 'Not scheduled'}
@@ -254,7 +258,7 @@ function OrderTable({ rows }: { rows: OrderListRow[] }) {
                   <div className="whitespace-nowrap text-xs text-slate-500">{formatMyPhone(row.customer_phone)}</div>
                 </td>
                 <td className="px-4 py-3">{row.service_type_name}</td>
-                <td className="px-4 py-3">{row.technician_name ?? <span className="text-slate-500">Not assigned</span>}</td>
+                <td className="px-4 py-3">{staffName(row.technician_name, row.assigned_technician_id) ?? <span className="text-slate-500">Not assigned</span>}</td>
                 <td className="px-4 py-3">
                   <StatusBadge status={row.status} />
                 </td>
@@ -268,26 +272,5 @@ function OrderTable({ rows }: { rows: OrderListRow[] }) {
         </table>
       </div>
     </>
-  )
-}
-
-function Pager({ page, total, onPage }: { page: number; total: number; onPage: (page: number) => void }) {
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const first = (page - 1) * PAGE_SIZE + 1
-  const last = Math.min(total, page * PAGE_SIZE)
-  return (
-    <nav aria-label="Pages" className="flex flex-col items-center justify-between gap-2 text-sm sm:flex-row">
-      <p className="text-slate-600">
-        Showing {first}–{last} of {total}
-      </p>
-      <div className="flex gap-2">
-        <button type="button" className={BUTTON.secondary} disabled={page <= 1} onClick={() => onPage(page - 1)}>
-          Previous
-        </button>
-        <button type="button" className={BUTTON.secondary} disabled={page >= pages} onClick={() => onPage(page + 1)}>
-          Next
-        </button>
-      </div>
-    </nav>
   )
 }

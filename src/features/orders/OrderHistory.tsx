@@ -10,6 +10,7 @@ import {
   type PaymentMethod,
   type RescheduleReason,
 } from '../../domain'
+import { staffName, useInactiveStaff } from '../../lib/staffStatus'
 import type { HistoryEntry } from './api'
 
 const ACTION_LABELS: Record<string, string> = {
@@ -119,6 +120,7 @@ export function historyDetails(entry: HistoryEntry): string[] {
 
 /** Who did what to the order, newest first (PRD AC9). */
 export function OrderHistory({ entries }: { entries: HistoryEntry[] }) {
+  useInactiveStaff() // re-render with "(inactive)" tags once known
   return (
     <section className={CARD} aria-labelledby="order-history">
       <h3 id="order-history" className="text-base font-semibold">
@@ -144,7 +146,7 @@ export function OrderHistory({ entries }: { entries: HistoryEntry[] }) {
                   ) : null}
                 </p>
                 <p className="text-xs text-slate-500">
-                  {entry.actor_name} ({ROLE_LABELS[entry.actor_role]}) · {formatMalaysiaDateTime(entry.created_at)}
+                  {staffName(entry.actor_name, entry.actor_id)} ({ROLE_LABELS[entry.actor_role]}) · {formatMalaysiaDateTime(entry.created_at)}
                 </p>
                 {details.length > 0 || entry.note ? (
                   <ul className="mt-1 space-y-0.5 text-sm text-slate-700">

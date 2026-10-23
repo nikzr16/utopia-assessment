@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { CARD, LINK } from '../../components/styles'
 import { formatMYR, formatMalaysiaDateTime, formatMyPhone } from '../../domain'
 import type { OrderSummary } from './api'
+import { staffName, useInactiveStaff } from '../../lib/staffStatus'
 
 const PAYMENT_LABELS = { unpaid: 'Unpaid', partial: 'Partly paid', paid: 'Paid' } as const
 
@@ -16,6 +17,7 @@ function Item({ label, children, wide }: { label: string; children: ReactNode; w
 
 /** Everything saved on the order (PRD AC6, AC9). */
 export function OrderSummaryCard({ order }: { order: OrderSummary }) {
+  useInactiveStaff() // re-render with "(inactive)" tags once known
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <section className={`${CARD} lg:col-span-2`} aria-labelledby="summary-job">
@@ -37,7 +39,7 @@ export function OrderSummaryCard({ order }: { order: OrderSummary }) {
           </Item>
           <Item label="Service type">{order.service_type_name}</Item>
           <Item label="Branch">{order.branch_name}</Item>
-          <Item label="Assigned technician">{order.technician_name ?? 'Not assigned yet'}</Item>
+          <Item label="Assigned technician">{staffName(order.technician_name, order.assigned_technician_id) ?? 'Not assigned yet'}</Item>
           <Item label="Scheduled">
             {order.scheduled_at ? formatMalaysiaDateTime(order.scheduled_at) : 'Not scheduled yet'}
           </Item>

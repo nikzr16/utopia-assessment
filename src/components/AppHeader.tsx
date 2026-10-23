@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { formatSignedInAs, useAuth } from '../features/auth'
 
 export function AppHeader() {
@@ -14,13 +15,21 @@ export function AppHeader() {
           </p>
         </div>
         {ready ? (
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="w-full shrink-0 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-auto"
-          >
-            Sign out
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <Link
+              to="/account/password"
+              className="flex-1 rounded-md px-3 py-2 text-center text-sm font-medium text-sky-800 hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-300 sm:flex-none"
+            >
+              Change password
+            </Link>
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="flex-1 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 sm:flex-none"
+            >
+              Sign out
+            </button>
+          </div>
         ) : null}
       </div>
     </header>
