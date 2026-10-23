@@ -121,6 +121,7 @@ describe('Access migration: row-level security and grants', () => {
         'feedback_form', 'submit_feedback', 'record_phone_feedback', '_feedback_link', '_customer_message_full_text',
         'create_staff', 'update_staff', 'set_staff_active', 'staff_access_check', 'staff_access_event',
         'staff_list', 'staff_detail', 'branch_cover_overview', 'staff_form_check',
+        'kpi_summary', 'kpi_technicians', 'kpi_branches', 'kpi_trend', 'kpi_technician_events',
       ].sort(),
     )
   })
@@ -168,6 +169,8 @@ describe('Access migration: row-level security and grants', () => {
       '_staff_cover_error', '_staff_manage_error', '_staff_change_errors', 'staff_rules_check',
       'staff_left_at', 'staff_last_role_check', '_staff_sign_in_state', '_staff_require_change',
       '_staff_access_target', '_staff_check_branch', '_staff_visible_to', '_require_staff_screen',
+      'order_reschedules_technician', '_kpi_day_start', '_kpi_period', '_kpi_visible_branches',
+      '_kpi_needs_attention', '_kpi_completed_jobs', '_kpi_events', '_kpi_active_technicians', '_kpi_metrics',
     ]
     const rows = await t.q<{ proname: string; role: string; ok: boolean }>(
       `select p.proname, r.role, has_function_privilege(r.role, p.oid, 'execute') as ok
@@ -409,6 +412,18 @@ describe('AC16 signed-out requests can read no data', () => {
       t.qAs(SIGNED_OUT, `select * from record_phone_feedback('00000000-0000-0000-0000-000000000000', 5, true)`),
       /permission denied/i,
     )
+    // 0007: the KPI read functions (and their helpers) are not for signed-out visitors.
+    const nobody = '00000000-0000-0000-0000-000000000000'
+    for (const sql of [
+      `select * from kpi_summary('2026-10-19', '2026-10-26', null)`,
+      `select * from kpi_technicians('2026-10-19', '2026-10-26', null)`,
+      `select * from kpi_branches('2026-10-19', '2026-10-26')`,
+      `select * from kpi_trend('week', '2026-10-26', 8, null, null)`,
+      `select * from kpi_technician_events('${nobody}', '2026-10-19', '2026-10-26', null)`,
+      `select * from _kpi_events(now(), now(), '{}')`,
+    ]) {
+      await expectRejects(t.qAs(SIGNED_OUT, sql), /permission denied/i)
+    }
   })
 
   it('even a request that reaches the tables as authenticated without a user gets zero rows (RLS)', async () => {
@@ -449,6 +464,10 @@ describe('AC17 an account with no active staff profile can read nothing', () => 
         expect(await t.qAs(who, 'select * from technician_jobs()').catch((e: Error) => e.message)).toMatch(
           /no active staff profile/,
         )
+        // 0007: nor can they read the KPI dashboard.
+        expect(
+          await t.qAs(who, `select * from kpi_summary('2026-10-19', '2026-10-26', null)`).catch((e: Error) => e.message),
+        ).toMatch(/no active staff profile/)
       }
     } finally {
       await t.setActiveIgnoringOpenJobs(t.people.bala, true)

@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { DashboardRoutes } from '../kpi'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from '../notifications'
 import { OrderReviewPage } from '../order-review'
 import { FinancePaymentPage } from './FinancePaymentPage'
@@ -16,6 +17,9 @@ export function FinancePortal({ staffId, staffName }: { staffId: string; staffNa
         <NavLink to="/finance" className={({ isActive }) => tab(isActive)}>
           Payments and closing
         </NavLink>
+        <NavLink to="/dashboard" className={({ isActive }) => tab(isActive)}>
+          Dashboard
+        </NavLink>
         <NotificationBell className={tab} />
       </nav>
       <Routes>
@@ -25,6 +29,10 @@ export function FinancePortal({ staffId, staffName }: { staffId: string; staffNa
           element={<OrderReviewPage role="finance" basePath="/finance" staffName={staffName} />}
         />
         <Route path="/finance/:orderNo/payment" element={<FinancePaymentPage />} />
+        <Route
+          path="/dashboard/*"
+          element={<DashboardRoutes role="finance" orderPath={(orderNo) => `/finance/${encodeURIComponent(orderNo)}`} />}
+        />
         <Route
           path="/notifications"
           element={<NotificationsPage jobPath={(orderNo) => `/finance/${encodeURIComponent(orderNo)}`} />}

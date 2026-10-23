@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { DashboardRoutes } from '../kpi'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from '../notifications'
 import { OrderReviewPage } from '../order-review'
 import { StaffRoutes } from '../staff'
@@ -19,6 +20,9 @@ export function ManagerPortal({ staffId, staffName }: { staffId: string; staffNa
         <NavLink to="/staff" className={({ isActive }) => tab(isActive)}>
           Staff
         </NavLink>
+        <NavLink to="/dashboard" className={({ isActive }) => tab(isActive)}>
+          Dashboard
+        </NavLink>
         <NotificationBell className={tab} />
       </nav>
       <Routes>
@@ -30,6 +34,10 @@ export function ManagerPortal({ staffId, staffName }: { staffId: string; staffNa
         <Route
           path="/staff/*"
           element={<StaffRoutes actorRole="manager" orderPath={(orderNo) => `/review/${encodeURIComponent(orderNo)}`} />}
+        />
+        <Route
+          path="/dashboard/*"
+          element={<DashboardRoutes role="manager" orderPath={(orderNo) => `/review/${encodeURIComponent(orderNo)}`} />}
         />
         <Route
           path="/notifications"

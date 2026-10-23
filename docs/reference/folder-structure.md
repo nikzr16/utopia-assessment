@@ -14,14 +14,14 @@ current state; record the divergence in the decision log.
 ## Overview
 
 Where the application, database, tests, and docs live. Covers everything up to
-and including feature 0006 (staff management).
+and including feature 0007 (KPI dashboard).
 
 ## Directory Layout
 
 ```text
 .
 ├── index.html                  Vite entry HTML
-├── package.json                Scripts: dev, build, test, typecheck, auth:create-staff-logins
+├── package.json                Scripts: dev, build, test, typecheck, auth:create-staff-logins; `recharts` + `react-is` pinned exact (0007)
 ├── vite.config.ts              Vite + React + Tailwind + Vitest config
 ├── vercel.json                 SPA rewrite: every path serves index.html (deep links like /orders/ORDER1001)
 ├── tsconfig*.json              TypeScript project references (app, node + scripts, test incl. src + DOM + JSX)
@@ -44,6 +44,7 @@ and including feature 0006 (staff management).
 │   ├── features/finance/       Finance portal (0004): payment queue, record payment
 │   ├── features/feedback/      Customer feedback (0005): public page, staff feedback card, phone rating dialog
 │   ├── features/staff/         Staff management (0006): list, branch cover panel, add / edit form, staff page, data access
+│   ├── features/kpi/           KPI dashboard (0007): dashboard, technician drill-down, My week, Recharts charts (loaded on demand)
 │   └── lib/                    Supabase client and config, shared API plumbing, order records, inactive-staff tags, hooks, drafts
 ├── scripts/
 │   ├── create-staff-logins.ts  Creates/links Supabase Auth accounts for staff (secret key)
@@ -85,6 +86,7 @@ and including feature 0006 (staff management).
 | `jobs.ts` | Job list tabs and statuses (mirror of `my_jobs`), Malaysia-day grouping (Overdue / Today / Upcoming / No date), area, `tel:` / maps links, customer WhatsApp greeting, notification events (mirror of the event check) and labels |
 | `feedback.ts` | 0005: rating range, `FEEDBACK_LOW_RATING_MAX`, comment limit, `FEEDBACK_LINK_DAYS`, token pattern, `FEEDBACK_LINK_PLACEHOLDER`, link states and their messages (mirror of `_feedback_state_error`), sources, `isLowFeedback` (mirror of `_is_low_feedback`), `customerMessageFullText` (mirror of `_customer_message_full_text`), `validateFeedbackForm` (mirror of `_check_feedback`), `canRecordPhoneFeedback` (mirror of `_phone_feedback_error`), `EMPTY_FEEDBACK_FORM`, `ratingStars`, `feedbackSourceLabel`; `FeedbackForm` / `OrderFeedback` rows |
 | `staff.ts` | 0006: `STAFF_PAGE_SIZE`, status filters, `OPEN_JOB_STATUSES`, sign-in states and labels, `checkStaffName` / `checkStaffEmail` (mirrors of `_check_staff_name` / `_check_staff_email`), `staffPhoneRoleError` (mirror of `_staff_phone_role_error`), `validateStaffForm`, `staffManageError` (mirror of `_staff_manage_error`), `assignableRoles`, `openJobsError` (mirror of `_staff_open_jobs_error`), `staffLabel` ("(inactive)"), history actions / labels, `describeStaffChanges` |
+| `kpi.ts` | 0007: `KPI_VIEWS` (week / month), `KPI_TREND_COUNTS` (8 / 6), `KPI_MAX_PERIOD_DAYS` (400); Malaysia-day helpers (`malaysiaToday`, `addDays`, `weekStartOf`, `monthStartOf`, mirrors of `_kpi_day_start` periods), `periodRange`, `shiftPeriod`, `canShowNextPeriod`, labels, `isoWeekCode` / `periodCode` (CSV names), `emptyPeriodMessage`; address `parseKpiAddress` / `kpiAddress`; `compareLeaderboard`, `competitionRanks` / `rankLeaderboard` (mirror of the SQL `rank()`), sortable columns, `ariaSort`, `nextSort`; rating labels; CSV building (BOM, quoted fields) |
 | `review.ts` | 0004: `coversBranch` (mirror of `_covers_branch`), Manager / Finance tabs and labels (`managerViewOf` / `financeViewOf`, mirrors of `manager_orders` / `finance_orders`), `NEEDS_ATTENTION_RETURNS`, `approveBlockReason`, `closeBlockReason`, `paymentNeedsVerifying`, `canVerifyPayment`, Approved / Closed / Verified labels, `customerOnBehalfMessage` (mirror of `_customer_on_behalf_message`) |
 | `index.ts` | Barrel export |
 
@@ -106,7 +108,7 @@ and including feature 0006 (staff management).
 
 | File | Purpose |
 |---|---|
-| `AdminPortal.tsx` | Admin navigation and routes: `/orders`, `/orders/new`, `/orders/:orderNo`, `/orders/:orderNo/edit`, `/staff/*` (0006) (others → `/orders`) |
+| `AdminPortal.tsx` | Admin navigation and routes: `/orders`, `/orders/new`, `/orders/:orderNo`, `/orders/:orderNo/edit`, `/staff/*` (0006), `/dashboard/*` (0007) (others → `/orders`) |
 | `api.ts` | All portal database calls (RPCs and reads), row types; re-exports `ApiError` / `toApiError` / `OrderSummary` and `fetchOrderRecords` from `src/lib/` |
 | `OrderListPage.tsx` | Search, filters, pagination over `list_orders`; `toListQuery` maps URL params |
 | `NewOrderPage.tsx`, `EditOrderPage.tsx` | Create / edit pages around `OrderForm` |
@@ -122,7 +124,7 @@ and including feature 0006 (staff management).
 
 | File | Purpose |
 |---|---|
-| `TechnicianPortal.tsx` | Wraps the portal in `NotificationsProvider`; nav (My jobs, Notifications); routes `/jobs`, `/jobs/:orderNo`, `/jobs/:orderNo/complete`, `/jobs/:orderNo/payment`, `/notifications` (others → `/jobs`) |
+| `TechnicianPortal.tsx` | Wraps the portal in `NotificationsProvider`; nav (My jobs, Notifications); routes `/jobs`, `/jobs/:orderNo`, `/jobs/:orderNo/complete`, `/jobs/:orderNo/payment`, `/notifications`, `/my-week` (0007, nav My week) (others → `/jobs`) |
 | `api.ts` | `fetchMyJobs`, `fetchJob` (order + `fetchOrderRecords`), `acceptJob`, `startJob`, `rescheduleJob`, `submitCompletion`; `recordPayment` re-exported from `features/payments/`; `JobDetail` |
 | `JobListPage.tsx`, `JobCard.tsx` | Tabs from `?tab=`, Open grouped by Malaysia day, cards; `toJobView`; Submitted cards show "Customer not told yet" (0003) |
 | `JobPage.tsx`, `ContactLinks.tsx` | Approved / Closed lines (0004), customer message panel (0003), job details, Call / WhatsApp / Maps, rework and cancelled banners, files, record, payments, sticky actions, start confirmation, banners (`?submitted`, `?paid`) |
@@ -180,6 +182,22 @@ and including feature 0006 (staff management).
 | `StaffPage.tsx` | Details, sign-in state, actions with confirm dialogs (deactivation blocker and open-job links), "Saved, but…" banner with retry, open jobs, history |
 | `index.ts` | Barrel export (`StaffRoutes`) |
 
+## KPI Dashboard (`src/features/kpi/`, 0007)
+
+| File | Purpose |
+|---|---|
+| `api.ts` | `fetchKpiSummary` (`kpi_summary`), `fetchKpiTechnicians` (`kpi_technicians`), `fetchKpiBranches` (`kpi_branches`), `fetchKpiTrend` (`kpi_trend`), `fetchKpiTechnicianEvents` (`kpi_technician_events`), `fetchKpiBranchOptions` (branches / `covered_branches`); row types |
+| `lazy.tsx` | `DashboardRoutes` (`/dashboard/*`) and `MyWeek` (`/my-week`): `React.lazy` chunks with "Loading the dashboard…" and a reload notice if the chunk fails; the only importer of the pages |
+| `KpiRoutes.tsx` | Routes under `/dashboard`: index → `DashboardPage`, `technicians/:technicianId` → `TechnicianKpiPage`; `orderPath` per portal |
+| `DashboardPage.tsx` | Period and branch filters, cards, leaderboard, CSV, charts, branch comparison |
+| `TechnicianKpiPage.tsx` | One technician: cards, trend, event list |
+| `MyWeekPage.tsx` | The technician's own numbers (no rank, no other names) |
+| `useKpiAddress.ts` | `view` / `start` / `branch` kept in the address |
+| `download.ts` | `downloadTextFile` (CSV save) |
+| `components/` | `PeriodPicker`, `BranchFilter`, `SummaryCards`, `Leaderboard` (table ≥ 768 px, cards below, sort), `BranchComparison`, `EventList`, `KpiState` (loading / error / Try again) |
+| `charts/` | `theme.ts` (palette, axis / grid styles), `ChartPanel` ("Show as table"), `DataTable`, `ChartTooltip`, `useReducedMotion`, `JobsByTechnicianChart` (max 15 bars), `TrendChart`, `ReschedulesByReasonChart`, `BranchBarChart` |
+| `index.ts` | Barrel export (`DashboardRoutes`, `MyWeek`) |
+
 ## Payments (`src/features/payments/`, 0004)
 
 | File | Purpose |
@@ -203,7 +221,7 @@ and including feature 0006 (staff management).
 
 | File | Purpose |
 |---|---|
-| `ManagerPortal.tsx` | `NotificationsProvider`; nav (Review queue, Staff, Notifications); routes `/review`, `/review/:orderNo`, `/staff/*` (0006), `/notifications` (others → `/review`) |
+| `ManagerPortal.tsx` | `NotificationsProvider`; nav (Review queue, Staff, Dashboard, Notifications); routes `/review`, `/review/:orderNo`, `/staff/*` (0006), `/dashboard/*` (0007), `/notifications` (others → `/review`) |
 | `ReviewQueuePage.tsx` | To review / Returned / Reviewed tabs and branch filter over `manager_orders` |
 | `index.ts` | Barrel export |
 
@@ -211,7 +229,7 @@ and including feature 0006 (staff management).
 
 | File | Purpose |
 |---|---|
-| `FinancePortal.tsx` | `NotificationsProvider`; nav (Payments and closing, Notifications); routes `/finance`, `/finance/:orderNo`, `/finance/:orderNo/payment`, `/notifications` (others → `/finance`) |
+| `FinancePortal.tsx` | `NotificationsProvider`; nav (Payments and closing, Dashboard, Notifications); routes `/finance`, `/finance/:orderNo`, `/finance/:orderNo/payment`, `/dashboard/*` (0007), `/notifications` (others → `/finance`) |
 | `FinanceQueuePage.tsx` | Not yet reviewed / Ready to close / Payment outstanding / Closed tabs and branch filter over `finance_orders` |
 | `FinancePaymentPage.tsx` | Loads the order and renders the shared `PaymentForm` for Finance |
 | `index.ts` | Barrel export |
@@ -263,6 +281,7 @@ Actions: `create`, `update`, `deactivate`, `reactivate`, `resend_invite`,
 | `migrations/20261023000002_review_and_close.sql` | 0004: `staff.additional_branch_ids` + `staff_additional_branches_trg`; `_covers_branch`, `_branch_has_manager`; `staff_branch_manager_trg` (constraint trigger, at commit) and `orders_branch_manager_trg` (every branch needs a Manager); `payments.verified_by` / `verified_at` + `payments_verified_check`; notification events `job_approved`, `job_closed`; `_current_staff_covers`; `orders_read` and `customer_messages_read` policies replaced (Managers: covered branches); `_can_access_job_file`, `_authorize_transition`, `submit_completion`, `transition_order`, `_customer_message_error`, `confirm_customer_message` replaced (same signatures); `verify_payment`, `unverify_payment`; `_customer_on_behalf_message`; `order_review_summary` view; `manager_orders`, `finance_orders`, `covered_branches`; grants |
 | `migrations/20261023000003_customer_feedback.sql` | 0005: `app_settings` (`feedback_link_base`); `customer_messages.feedback_token` (unique, WhatsApp only) + backfill for unsent messages; `_new_feedback_token`; `customer_messages_guard` and `orders_customer_message` replaced (token frozen / set on Job Done); `_feedback_link_placeholder`, `_feedback_link`, `_customer_message_full_text`; `confirm_customer_message` replaced (audit keeps the full text); `latest_customer_messages` gains `feedback_url`, `full_body`; `customer_feedback` table + `customer_feedback_guard_trg`; `_is_low_feedback`, `_check_feedback`, `_feedback_link_state`, `_feedback_state_error`, `_notify_low_feedback`; notification event `low_feedback`; `feedback_form`, `submit_feedback` (anon + authenticated); `_phone_feedback_error`, `record_phone_feedback`; RLS `customer_feedback_read`; `order_feedback` view; `order_review_summary` gains `latest_rating`, `latest_working_well`; grants (`anon`: schema usage + the two page functions) |
 | `migrations/20261023000004_staff_management.sql` | 0006: `staff.joined_at` / `left_at` (+ backfill, `staff_left_check`, `staff_left_at_trg`); `staff_history` (append-only, RLS on, no client access) + `staff_history_trg` and backfill; `_role_label`, `_branch_names`, `_check_staff_name`, `_check_staff_email`, `_staff_phone_role_error`, `_staff_phone_taken_by`, `_staff_email_taken_by`, `_staff_open_job_count`, `_staff_open_jobs_error`, `_staff_last_role_error`, `_staff_cover_error`, `_staff_manage_error`, `_staff_change_errors`; `staff_rules_trg` (stored phone, technician mobile, phone in use, email in use, open jobs), unique index `staff_active_phone_key`, `staff_last_role_trg` (deferred, advisory lock per role); `_staff_sign_in_state` (from `auth.users`); type `staff_access_target`; `create_staff`, `update_staff`, `set_staff_active`, `staff_access_check`, `staff_access_event`, `link_invited_staff` (service role); `staff_list`, `staff_detail`, `branch_cover_overview`, `staff_form_check`; `order_review_summary` gains `completion_technician_id`, `reviewed_by_id`, `closed_by_id`; RLS `staff_read_own`; `staff` in the `supabase_realtime` publication (guarded); grants |
+| `migrations/20261023000005_kpi_dashboard.sql` | 0007: `order_reschedules.technician_id` + `order_reschedules_technician_trg` and backfill; indexes `order_reschedules_technician_idx`, `audit_log_reviewed_idx`, `audit_log_returned_idx` (partial), `order_reschedules_created_idx`, `payments_recorded_idx`, `staff_history_staff_created_idx`; private `_kpi_day_start`, `_kpi_period`, `_kpi_visible_branches`, `_kpi_needs_attention`, `_kpi_completed_jobs`, `_kpi_events`, `_kpi_active_technicians`, `_kpi_metrics`; read functions `kpi_summary`, `kpi_technicians`, `kpi_branches`, `kpi_trend`, `kpi_technician_events` (documented with `comment on function`); grants (authenticated only) |
 | `seed.sql` | 5 branches, service types, staff with `@sejuk.example.com` emails (incl. Ali, John, Bala, Yusoff; one Manager per branch since 0004); no auth accounts |
 
 ### Tables
@@ -276,7 +295,8 @@ Actions: `create`, `update`, `deactivate`, `reactivate`, `resend_invite`,
 `full_body` since 0005), `order_review_summary` (0004; `latest_rating`,
 `latest_working_well` since 0005), `order_feedback` (0005). New columns
 (0004): `staff.additional_branch_ids`, `payments.verified_by`, `payments.verified_at`;
-(0005): `customer_messages.feedback_token`; (0006): `staff.joined_at`, `staff.left_at`.
+(0005): `customer_messages.feedback_token`; (0006): `staff.joined_at`, `staff.left_at`;
+(0007): `order_reschedules.technician_id`.
 Policies on `staff`: `staff_read` (any active staff member) and
 `staff_read_own` (0006: a person's own row, even when inactive).
 
@@ -290,7 +310,8 @@ Policies on `staff`: `staff_read` (any active staff member) and
 `manager_orders`, `finance_orders`, `covered_branches` (0004),
 `record_phone_feedback` (0005), `create_staff`, `update_staff`,
 `set_staff_active`, `staff_access_check`, `staff_access_event`, `staff_list`,
-`staff_detail`, `branch_cover_overview`, `staff_form_check` (0006) (no actor
+`staff_detail`, `branch_cover_overview`, `staff_form_check` (0006), `kpi_summary`,
+`kpi_technicians`, `kpi_branches`, `kpi_trend`, `kpi_technician_events` (0007, read-only) (no actor
 parameter; actor = signed-in user). Signed-out (`anon`) and signed-in:
 `feedback_form`, `submit_feedback` (0005; the link token is the only key). Read functions (security invoker, RLS applies):
 `list_orders`, `technician_options`. Policy helpers for
@@ -305,7 +326,8 @@ Triggers on `staff` (0004): `staff_additional_branches_trg`,
 `staff_branch_manager_trg` (deferred constraint trigger); (0006)
 `staff_left_at_trg`, `staff_rules_trg`, `staff_history_trg`,
 `staff_last_role_trg` (deferred). Trigger on `staff_history` (0006):
-`staff_history_no_update_trg`. Trigger on
+`staff_history_no_update_trg`. Trigger on `order_reschedules` (0007):
+`order_reschedules_technician_trg`. Trigger on
 `customer_feedback` (0005): `customer_feedback_guard_trg` (no updates or deletes).
 
 Notification events: `assigned`, `job_done`, `rework`, `reviewed`,
@@ -333,7 +355,7 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `db/reschedule.test.ts` | AC11 |
 | `db/notifications.test.ts` | AC13 |
 | `db/orders.test.ts` | AC14, AC15 |
-| `db/parity.test.ts` | TS mirrors equal the database: transitions, enums, phone and price rules (shared case tables), editable and reschedulable statuses; 0002: extra charges, completion form, file types / sizes / paths, who may change files, payment methods / labels / receipt rule / statuses, job list tabs, notification events; 0003: `isMyMobile` = `_is_my_mobile`, Malaysia time format, edited-text rule, customer message states and statuses; 0004: who may send the customer message, branch cover, review / payment tabs, approve / close guards, verify rule, on-behalf text; 0005: poor rating, feedback answers, link text and placeholder, link state messages, sources, who may record a phone rating |
+| `db/parity.test.ts` | TS mirrors equal the database: transitions, enums, phone and price rules (shared case tables), editable and reschedulable statuses; 0002: extra charges, completion form, file types / sizes / paths, who may change files, payment methods / labels / receipt rule / statuses, job list tabs, notification events; 0003: `isMyMobile` = `_is_my_mobile`, Malaysia time format, edited-text rule, customer message states and statuses; 0004: who may send the customer message, branch cover, review / payment tabs, approve / close guards, verify rule, on-behalf text; 0005: poor rating, feedback answers, link text and placeholder, link state messages, sources, who may record a phone rating; 0007: week / month starts, tie ranking, needs attention |
 | `db/storage.test.ts` | 0002 AC7: `job-files` bucket and the read / upload / delete policies by role, status and path |
 | `db/technician-jobs.test.ts` | 0002 AC6, AC8, AC10, AC16: `add_attachment`, `remove_attachment`, `record_payment` (client key, receipt), extra charges, cancel / reassign / payment notifications, `mark_all_notifications_read`, `my_jobs`, Realtime publication |
 | `db/customer-messages.test.ts` | 0003 AC1, AC2, AC5–AC7, AC9: Job Done trigger and wording, rework, backfill, `edit_customer_message`, `confirm_customer_message` (who, when, newest only, first wins), guard trigger, RLS |
@@ -350,6 +372,11 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `ui/staff.test.tsx` | 0006 AC2, AC3, AC9, AC13, AC18: list query and filters in the address, paging, branch cover panel, add / edit forms by role, warnings, staff page actions, deactivation blocker, retry banner, `confirmAddress` |
 | `ui/password.test.tsx` | 0006 AC5, AC6, AC11: email link page, change password, live sign-out (Realtime and re-check) |
 | `domain/staff.test.ts` | 0006 form rule, who may manage whom, labels, history lines |
+| `db/kpi.test.ts`, `db/kpi-views.test.ts`, `db/kpiHelpers.ts` | 0007 AC2–AC11, AC15, AC16: each metric counted / not counted (approval day, Job Done / rework / cancelled, final amount, collected, reschedule vs postpone and its technician, returns, latest rating, late rating), credit after reassign / branch move / deactivation, listed technicians from the staff history, ties, Malaysia midnight edges, trend, branches, events |
+| `db/kpi-scope.test.ts` | 0007 AC1, AC9: every function as Admin, Finance, covering / other Manager, technician, inactive, signed out; bad periods |
+| `db/kpi-volume.test.ts` | 0007 AC17: a generated year (45 technicians, ~25,000 orders) within the time budgets |
+| `domain/kpi.test.ts` | 0007 periods across month / year ends, labels, address, ranking and sorting, CSV |
+| `ui/kpi.test.tsx` | 0007 AC1, AC8–AC14, AC16: address kept, period picker, branch filter per role, cards, leaderboard sort and ties, tags, empty period, CSV, drill-down, My week, table views of the charts |
 | `db/admin-orders.test.ts` | 0001 AC4, AC5, AC8, AC10, AC11: phone / price rules, `update_order`, `list_orders`, `technician_options` |
 | `ui/*.test.tsx` | 0001 AC1–AC3, AC6, AC7, AC9, AC12, AC13: portal access, form, summary, WhatsApp link, detail actions, list, edit |
 | `ui/job-list.test.tsx`, `job-page.test.tsx`, `job-files.test.tsx`, `resize.test.ts`, `completion-form.test.tsx`, `payment-form.test.tsx`, `notifications.test.tsx`, `drafts.test.ts` | 0002 AC1–AC6, AC8–AC13, AC15: technician portal screens (api modules replaced by test doubles) |
@@ -388,6 +415,9 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
   `<app>/auth/confirm`.
 - `AuthProvider` (0006) also subscribes to Realtime `postgres_changes` on the
   person's own `staff` row and signs them out when it turns inactive.
+- The KPI pages (0007) are `React.lazy` chunks (`src/features/kpi/lazy.tsx`):
+  Recharts is bundled only into them, so the other screens do not download
+  it. Every number comes from the five `kpi_*` RPCs.
 - The Supabase CLI applies `supabase/migrations/*` in filename order and then
   `supabase/seed.sql`; `tests/db/helpers.ts` does the same in PGlite.
 
@@ -410,4 +440,6 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `docs/0005-customer-feedback-workflow.md` | Workflow | Feedback link, page, card and phone rating runtime behavior |
 | `docs/prd/0006-staff-management-prd.md` | Intent | Staff management goals |
 | `docs/0006-staff-management-workflow.md` | Workflow | Staff screens, sign-ins and live sign-out runtime behavior |
-| `docs/decisions/0001-*.md` – `0014-*.md` | Decision log | Structural changes that diverged from the plans |
+| `docs/prd/0007-kpi-dashboard-prd.md` | Intent | KPI dashboard goals |
+| `docs/0007-kpi-dashboard-workflow.md` | Workflow | KPI definitions, scope, screens and the read functions for 0008 |
+| `docs/decisions/0001-*.md` – `0015-*.md` | Decision log | Structural changes that diverged from the plans |

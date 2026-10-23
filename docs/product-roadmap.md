@@ -64,7 +64,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
-| 0007 `kpi-dashboard` | — | planned | Brief bonus module; PRD not written yet |
+| `docs/prd/0007-kpi-dashboard-prd.md` | `src/features/kpi/`, `supabase/migrations/` | shipped | Brief bonus module: week and month technician KPIs (jobs completed on Manager approval, amount, collected, postpone / reschedule, returns, ratings); cards, leaderboard, Recharts charts, branch comparison, drill-down, CSV; technicians see only My week; five role-scoped `kpi_*` read functions for 0008 (decision 0015) |
 | 0008 `ai-ops-query` | — | planned | Brief AI module; PRD not written yet |
 
 ### Phase 4: Stretch
@@ -90,7 +90,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | Concern | Introduced In | Matured In | Current State |
 |---|---|---|---|
 | Authentication and access (Supabase Auth, RLS, actor from `auth.uid()`) | 0000 | 0006 | Real email/password sign-in; public sign-up off; Managers read and act on the branches they cover (home + additional); signed-out visitors may call only the two feedback page functions, keyed by a random link token; staff and sign-ins managed on screen: invite / reset emails (custom SMTP), the `staff-access` Edge Function is the only holder of the secret key, deactivation blocks sign-in and signs the person out at once |
-| Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0006 | Transitions, enums, phone, price, editable / reschedulable statuses, extra charges, file types / sizes / paths, file and receipt permissions, payment rules, job list tabs, notification events, mobile check, Malaysia time format, customer message rules, branch cover, review / payment tabs, approve / close guards, payment verification, on-behalf message, feedback answers, poor rating, link text and states, phone rating rule, staff name / email, phone by role, open jobs, who may manage whom, staff history actions |
+| Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0007 | Transitions, enums, phone, price, editable / reschedulable statuses, extra charges, file types / sizes / paths, file and receipt permissions, payment rules, job list tabs, notification events, mobile check, Malaysia time format, customer message rules, branch cover, review / payment tabs, approve / close guards, payment verification, on-behalf message, feedback answers, poor rating, link text and states, phone rating rule, staff name / email, phone by role, open jobs, who may manage whom, staff history actions, KPI week / month starts, tie ranking, needs attention |
 | Deployment (Vercel) | 0001 | 0010 | `vercel.json` SPA rewrite in place; app not deployed yet; 0005 feedback links use a database setting for the public address (local for now); the 0006 `staff-access` Edge Function is deployed to the hosted project, and its email links accept the local addresses until 0010 adds the deployed one (`APP_ORIGINS`) |
 | File storage (Supabase Storage) | 0002 | 0002 | Private `job-files` bucket; policies follow order visibility; files registered by RPC from the stored object's real type and size |
 | Live updates (Supabase Realtime) | 0002 | 0006 | `notifications` streamed to the recipient under RLS; a person's own `staff` row streamed so deactivation signs them out at once (0006); refresh on return as a fallback |
@@ -107,6 +107,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | `docs/prd/0004-review-and-close-prd.md` | 2 – Core workflow | `src/features/review/`, `src/features/finance/`, `src/features/order-review/`, `src/features/payments/`, `supabase/migrations/` | shipped |
 | `docs/prd/0005-customer-feedback-prd.md` | 2 – Core workflow | `src/features/feedback/`, `supabase/migrations/` | shipped |
 | `docs/prd/0006-staff-management-prd.md` | 2 – Core workflow | `src/features/staff/`, `supabase/migrations/`, `supabase/functions/` | shipped |
+| `docs/prd/0007-kpi-dashboard-prd.md` | 3 – Insights | `src/features/kpi/`, `supabase/migrations/` | shipped |
 
 ## Prioritization Log
 

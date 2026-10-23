@@ -220,7 +220,7 @@ describe('Existing orders get a message when the migration runs (backfill)', () 
   it('prepares a not_sent message for every Job Done, Reviewed and Closed order with a completion record', async () => {
     // 0004, 0005 and 0006 build on the 0003 tables, so they are held back too and run after.
     const L = await createTestDb({
-      holdBackMigrations: ['20261023000001', '20261023000002', '20261023000003', '20261023000004'],
+      holdBackMigrations: ['20261023000001', '20261023000002', '20261023000003', '20261023000004', '20261023000005'],
     })
     try {
       const order = (opts: Parameters<TestDb['createOrder']>[0]) => L.createOrder(opts).then((o) => o.id as string)
