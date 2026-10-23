@@ -5,3 +5,8 @@ project_id = "utopia-assessment"
 
 [functions.staff-access]
 verify_jwt = false
+
+# 0008: the AI operations query (also checks the caller's token itself):
+#   npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api
+[functions.ask]
+verify_jwt = false

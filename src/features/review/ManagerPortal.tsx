@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { AskAssistant } from '../ask'
 import { DashboardRoutes } from '../kpi'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from '../notifications'
 import { OrderReviewPage } from '../order-review'
@@ -50,6 +51,7 @@ export function ManagerPortal({ staffId, staffName }: { staffId: string; staffNa
         />
         <Route path="*" element={<Navigate to="/review" replace />} />
       </Routes>
+      <AskAssistant role="manager" orderPath={(orderNo) => `/review/${encodeURIComponent(orderNo)}`} />
     </NotificationsProvider>
   )
 }

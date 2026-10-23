@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { AskAssistant } from '../ask'
 import { MyWeek } from '../kpi'
 import { NotificationBell, NotificationsPage, NotificationsProvider } from '../notifications'
 import { CompletionPage } from './CompletionPage'
@@ -33,6 +34,7 @@ export function TechnicianPortal({ staffId }: { staffId: string }) {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="*" element={<Navigate to="/jobs" replace />} />
         </Routes>
+        <AskAssistant role="technician" orderPath={(orderNo) => `/jobs/${encodeURIComponent(orderNo)}`} />
       </div>
     </NotificationsProvider>
   )

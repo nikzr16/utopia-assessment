@@ -14,7 +14,7 @@ current state; record the divergence in the decision log.
 ## Overview
 
 Where the application, database, tests, and docs live. Covers everything up to
-and including feature 0007 (KPI dashboard).
+and including feature 0008 (AI operations query).
 
 ## Directory Layout
 
@@ -45,13 +45,15 @@ and including feature 0007 (KPI dashboard).
 │   ├── features/feedback/      Customer feedback (0005): public page, staff feedback card, phone rating dialog
 │   ├── features/staff/         Staff management (0006): list, branch cover panel, add / edit form, staff page, data access
 │   ├── features/kpi/           KPI dashboard (0007): dashboard, technician drill-down, My week, Recharts charts (loaded on demand)
+│   ├── features/ask/           AI operations query (0008): Ask chat bubble and panel on every portal, answer tables, saved chats, Admin Question log
 │   └── lib/                    Supabase client and config, shared API plumbing, order records, inactive-staff tags, hooks, drafts
 ├── scripts/
 │   ├── create-staff-logins.ts  Creates/links Supabase Auth accounts for staff (secret key)
 │   └── lib/                    Pure planning logic for the script
 ├── supabase/
-│   ├── config.toml             Supabase CLI: `staff-access` deploys with the JWT check off (0006)
-│   ├── functions/staff-access/ Edge Function (0006): the only holder of the secret key; creates / changes sign-ins
+│   ├── config.toml             Supabase CLI: `staff-access` (0006) and `ask` (0008) deploy with the JWT check off
+│   ├── functions/staff-access/ Edge Function (0006): creates / changes sign-ins with the secret key
+│   ├── functions/ask/          Edge Function (0008): the AI operations query (OpenAI key; secret key for saving only)
 │   ├── migrations/             Ordered SQL migrations (Supabase CLI layout)
 │   └── seed.sql                Reference data and staff (with emails)
 ├── tests/
@@ -59,7 +61,7 @@ and including feature 0007 (KPI dashboard).
 │   ├── auth/                   Unit tests for auth helpers
 │   ├── scripts/                Unit tests for the login script's planning logic
 │   ├── ui/                     Component tests (jsdom + Testing Library; api.ts replaced by test doubles)
-│   ├── functions/              Edge Function logic tests (fake database and Auth clients, 0006)
+│   ├── functions/              Edge Function logic tests (fake database, Auth and AI clients, 0006, 0008)
 │   └── db/                     PGlite database tests (Supabase shim + migrations + seed)
 └── docs/                       Roadmap, PRDs, plans, workflows, reference, decisions
 ```
@@ -108,7 +110,7 @@ and including feature 0007 (KPI dashboard).
 
 | File | Purpose |
 |---|---|
-| `AdminPortal.tsx` | Admin navigation and routes: `/orders`, `/orders/new`, `/orders/:orderNo`, `/orders/:orderNo/edit`, `/staff/*` (0006), `/dashboard/*` (0007) (others → `/orders`) |
+| `AdminPortal.tsx` | Admin navigation and routes: `/orders`, `/orders/new`, `/orders/:orderNo`, `/orders/:orderNo/edit`, `/staff/*` (0006), `/dashboard/*` (0007), `/question-log` (0008, nav Question log) (others → `/orders`); the Ask bubble (0008) |
 | `api.ts` | All portal database calls (RPCs and reads), row types; re-exports `ApiError` / `toApiError` / `OrderSummary` and `fetchOrderRecords` from `src/lib/` |
 | `OrderListPage.tsx` | Search, filters, pagination over `list_orders`; `toListQuery` maps URL params |
 | `NewOrderPage.tsx`, `EditOrderPage.tsx` | Create / edit pages around `OrderForm` |
@@ -124,7 +126,7 @@ and including feature 0007 (KPI dashboard).
 
 | File | Purpose |
 |---|---|
-| `TechnicianPortal.tsx` | Wraps the portal in `NotificationsProvider`; nav (My jobs, Notifications); routes `/jobs`, `/jobs/:orderNo`, `/jobs/:orderNo/complete`, `/jobs/:orderNo/payment`, `/notifications`, `/my-week` (0007, nav My week) (others → `/jobs`) |
+| `TechnicianPortal.tsx` | Wraps the portal in `NotificationsProvider`; nav (My jobs, Notifications); routes `/jobs`, `/jobs/:orderNo`, `/jobs/:orderNo/complete`, `/jobs/:orderNo/payment`, `/notifications`, `/my-week` (0007, nav My week) (others → `/jobs`); the Ask bubble (0008) |
 | `api.ts` | `fetchMyJobs`, `fetchJob` (order + `fetchOrderRecords`), `acceptJob`, `startJob`, `rescheduleJob`, `submitCompletion`; `recordPayment` re-exported from `features/payments/`; `JobDetail` |
 | `JobListPage.tsx`, `JobCard.tsx` | Tabs from `?tab=`, Open grouped by Malaysia day, cards; `toJobView`; Submitted cards show "Customer not told yet" (0003) |
 | `JobPage.tsx`, `ContactLinks.tsx` | Approved / Closed lines (0004), customer message panel (0003), job details, Call / WhatsApp / Maps, rework and cancelled banners, files, record, payments, sticky actions, start confirmation, banners (`?submitted`, `?paid`) |
@@ -198,6 +200,19 @@ and including feature 0007 (KPI dashboard).
 | `charts/` | `theme.ts` (palette, axis / grid styles), `ChartPanel` ("Show as table"), `DataTable`, `ChartTooltip`, `useReducedMotion`, `JobsByTechnicianChart` (max 15 bars), `TrendChart`, `ReschedulesByReasonChart`, `BranchBarChart` |
 | `index.ts` | Barrel export (`DashboardRoutes`, `MyWeek`) |
 
+## AI Operations Query (`src/features/ask/`, 0008)
+
+| File | Purpose |
+|---|---|
+| `api.ts` | `askQuestion` (`fetch` to `/functions/v1/ask` with the session token; reads the newline-separated JSON events: step, result, error; 404 → not set up), `fetchChats` / `fetchChatMessages` (`ask_chats`, `ask_messages`, RLS: own, 7 days), `renameChat` (`ask_rename_chat`), `deleteChat` (`ask_delete_chat`), `fetchQuestionLog` (`ask_log_entries`, Admins) |
+| `types.ts` | Type-only re-exports of the `ask` function's `AskResult`, `AskEvent`, `AskTable`, `DashboardLink` (one source for browser and server) |
+| `AskAssistant.tsx` | `AskAssistant`: the floating **Ask** bubble (above sticky action bars on phones) and the panel: chat list (open, rename, delete), conversation, example questions, step text while waiting, 20-second limit, error with Try again / Dashboard link; full screen below 640 px, a 420 px (or wider) panel above |
+| `AnswerCard.tsx` | One answer: sentence, choice / example buttons, **Open ORDER…**, tables, **Open in Dashboard** / **My week** (`dashboardPath`), "How I found this" in plain words |
+| `RecordTable.tsx` | The records per lookup kind (events, jobs, payments, technicians, branches, trend, summary): table from 640 px, cards below, empty columns left out, order links |
+| `QuestionLogPage.tsx` | Admin `/question-log`: last 7 days, filter by person and result, lookups in plain words, time and tokens |
+| `examples.ts` | Example questions per role |
+| `index.ts` | Barrel export (`AskAssistant`, `QuestionLogPage`) |
+
 ## Payments (`src/features/payments/`, 0004)
 
 | File | Purpose |
@@ -221,7 +236,7 @@ and including feature 0007 (KPI dashboard).
 
 | File | Purpose |
 |---|---|
-| `ManagerPortal.tsx` | `NotificationsProvider`; nav (Review queue, Staff, Dashboard, Notifications); routes `/review`, `/review/:orderNo`, `/staff/*` (0006), `/dashboard/*` (0007), `/notifications` (others → `/review`) |
+| `ManagerPortal.tsx` | `NotificationsProvider`; nav (Review queue, Staff, Dashboard, Notifications); routes `/review`, `/review/:orderNo`, `/staff/*` (0006), `/dashboard/*` (0007), `/notifications` (others → `/review`); the Ask bubble (0008) |
 | `ReviewQueuePage.tsx` | To review / Returned / Reviewed tabs and branch filter over `manager_orders` |
 | `index.ts` | Barrel export |
 
@@ -229,7 +244,7 @@ and including feature 0007 (KPI dashboard).
 
 | File | Purpose |
 |---|---|
-| `FinancePortal.tsx` | `NotificationsProvider`; nav (Payments and closing, Dashboard, Notifications); routes `/finance`, `/finance/:orderNo`, `/finance/:orderNo/payment`, `/dashboard/*` (0007), `/notifications` (others → `/finance`) |
+| `FinancePortal.tsx` | `NotificationsProvider`; nav (Payments and closing, Dashboard, Notifications); routes `/finance`, `/finance/:orderNo`, `/finance/:orderNo/payment`, `/dashboard/*` (0007), `/notifications` (others → `/finance`); the Ask bubble (0008) |
 | `FinanceQueuePage.tsx` | Not yet reviewed / Ready to close / Payment outstanding / Closed tabs and branch filter over `finance_orders` |
 | `FinancePaymentPage.tsx` | Loads the order and renders the shared `PaymentForm` for Finance |
 | `index.ts` | Barrel export |
@@ -238,7 +253,7 @@ and including feature 0007 (KPI dashboard).
 
 | File | Purpose |
 |---|---|
-| `supabase.ts`, `supabaseConfig.ts` | Supabase client and config detection |
+| `supabase.ts`, `supabaseConfig.ts` | Supabase client and config detection; `supabaseConfig` (URL and public key for the streamed `ask` call, 0008) |
 | `api.ts` | `ApiError`, `toApiError` (fires `ACCESS_LOST_EVENT` on "no active staff profile", 0006), `NETWORK_ERROR_MESSAGE` / `isNetworkError`, `client`, `run`, `OrderSummary` / `toOrderSummary` |
 | `orderRecords.ts` | `fetchOrderRecords`: completion record, payments with receipts and verification (0004), latest rework note; the staff ids behind the names (0006) |
 | `staffStatus.ts` | 0006: inactive staff ids (`loadInactiveStaff`, `useInactiveStaff`, `forgetInactiveStaff`) and `staffName` ("(inactive)" tag) for staff screens |
@@ -267,6 +282,20 @@ Actions: `create`, `update`, `deactivate`, `reactivate`, `resend_invite`,
 `reset_password`, `retry_block`, `retry_unblock`, `retry_email`. Deploy:
 `npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt --use-api`.
 
+## Server Function (`supabase/functions/ask/`, 0008)
+
+| File | Purpose |
+|---|---|
+| `handler.ts` | Plain TypeScript (tested in `tests/functions/`): `parseAskRequest` (question ≤ 1,000 characters, chat id), `loadPerson`, `handleAsk`: OpenAI picks up to 3 lookups (max 4 AI calls), the server checks and runs them, reply tools → fixed sentences, step events, `ask_record` (chat + Question log); `AiClient` interface, `ERROR_MESSAGES`, 18-second limit |
+| `lookups.ts` | The menu: `kpi_summary`, `technician_leaderboard`, `branch_comparison`, `trend`, `technician_events`, `job_list`, `payment_list` (strict JSON schemas, database function, columns the AI may see, table kind, plain "Looked up" line, Dashboard link); `REPLY_TOOLS`; `checkInput`; name resolution (`ask_find_people`); database refusals → fixed sentences |
+| `periods.ts` | Named periods → Malaysia days `[start, end)` and labels; parity-tested against `src/domain/kpi.ts` |
+| `prompt.ts` | `INSTRUCTIONS` (fixed) and `contextMessage` (person, today, branches) |
+| `index.ts` | Deno entry: CORS, caller token check, caller client (lookups, chat turns, branches), secret-key client (`ask_record` only), OpenAI client (`openai@7.32.0`, Responses API, `store: false`, encrypted reasoning, `OPENAI_MODEL` / `OPENAI_EFFORT`), newline-separated JSON stream |
+
+Secrets: `OPENAI_API_KEY` (required), `OPENAI_MODEL` (default `gpt-6-luna`),
+`OPENAI_EFFORT` (default `medium`). Deploy:
+`npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api`.
+
 ## Database (`supabase/`)
 
 | File | Purpose |
@@ -282,6 +311,7 @@ Actions: `create`, `update`, `deactivate`, `reactivate`, `resend_invite`,
 | `migrations/20261023000003_customer_feedback.sql` | 0005: `app_settings` (`feedback_link_base`); `customer_messages.feedback_token` (unique, WhatsApp only) + backfill for unsent messages; `_new_feedback_token`; `customer_messages_guard` and `orders_customer_message` replaced (token frozen / set on Job Done); `_feedback_link_placeholder`, `_feedback_link`, `_customer_message_full_text`; `confirm_customer_message` replaced (audit keeps the full text); `latest_customer_messages` gains `feedback_url`, `full_body`; `customer_feedback` table + `customer_feedback_guard_trg`; `_is_low_feedback`, `_check_feedback`, `_feedback_link_state`, `_feedback_state_error`, `_notify_low_feedback`; notification event `low_feedback`; `feedback_form`, `submit_feedback` (anon + authenticated); `_phone_feedback_error`, `record_phone_feedback`; RLS `customer_feedback_read`; `order_feedback` view; `order_review_summary` gains `latest_rating`, `latest_working_well`; grants (`anon`: schema usage + the two page functions) |
 | `migrations/20261023000004_staff_management.sql` | 0006: `staff.joined_at` / `left_at` (+ backfill, `staff_left_check`, `staff_left_at_trg`); `staff_history` (append-only, RLS on, no client access) + `staff_history_trg` and backfill; `_role_label`, `_branch_names`, `_check_staff_name`, `_check_staff_email`, `_staff_phone_role_error`, `_staff_phone_taken_by`, `_staff_email_taken_by`, `_staff_open_job_count`, `_staff_open_jobs_error`, `_staff_last_role_error`, `_staff_cover_error`, `_staff_manage_error`, `_staff_change_errors`; `staff_rules_trg` (stored phone, technician mobile, phone in use, email in use, open jobs), unique index `staff_active_phone_key`, `staff_last_role_trg` (deferred, advisory lock per role); `_staff_sign_in_state` (from `auth.users`); type `staff_access_target`; `create_staff`, `update_staff`, `set_staff_active`, `staff_access_check`, `staff_access_event`, `link_invited_staff` (service role); `staff_list`, `staff_detail`, `branch_cover_overview`, `staff_form_check`; `order_review_summary` gains `completion_technician_id`, `reviewed_by_id`, `closed_by_id`; RLS `staff_read_own`; `staff` in the `supabase_realtime` publication (guarded); grants |
 | `migrations/20261023000005_kpi_dashboard.sql` | 0007: `order_reschedules.technician_id` + `order_reschedules_technician_trg` and backfill; indexes `order_reschedules_technician_idx`, `audit_log_reviewed_idx`, `audit_log_returned_idx` (partial), `order_reschedules_created_idx`, `payments_recorded_idx`, `staff_history_staff_created_idx`; private `_kpi_day_start`, `_kpi_period`, `_kpi_visible_branches`, `_kpi_needs_attention`, `_kpi_completed_jobs`, `_kpi_events`, `_kpi_active_technicians`, `_kpi_metrics`; read functions `kpi_summary`, `kpi_technicians`, `kpi_branches`, `kpi_trend`, `kpi_technician_events` (documented with `comment on function`); grants (authenticated only) |
+| `migrations/20261024000001_ai_ops_query.sql` | 0008: `pg_trgm` (schema `extensions`); `_ask_scope` (visible branches, period, own-only rule; granted), `_ask_contains_pattern`; read functions `ask_jobs`, `ask_payments` (security invoker, RLS) and `ask_find_people` (definer; `_ask_normalize_name`, `_ask_name_score`); tables `ask_chats`, `ask_messages`, `ask_log` (RLS: own chats, Admins read the log, 7 days) and view `ask_log_entries`; `ask_rename_chat`, `ask_delete_chat`; `ask_record`, `ask_purge_old` (service role); `pg_cron` job `ask-purge-old` (guarded); grants |
 | `seed.sql` | 5 branches, service types, staff with `@sejuk.example.com` emails (incl. Ali, John, Bala, Yusoff; one Manager per branch since 0004); no auth accounts |
 
 ### Tables
@@ -290,10 +320,12 @@ Actions: `create`, `update`, `deactivate`, `reactivate`, `resend_invite`,
 `attachments`, `payments`, `order_reschedules`, `audit_log`, `notifications`,
 `order_status_transitions`, `customer_messages` (0003), `customer_feedback`,
 `app_settings` (0005; RLS on, no policy, no client access), `staff_history`
-(0006; RLS on, no policy, no client access; read through `staff_detail`). Views:
+(0006; RLS on, no policy, no client access; read through `staff_detail`),
+`ask_chats`, `ask_messages`, `ask_log` (0008; read under RLS, written only by
+`ask_record`). Views:
 `order_summary`, `latest_customer_messages` (0003; `feedback_url`,
 `full_body` since 0005), `order_review_summary` (0004; `latest_rating`,
-`latest_working_well` since 0005), `order_feedback` (0005). New columns
+`latest_working_well` since 0005), `order_feedback` (0005), `ask_log_entries` (0008). New columns
 (0004): `staff.additional_branch_ids`, `payments.verified_by`, `payments.verified_at`;
 (0005): `customer_messages.feedback_token`; (0006): `staff.joined_at`, `staff.left_at`;
 (0007): `order_reschedules.technician_id`.
@@ -311,13 +343,16 @@ Policies on `staff`: `staff_read` (any active staff member) and
 `record_phone_feedback` (0005), `create_staff`, `update_staff`,
 `set_staff_active`, `staff_access_check`, `staff_access_event`, `staff_list`,
 `staff_detail`, `branch_cover_overview`, `staff_form_check` (0006), `kpi_summary`,
-`kpi_technicians`, `kpi_branches`, `kpi_trend`, `kpi_technician_events` (0007, read-only) (no actor
+`kpi_technicians`, `kpi_branches`, `kpi_trend`, `kpi_technician_events` (0007, read-only),
+`ask_find_people`, `ask_rename_chat`, `ask_delete_chat` (0008) (no actor
 parameter; actor = signed-in user). Signed-out (`anon`) and signed-in:
 `feedback_form`, `submit_feedback` (0005; the link token is the only key). Read functions (security invoker, RLS applies):
-`list_orders`, `technician_options`. Policy helpers for
+`list_orders`, `technician_options`, `ask_jobs`, `ask_payments` (0008; with
+`_ask_scope`, `_ask_contains_pattern`). Policy helpers for
 `authenticated`: `_can_access_job_file`, `_current_staff_covers` (0004);
 view helpers `_feedback_link`, `_customer_message_full_text` (0005). Service-role only:
-`link_staff_accounts`, `link_invited_staff` (0006).
+`link_staff_accounts`, `link_invited_staff` (0006), `ask_record`,
+`ask_purge_old` (0008).
 
 Triggers on `orders` (0003): `orders_customer_message_trg` prepares the
 customer message when the status becomes `job_done`; (0004)
@@ -376,6 +411,9 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `db/kpi-scope.test.ts` | 0007 AC1, AC9: every function as Admin, Finance, covering / other Manager, technician, inactive, signed out; bad periods |
 | `db/kpi-volume.test.ts` | 0007 AC17: a generated year (45 technicians, ~25,000 orders) within the time budgets |
 | `domain/kpi.test.ts` | 0007 periods across month / year ends, labels, address, ranking and sorting, CSV |
+| `db/ask.test.ts` | 0008 AC1, AC3–AC5, AC11: `ask_jobs` / `ask_payments` / `ask_find_people` per role, filters, Malaysia day edges and KPI parity, name matching (slips, titles, two Alis, inactive), chats and log visibility, service-role-only saving, 7-day hiding and purge |
+| `functions/ask.test.ts`, `functions/ask-periods.test.ts` | 0008 AC2, AC3, AC5–AC10, AC12: the AI loop with a scripted fake model (menu, strict schemas, max 3 lookups, reply tools, refusals, Did you mean, own-only, no phone / address / notes sent, follow-up context, errors and timeout); named periods and parity with `src/domain/kpi.ts` |
+| `ui/ask.test.tsx` | 0008 AC7, AC9, AC11, AC12, AC14: bubble per role, examples, steps, answer card and links, plain "How I found this", choice buttons, errors and 20-second limit, saved chats, Question log, phone layout |
 | `ui/kpi.test.tsx` | 0007 AC1, AC8–AC14, AC16: address kept, period picker, branch filter per role, cards, leaderboard sort and ties, tags, empty period, CSV, drill-down, My week, table views of the charts |
 | `db/admin-orders.test.ts` | 0001 AC4, AC5, AC8, AC10, AC11: phone / price rules, `update_order`, `list_orders`, `technician_options` |
 | `ui/*.test.tsx` | 0001 AC1–AC3, AC6, AC7, AC9, AC12, AC13: portal access, form, summary, WhatsApp link, detail actions, list, edit |
@@ -418,6 +456,12 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 - The KPI pages (0007) are `React.lazy` chunks (`src/features/kpi/lazy.tsx`):
   Recharts is bundled only into them, so the other screens do not download
   it. Every number comes from the five `kpi_*` RPCs.
+- The Ask assistant (0008) is mounted by each portal. A question goes browser
+  → `fetch('/functions/v1/ask')` with the session token → the function asks
+  OpenAI which lookups to run, runs them with the person's token (RLS and the
+  read functions' rules apply), sends steps and the result back as
+  newline-separated JSON, and saves the turn with `ask_record` (secret key).
+  The OpenAI key lives only in the function's secrets.
 - The Supabase CLI applies `supabase/migrations/*` in filename order and then
   `supabase/seed.sql`; `tests/db/helpers.ts` does the same in PGlite.
 
@@ -442,4 +486,6 @@ MOV, WebM, PDF). Paths: `<order_id>/<uuid>.<ext>` (job files) and
 | `docs/0006-staff-management-workflow.md` | Workflow | Staff screens, sign-ins and live sign-out runtime behavior |
 | `docs/prd/0007-kpi-dashboard-prd.md` | Intent | KPI dashboard goals |
 | `docs/0007-kpi-dashboard-workflow.md` | Workflow | KPI definitions, scope, screens and the read functions for 0008 |
-| `docs/decisions/0001-*.md` – `0015-*.md` | Decision log | Structural changes that diverged from the plans |
+| `docs/prd/0008-ai-ops-query-prd.md` | Intent | AI operations query goals |
+| `docs/0008-ai-ops-query-workflow.md` | Workflow | Lookups, limits, saving and screens of the Ask assistant |
+| `docs/decisions/0001-*.md` – `0016-*.md` | Decision log | Structural changes that diverged from the plans |

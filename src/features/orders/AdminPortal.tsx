@@ -1,4 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { AskAssistant, QuestionLogPage } from '../ask'
 import { DashboardRoutes } from '../kpi'
 import { StaffRoutes } from '../staff'
 import { EditOrderPage } from './EditOrderPage'
@@ -39,6 +40,12 @@ export function AdminPortal({ branchName }: { branchName: string | null }) {
         >
           Dashboard
         </NavLink>
+        <NavLink
+          to="/question-log"
+          className={({ isActive }) => `${TAB} ${isActive ? 'bg-sky-100 text-sky-900' : 'text-slate-700 hover:bg-slate-100'}`}
+        >
+          Question log
+        </NavLink>
       </nav>
       <Routes>
         <Route path="/orders" element={<OrderListPage />} />
@@ -53,8 +60,10 @@ export function AdminPortal({ branchName }: { branchName: string | null }) {
           path="/dashboard/*"
           element={<DashboardRoutes role="admin" orderPath={(orderNo) => `/orders/${encodeURIComponent(orderNo)}`} />}
         />
+        <Route path="/question-log" element={<QuestionLogPage />} />
         <Route path="*" element={<Navigate to="/orders" replace />} />
       </Routes>
+      <AskAssistant role="admin" orderPath={(orderNo) => `/orders/${encodeURIComponent(orderNo)}`} />
     </div>
   )
 }
