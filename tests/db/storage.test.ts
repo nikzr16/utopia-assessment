@@ -41,14 +41,15 @@ describe('job-files bucket', () => {
 })
 
 describe('who can see files', () => {
-  it('the assigned technician and every Admin, Manager and Finance user; not other technicians', async () => {
+  it('the assigned technician, every Admin and Finance user, and Managers of the branch; not other technicians', async () => {
     const id = await aliOrder('in_progress')
     const path = await t.upload(t.people.ali, t.filePath(id))
     const { people } = t
-    for (const who of [people.ali, people.admin, people.admin2, people.managerSA, people.managerKL, people.finance]) {
+    for (const who of [people.ali, people.admin, people.admin2, people.managerSA, people.finance]) {
       expect(await canSee(who, path)).toBe(true)
     }
-    for (const who of [people.bala, people.john, people.yusoff]) {
+    // 0004: a Manager sees only the branches they cover (the order is in Shah Alam).
+    for (const who of [people.managerKL, people.managerPG, people.bala, people.john, people.yusoff]) {
       expect(await canSee(who, path)).toBe(false)
     }
     expect(await canSee(SIGNED_OUT, path)).toBe(false)

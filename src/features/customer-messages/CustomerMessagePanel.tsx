@@ -39,16 +39,24 @@ export function CustomerNotToldBadge() {
  * order's latest message itself and shows nothing unless the order is Job
  * Done, Reviewed or Closed and the signed-in person can see a message.
  * `canManage` turns the buttons on; without it the state is read-only.
+ * A Manager (0004) sends `onBehalfBody` instead of the prepared text and
+ * cannot edit it (`canEdit` false).
  */
 export function CustomerMessagePanel({
   orderId,
   orderStatus,
   canManage,
+  onBehalfBody,
+  canEdit = true,
   onChange,
 }: {
   orderId: string
   orderStatus: OrderStatus
   canManage: boolean
+  /** The text a Manager sends on behalf of the technician; replaces the prepared text until sent. */
+  onBehalfBody?: string
+  /** Show Edit message (Admins and the technician; not Managers). */
+  canEdit?: boolean
   /** Called after an edit or confirmation is written (or rejected), e.g. to reload the order history. */
   onChange?: () => void
 }) {
@@ -84,6 +92,8 @@ export function CustomerMessagePanel({
       message={state.data}
       orderStatus={orderStatus}
       canManage={canManage}
+      onBehalfBody={onBehalfBody}
+      allowEdit={canEdit}
       reload={reloadAfterWrite}
     />
   )
@@ -98,11 +108,15 @@ function MessageCard({
   message,
   orderStatus,
   canManage,
+  onBehalfBody,
+  allowEdit,
   reload,
 }: {
   message: CustomerMessage
   orderStatus: OrderStatus
   canManage: boolean
+  onBehalfBody?: string
+  allowEdit: boolean
   reload: () => void
 }) {
   const headingId = useId()
@@ -117,10 +131,13 @@ function MessageCard({
 
   const canSend = canSendCustomerMessage(message)
   const canCall = canCallCustomer(message)
-  const canEdit = canEditCustomerMessage(message)
+  const canEdit = allowEdit && canEditCustomerMessage(message)
   const stateLabel = customerMessageStateLabel(message)
   const editedLabel = customerMessageEditedLabel(message)
-  const waUrl = whatsAppUrl(message.phone, message.body)
+  // Until it is sent, a Manager sends their own wording; afterwards the sent text shows.
+  const onBehalf = canManage && canSend && onBehalfBody !== undefined
+  const body = onBehalf ? onBehalfBody : message.body
+  const waUrl = whatsAppUrl(message.phone, body)
   const callUrl = telUrl(message.phone)
   const isWhatsApp = message.channel === 'whatsapp'
 
@@ -208,9 +225,12 @@ function MessageCard({
           <div>
             <p className="text-sm font-medium text-slate-800">Message to the customer</p>
             <p className="mt-1 whitespace-pre-line break-words rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">
-              {message.body}
+              {body}
             </p>
-            {customerMessageEdited(message) ? (
+            {onBehalf ? (
+              <p className="mt-1 text-sm text-slate-600">Sent in your name, on behalf of the technician.</p>
+            ) : null}
+            {customerMessageEdited(message) && !onBehalf ? (
               <div className="mt-2 text-sm text-slate-700">
                 <p>{editedLabel}</p>
                 <button
@@ -304,14 +324,16 @@ function MessageCard({
                     Send to customer on WhatsApp
                   </button>
                 )}
-                <button
-                  type="button"
-                  disabled={!canEdit}
-                  onClick={startEdit}
-                  className={`${BUTTON.secondary} min-h-11 flex-1`}
-                >
-                  Edit message
-                </button>
+                {allowEdit ? (
+                  <button
+                    type="button"
+                    disabled={!canEdit}
+                    onClick={startEdit}
+                    className={`${BUTTON.secondary} min-h-11 flex-1`}
+                  >
+                    Edit message
+                  </button>
+                ) : null}
               </div>
             ) : null}
             {canManage && !isWhatsApp ? (

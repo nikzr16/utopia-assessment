@@ -24,6 +24,9 @@ export interface Payment {
   recorded_at: string
   recorded_by_name: string
   receipt: { id: string; kind: AttachmentKind; storage_path: string; file_name: string | null } | null
+  /** Finance's "Verified" tick on a non-cash payment (0004); absent or null when not ticked. */
+  verified_at?: string | null
+  verified_by_name?: string | null
 }
 
 /** The latest "returned for rework" entry from the audit log. */
@@ -58,7 +61,7 @@ export async function fetchOrderRecords(orderId: string): Promise<OrderRecords> 
       db
         .from('payments')
         .select(
-          'id, amount, method, note, recorded_at, recorder:staff!payments_recorded_by_fkey(name), receipt:attachments!attachments_payment_id_fkey(id, kind, storage_path, file_name)',
+          'id, amount, method, note, recorded_at, verified_at, recorder:staff!payments_recorded_by_fkey(name), verifier:staff!payments_verified_by_fkey(name), receipt:attachments!attachments_payment_id_fkey(id, kind, storage_path, file_name)',
         )
         .eq('order_id', orderId)
         .order('recorded_at'),
@@ -94,6 +97,8 @@ export async function fetchOrderRecords(orderId: string): Promise<OrderRecords> 
       recorded_at: p.recorded_at as string,
       recorded_by_name: nameOf(p.recorder),
       receipt: ((Array.isArray(p.receipt) ? p.receipt[0] : p.receipt) as Payment['receipt'] | undefined) ?? null,
+      verified_at: (p.verified_at as string | null) ?? null,
+      verified_by_name: p.verified_at ? nameOf(p.verifier) : null,
     })),
     rework: r ? { note: (r.note as string | null) ?? '', by: nameOf(r.actor), at: r.created_at as string } : null,
   }

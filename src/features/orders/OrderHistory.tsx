@@ -26,6 +26,8 @@ const ACTION_LABELS: Record<string, string> = {
   cancelled: 'Cancelled the order',
   rescheduled: 'Rescheduled the order',
   payment_recorded: 'Recorded a payment',
+  payment_verified: 'Verified a payment',
+  payment_unverified: 'Undid a payment verification',
   file_added: 'Added a file',
   file_removed: 'Removed a file',
   customer_message_edited: 'Edited the customer message',
@@ -87,6 +89,9 @@ export function historyDetails(entry: HistoryEntry): string[] {
           d.receipt ? ', with receipt' : ''
         }`,
       ]
+    case 'payment_verified':
+    case 'payment_unverified':
+      return [`${formatMYR(Number(d.amount))} by ${PAYMENT_METHOD_LABELS[d.method as PaymentMethod] ?? String(d.method)}`]
     case 'file_added':
     case 'file_removed':
       return [str(d.file_name) ?? String(d.kind ?? 'file')]

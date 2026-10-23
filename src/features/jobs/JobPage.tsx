@@ -18,6 +18,7 @@ import {
 } from '../../domain'
 import { JobFiles, PaymentList } from '../attachments'
 import { CustomerMessagePanel } from '../customer-messages'
+import { ReviewOutcome } from '../order-review'
 import { useLoad } from '../../lib/useLoad'
 import { useRefreshOnReturn } from '../../lib/useRefreshOnReturn'
 import { acceptJob, fetchJob, rescheduleJob, startJob, type JobDetail } from './api'
@@ -148,6 +149,8 @@ export function JobPage() {
           {job.scheduled_at ? formatMalaysiaDateTime(job.scheduled_at) : 'No date yet'}
         </p>
       </header>
+
+      <ReviewOutcome orderId={job.id} status={job.status} />
 
       <CustomerMessagePanel
         orderId={job.id}

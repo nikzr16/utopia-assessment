@@ -12,7 +12,7 @@ const TABLES = [
   'payments', 'order_reschedules', 'audit_log', 'notifications', 'order_status_transitions',
   'customer_messages',
 ]
-const VIEWS = ['order_summary', 'latest_customer_messages']
+const VIEWS = ['order_summary', 'latest_customer_messages', 'order_review_summary']
 const ORDER_CHILDREN = ['order_completions', 'attachments', 'payments', 'order_reschedules', 'audit_log']
 
 // ---------------------------------------------------------------------------
@@ -100,6 +100,8 @@ describe('Access migration: row-level security and grants', () => {
         'add_attachment', 'remove_attachment', 'mark_all_notifications_read', 'my_jobs',
         '_can_access_job_file',
         'edit_customer_message', 'confirm_customer_message',
+        '_current_staff_covers', 'verify_payment', 'unverify_payment',
+        'manager_orders', 'finance_orders', 'covered_branches',
       ].sort(),
     )
   })
@@ -121,7 +123,7 @@ describe('Access migration: row-level security and grants', () => {
     )
     expect(fns).toEqual([{ proname: 'link_staff_accounts' }])
 
-    expect((await t.qAs(SERVICE_ROLE, 'select count(*)::int as n from staff'))[0].n).toBe(9)
+    expect((await t.qAs(SERVICE_ROLE, 'select count(*)::int as n from staff'))[0].n).toBe(12)
     await expectRejects(t.qAs(SERVICE_ROLE, 'select * from orders'), /permission denied/i)
   })
 
@@ -135,6 +137,9 @@ describe('Access migration: row-level security and grants', () => {
       '_is_my_mobile', '_malaysia_date_time', '_customer_job_done_message', '_check_customer_message_body',
       '_customer_message_confirmed_error', '_customer_message_error',
       'customer_messages_guard', 'orders_customer_message',
+      'staff_additional_branches_check', '_covers_branch', '_branch_has_manager', '_branch_no_manager_error',
+      'staff_branch_manager_check', 'orders_branch_manager_check', '_payment_verify_error',
+      '_set_payment_verified', '_customer_on_behalf_message',
     ]
     const rows = await t.q<{ proname: string; role: string; ok: boolean }>(
       `select p.proname, r.role, has_function_privilege(r.role, p.oid, 'execute') as ok
@@ -276,7 +281,7 @@ describe('AC15 a technician can read only orders assigned to them, enforced by t
     expect((await t.qAs(t.people.john, 'select id from audit_log where order_id = $1', [o])).length).toBeGreaterThan(1)
   })
 
-  it('Admin, Manager and Finance see every order and every related row', async () => {
+  it('Admin and Finance see every order and every related row', async () => {
     const totals = Object.fromEntries(
       await Promise.all(
         ['orders', ...ORDER_CHILDREN].map(async (tbl) => [
@@ -285,13 +290,39 @@ describe('AC15 a technician can read only orders assigned to them, enforced by t
         ]),
       ),
     )
-    for (const who of [t.people.admin, t.people.admin2, t.people.managerSA, t.people.managerKL, t.people.finance]) {
+    for (const who of [t.people.admin, t.people.admin2, t.people.finance]) {
       for (const [tbl, total] of Object.entries(totals)) {
         const n = (await t.qAs<{ n: number }>(who, `select count(*)::int as n from ${tbl}`))[0].n
         expect(n, `${tbl} as ${who}`).toBe(total)
       }
       const summaryCount = (await t.qAs<{ n: number }>(who, 'select count(*)::int as n from order_summary'))[0].n
       expect(summaryCount).toBe(totals.orders)
+    }
+  })
+
+  it('a Manager sees the orders and related rows of the branches they cover only (0004)', async () => {
+    const covered = `(o.branch_id = s.branch_id or o.branch_id = any (s.additional_branch_ids))`
+    for (const who of [t.people.managerSA, t.people.managerKL]) {
+      const expected = async (tbl: string) =>
+        (
+          await t.q<{ n: number }>(
+            tbl === 'orders'
+              ? `select count(*)::int as n from orders o join staff s on s.id = $1 where ${covered}`
+              : `select count(*)::int as n from ${tbl} x join orders o on o.id = x.order_id
+                   join staff s on s.id = $1 where ${covered}`,
+            [who],
+          )
+        )[0].n
+      const all = (await t.q<{ n: number }>('select count(*)::int as n from orders'))[0].n
+      const mine = await expected('orders')
+      expect(mine, 'fixture should have orders in and outside the branch').toBeGreaterThan(0)
+      expect(mine).toBeLessThan(all)
+      for (const tbl of ['orders', ...ORDER_CHILDREN]) {
+        const n = (await t.qAs<{ n: number }>(who, `select count(*)::int as n from ${tbl}`))[0].n
+        expect(n, `${tbl} as ${who}`).toBe(await expected(tbl))
+      }
+      const summaryCount = (await t.qAs<{ n: number }>(who, 'select count(*)::int as n from order_summary'))[0].n
+      expect(summaryCount).toBe(mine)
     }
   })
 

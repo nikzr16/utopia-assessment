@@ -16,6 +16,7 @@ describe('AC2 every action is recorded under the acting user', () => {
     await t.transition(people.ali, id, 'acknowledged')
     await t.transition(people.ali, id, 'in_progress')
     await t.rpcAs(people.ali, 'submit_completion', { p_order_id: id, p_work_done: 'Done' })
+    await t.tellCustomer(id)
     await t.transition(people.managerSA, id, 'reviewed')
     await t.pay(people.finance, id, 250)
     await t.transition(people.finance, id, 'closed')
@@ -27,6 +28,7 @@ describe('AC2 every action is recorded under the acting user', () => {
       ['acknowledged', people.ali, 'technician'],
       ['started', people.ali, 'technician'],
       ['completion_submitted', people.ali, 'technician'],
+      ['customer_messaged', people.ali, 'technician'],
       ['reviewed', people.managerSA, 'manager'],
       ['payment_recorded', people.finance, 'finance'],
       ['closed', people.finance, 'finance'],
@@ -86,6 +88,7 @@ describe('AC12 every status change creates an audit entry with actor, role, from
     await t.rpcAs(people.ali, 'submit_completion', { p_order_id: id, p_work_done: 'Done' })
     await t.transition(people.managerSA, id, 'in_progress', 'Redo the filter')
     await t.rpcAs(people.ali, 'submit_completion', { p_order_id: id, p_work_done: 'Redone' })
+    await t.tellCustomer(id)
     await t.transition(people.managerSA, id, 'reviewed')
 
     const changes = (await t.audit(id)).filter((e) => e.to_status !== null)

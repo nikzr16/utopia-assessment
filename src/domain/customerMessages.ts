@@ -7,7 +7,8 @@ import type { OrderStatus, StaffRole } from './statuses'
  * customer was told by phone), and the "Customer not told yet" flag. Mirrors
  * the rules in `supabase/migrations/20261023000001_whatsapp_notification.sql`
  * (`customer_messages` checks, `_check_customer_message_body`,
- * `_customer_message_error`); `tests/db/parity.test.ts` checks both.
+ * `_customer_message_error`, redefined in 0004 for Managers);
+ * `tests/db/parity.test.ts` checks both.
  */
 
 /** How a message reaches the customer: a WhatsApp mobile, or a call for a landline. */
@@ -68,12 +69,23 @@ export function customerMessageOffered(orderStatus: OrderStatus): boolean {
 }
 
 /**
- * Who may edit and confirm the message: an Admin, or the order's assigned
- * technician, while the order is Job Done, Reviewed or Closed. (Also true of
- * the message being the latest and not yet confirmed; see `customerNotTold`.)
+ * Who may edit the message: an Admin, or the order's assigned technician,
+ * while the order is Job Done, Reviewed or Closed. (Also true of the message
+ * being the latest and not yet confirmed; see `customerNotTold`.)
  */
 export function canManageCustomerMessage(orderStatus: OrderStatus, role: StaffRole, assigned: boolean): boolean {
   return customerMessageOffered(orderStatus) && (role === 'admin' || (role === 'technician' && assigned))
+}
+
+/**
+ * Who may confirm (send) the message: as `canManageCustomerMessage`, plus a
+ * Manager covering the order's branch (0004), who sends it on behalf of the
+ * technician but cannot edit it. `related`: the technician is assigned, or
+ * the Manager covers the branch.
+ */
+export function canConfirmCustomerMessage(orderStatus: OrderStatus, role: StaffRole, related: boolean): boolean {
+  if (role === 'manager') return customerMessageOffered(orderStatus) && related
+  return canManageCustomerMessage(orderStatus, role, related)
 }
 
 /** The customer has not been told yet: the latest message is still `not_sent`. */

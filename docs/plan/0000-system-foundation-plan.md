@@ -18,7 +18,7 @@ Postgres schema (Supabase), the order lifecycle enforced inside the database,
 real email/password authentication with Supabase Auth, row-level security,
 seed data and staff sign-in accounts, a small TypeScript domain module the UI
 uses, and a React app shell with a sign-in screen. No module screens
-(0001–0008) are built here.
+(0001–0009) are built here.
 
 ## Resolved PRD Open Questions
 
@@ -30,7 +30,7 @@ uses, and a React app shell with a sign-in screen. No module screens
 | Customer table or per order | Customer details stored on each order | The brief's form captures them per order; a customer list is not needed yet |
 | Branch visibility | All signed-in non-technician staff see all branches; screens may filter by branch | Simplest; branch-based restriction is out of scope in the PRD |
 | Reassign while In Progress | Not allowed; reassign only from Assigned / Acknowledged | Matches the PRD transition table; avoids two technicians on one live job |
-| Overpayment | Counts as `paid`; the overpaid amount is visible in the order summary | Finance can still see it; automated flagging belongs to 0008 |
+| Overpayment | Counts as `paid`; the overpaid amount is visible in the order summary | Finance can still see it; automated flagging belongs to 0009 |
 | Finance central or per branch | Central: Finance notifications go to every Finance user | One finance team is typical; branch is still on every order |
 | Supabase project | Hosted Supabase project (Singapore region) | Created by the user; local Docker is not required |
 

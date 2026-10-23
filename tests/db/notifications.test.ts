@@ -51,12 +51,14 @@ describe('AC13 workflow events create in-app notifications', () => {
     await t.q('delete from staff where id = $1', [extra[0].id])
   })
 
-  it('does not notify managers of other branches (Penang has none)', async () => {
+  it('does not notify managers of other branches (Penang: only its own Manager)', async () => {
     const o = await t.createOrder({ technician: t.people.ali, branch: 'Penang' })
     const id = o.id as string
     await t.advance(id, 'in_progress')
     await submit(t.people.ali, id)
-    expect((await t.notifications(id)).filter((n) => n.event === 'job_done')).toHaveLength(0)
+    expect(recipients((await t.notifications(id)).filter((n) => n.event === 'job_done'))).toEqual([
+      t.people.managerPG,
+    ])
   })
 
   it('Reviewed notifies Finance (every Finance user)', async () => {
@@ -69,6 +71,7 @@ describe('AC13 workflow events create in-app notifications', () => {
     const o = await t.createOrder({ technician: t.people.ali })
     const id = o.id as string
     await t.advance(id, 'job_done')
+    await t.tellCustomer(id)
     await t.transition(t.people.managerSA, id, 'reviewed')
     const reviewed = (await t.notifications(id)).filter((n) => n.event === 'reviewed')
     expect(recipients(reviewed)).toEqual([t.people.finance, extra[0].id].sort())

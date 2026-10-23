@@ -1,4 +1,4 @@
 export { FileGallery } from './FileGallery'
 export { JobFiles, type JobFilesStatus } from './JobFiles'
-export { PaymentList } from './PaymentList'
+export { PaymentList, type PaymentVerifying } from './PaymentList'
 export { ReceiptLink } from './ReceiptLink'

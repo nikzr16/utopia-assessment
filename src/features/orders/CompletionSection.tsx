@@ -3,6 +3,7 @@ import { CARD } from '../../components/styles'
 import { canChangeJobFiles, formatMYR, formatMalaysiaDateTime, type OrderStatus } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import { JobFiles, PaymentList } from '../attachments'
+import type { Payment } from '../../lib/orderRecords'
 import { fetchOrderRecords, type OrderSummary } from './api'
 
 /** Statuses in which work has started, so a record, files or payments may exist. */
@@ -10,12 +11,36 @@ export const COMPLETION_STATUSES: readonly OrderStatus[] = ['in_progress', 'job_
 
 /**
  * The technician's side of the order on the Admin order detail (0002 PRD
- * Q17, AC15): the completion record (read-only), the job files (an Admin can
- * add or remove them while the job is In Progress), and the payments with
- * their receipts.
+ * Q17, AC15) and the Manager / Finance order page (0004): the completion
+ * record (read-only), the job files (an Admin can add or remove them while
+ * the job is In Progress), and the payments with their receipts.
+ * `toggleVerified` gives Finance Verify / Undo on non-cash payments;
+ * `onPaymentsChange` is told after each one.
  */
-export function CompletionSection({ order }: { order: OrderSummary }) {
+export function CompletionSection({
+  order,
+  canChangeFiles = canChangeJobFiles(order.status, 'admin', false),
+  toggleVerified,
+  onPaymentsChange,
+}: {
+  order: OrderSummary
+  canChangeFiles?: boolean
+  toggleVerified?: (payment: Payment) => Promise<void>
+  onPaymentsChange?: () => void
+}) {
   const [state, reload] = useLoad(() => fetchOrderRecords(order.id), `${order.id}|${order.updated_at}`)
+  const verifying = toggleVerified
+    ? {
+        toggle: async (payment: Payment) => {
+          try {
+            await toggleVerified(payment)
+          } finally {
+            reload()
+            onPaymentsChange?.()
+          }
+        },
+      }
+    : undefined
 
   return (
     <section className={CARD} aria-labelledby="order-completion">
@@ -62,12 +87,12 @@ export function CompletionSection({ order }: { order: OrderSummary }) {
 
       <h4 className="mt-5 text-sm font-semibold text-slate-800">Photos, videos and PDFs</h4>
       <div className="mt-2">
-        <JobFiles orderId={order.id} canChange={canChangeJobFiles(order.status, 'admin', false)} />
+        <JobFiles orderId={order.id} canChange={canChangeFiles} />
       </div>
 
       <h4 className="mt-5 text-sm font-semibold text-slate-800">Payments</h4>
       {state.status === 'ready' && state.data.payments.length > 0 ? (
-        <PaymentList payments={state.data.payments} className="mt-2" />
+        <PaymentList payments={state.data.payments} className="mt-2" verifying={verifying} />
       ) : state.status === 'ready' ? (
         <p className="mt-2 text-sm text-slate-600">No payments recorded yet.</p>
       ) : null}

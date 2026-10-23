@@ -15,7 +15,7 @@ document reflects reality; record the divergence in the decision log.
 ## Purpose
 
 How a service order moves from creation to closing, who may move it at each
-step, and what the system records along the way. Every module (0001–0008)
+step, and what the system records along the way. Every module (0001–0009)
 writes through this workflow.
 
 ## Trigger
@@ -73,7 +73,7 @@ notification. Details: `docs/0001-admin-order-portal-workflow.md`.
 
 **Input:** Work done, extra charges (RM 0.00 – 100,000.00, at most 2 decimals; empty = 0; since 0002), remarks (required when extra charges > 0; since 0002).
 **Actions:** Assigned technician only, while `in_progress`. Upserts the completion record and moves the order to `job_done` in one transaction (a reworked job overwrites its completion record).
-**Output:** Status `job_done`. Audit `completion_submitted`. Managers of the order's branch notified. The customer message is prepared in the same transaction (0003 trigger; `docs/0003-whatsapp-notification-workflow.md`).
+**Output:** Status `job_done`. Audit `completion_submitted`. Every Manager covering the order's branch notified (home or additional branch, since 0004). The customer message is prepared in the same transaction (0003 trigger; `docs/0003-whatsapp-notification-workflow.md`).
 
 ### 6. Record payment — `record_payment`
 
@@ -89,13 +89,13 @@ details in `docs/0002-technician-job-portal-workflow.md`.
 
 ### 7. Review or return — `transition_order(…, 'reviewed' | 'in_progress')`
 
-**Actions:** Manager only, from `job_done`. Returning for rework requires a review note.
-**Output:** `reviewed` → every active Finance user notified. Rework → `in_progress`, technician notified with the note.
+**Actions:** Manager only, from `job_done`, and (since 0004) only a Manager covering the order's branch. Returning for rework requires a review note. Approving requires the latest customer message to be sent or told by phone (0004).
+**Output:** `reviewed` → every active Finance user notified, and the technician gets `job_approved` (0004). Rework → `in_progress`, technician notified with the note. Screens: `docs/0004-review-and-close-workflow.md`.
 
 ### 8. Close — `transition_order(…, 'closed')`
 
-**Actions:** Finance only, from `reviewed`, and only when payment status is `paid`.
-**Output:** Status `closed` (terminal). Audit `closed`.
+**Actions:** Finance only, from `reviewed`, only when payment status is `paid`, and (since 0004) only when every non-cash payment is verified (`verify_payment`).
+**Output:** Status `closed` (terminal). Audit `closed`. The technician gets `job_closed` (0004).
 
 ### 9. Cancel — `transition_order(…, 'cancelled', reason)`
 
@@ -112,7 +112,8 @@ details in `docs/0002-technician-job-portal-workflow.md`.
 
 All reads require a signed-in user with an active staff profile (row-level security).
 
-- `order_summary` view: order plus branch, service type, technician, extra charges, final amount, amount paid, balance, payment status. Technicians see only their own orders; other roles see all.
+- `order_summary` view: order plus branch, service type, technician, extra charges, final amount, amount paid, balance, payment status. Technicians see only their own orders; Managers the branches they cover (0004); Admins and Finance all.
+- `order_review_summary` view, `manager_orders`, `finance_orders`, `covered_branches` (0004): review and close screens; `docs/0004-review-and-close-workflow.md`.
 - `technician_jobs()`: the signed-in technician's `order_summary` rows.
 - `my_jobs(p_view)` (0002): the signed-in technician's jobs for one job-list tab (`open`, `submitted`, `finished`).
 - `current_staff()`: the signed-in user's staff profile with branch name.
@@ -138,6 +139,10 @@ All reads require a signed-in user with an active staff profile (row-level secur
 | More than 6 completion attachments | Seventh attachment on an order | Rejected by trigger |
 | "Explain the extra charges in the remarks" | Extra charges > 0 without remarks (0002) | Rejected |
 | "Attach a receipt for bank transfer, card or e-wallet payments" | Non-cash payment without a receipt (0002) | Rejected |
+| "Only a Manager of <branch> can …" | Manager not covering the order's branch (0004) | Rejected |
+| "Tell the customer the job is done before approving" | Approve with the customer message not sent (0004) | Rejected |
+| "Verify every receipt before closing (N not verified yet)" | Close with unverified non-cash payments (0004) | Rejected |
+| "<branch> has no Manager. Add a Manager to this branch first." | Staff or order change leaving a branch without a covering Manager (0004) | Rejected |
 
 ## Defaults
 
@@ -177,4 +182,5 @@ All reads require a signed-in user with an active staff profile (row-level secur
 | `docs/0001-admin-order-portal-workflow.md` | Workflow | Admin portal built on these RPCs (edit, list, phone and price rules) |
 | `docs/0002-technician-job-portal-workflow.md` | Workflow | Technician portal: job files, retry-safe payments, notifications |
 | `docs/0003-whatsapp-notification-workflow.md` | Workflow | Customer message prepared on Job Done |
+| `docs/0004-review-and-close-workflow.md` | Workflow | Manager review, Finance verification and close, branch cover |
 | `docs/decisions/0007-technician-job-portal-implementation-details.md` | Decision log | 0002 divergences from its plan |

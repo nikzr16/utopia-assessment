@@ -21,7 +21,7 @@ describe('AC1 seed data', () => {
     )
     const counts = Object.fromEntries(rows.map((r) => [r.role, Number(r.n)]))
     expect(counts.admin).toBe(2)
-    expect(counts.manager).toBe(2)
+    expect(counts.manager).toBe(5)
     expect(counts.finance).toBeGreaterThanOrEqual(1)
     expect(counts.technician).toBeGreaterThanOrEqual(4)
   })
@@ -41,12 +41,12 @@ describe('AC1 seed data', () => {
     ])
   })
 
-  it('places managers in Shah Alam and Kuala Lumpur', async () => {
+  it('places a Manager in every branch (0004: a branch needs a Manager first)', async () => {
     const rows = await t.q<{ branch: string }>(
       `select b.name as branch from staff s join branches b on b.id = s.branch_id
         where s.role = 'manager' order by b.name`,
     )
-    expect(rows.map((r) => r.branch)).toEqual(['Kuala Lumpur', 'Shah Alam'])
+    expect(rows.map((r) => r.branch)).toEqual(['Johor Bahru', 'Kota Kinabalu', 'Kuala Lumpur', 'Penang', 'Shah Alam'])
   })
 
   it('loads the service types', async () => {
@@ -72,6 +72,9 @@ describe('AC1 seed data', () => {
       Yusoff: 'yusoff@sejuk.example.com',
       'Nurul Huda': 'nurul@sejuk.example.com',
       'Tan Wei Ming': 'weiming@sejuk.example.com',
+      'Lim Mei Ling': 'meiling@sejuk.example.com',
+      'Hafiz Osman': 'hafiz@sejuk.example.com',
+      'Grace Lojuni': 'grace@sejuk.example.com',
       'Siti Aminah': 'siti@sejuk.example.com',
     })
     for (const r of rows) expect(r.email).toBe(r.email.toLowerCase())

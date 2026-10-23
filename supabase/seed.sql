@@ -34,6 +34,9 @@ from (values
   -- Managers
   ('Nurul Huda',      'nurul@sejuk.example.com',   '60120000021', 'manager',    'Shah Alam'),
   ('Tan Wei Ming',    'weiming@sejuk.example.com', '60120000022', 'manager',    'Kuala Lumpur'),
+  ('Lim Mei Ling',    'meiling@sejuk.example.com', '60120000023', 'manager',    'Penang'),
+  ('Hafiz Osman',     'hafiz@sejuk.example.com',   '60120000024', 'manager',    'Johor Bahru'),
+  ('Grace Lojuni',    'grace@sejuk.example.com',   '60120000025', 'manager',    'Kota Kinabalu'),
   -- Finance
   ('Siti Aminah',     'siti@sejuk.example.com',    '60120000031', 'finance',    'Kuala Lumpur')
 ) as s(name, email, phone, role, branch_name)

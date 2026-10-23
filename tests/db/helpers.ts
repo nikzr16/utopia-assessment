@@ -115,6 +115,7 @@ export interface People {
   yusoff: string // technician, Shah Alam
   managerSA: string // Nurul Huda, Shah Alam
   managerKL: string // Tan Wei Ming, Kuala Lumpur
+  managerPG: string // Lim Mei Ling, Penang (0004)
   finance: string // Siti Aminah
 }
 
@@ -170,6 +171,12 @@ export interface TestDb {
    * A non-cash payment without `receiptPath` gets a receipt uploaded for it.
    */
   pay: (actor: string, orderId: string, amount: number, method?: string, opts?: PayOptions) => Promise<Row>
+  /**
+   * Confirm the order's latest customer message as sent / told by phone (as
+   * the assigned technician unless `actor` is given); a no-op when it already
+   * is. Approving a job needs this since 0004.
+   */
+  tellCustomer: (orderId: string, actor?: string) => Promise<void>
   /** submit_completion shorthand as the given staff member. */
   submit: (
     actor: string,
@@ -394,6 +401,7 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
     yusoff: await staff('Yusoff'),
     managerSA: await staff('Nurul Huda'),
     managerKL: await staff('Tan Wei Ming'),
+    managerPG: await staff('Lim Mei Ling'),
     finance: await staff('Siti Aminah'),
   }
 
@@ -506,6 +514,19 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
         opts.remarks !== undefined ? opts.remarks : (opts.extraCharges ?? 0) > 0 ? 'Extra parts' : null,
     })
 
+  const tellCustomer = async (orderId: string, actor?: string): Promise<void> => {
+    // Nothing to tell before the 0003 migration (a held-back migration test).
+    if ((await q<{ v: string | null }>(`select to_regclass('latest_customer_messages')::text as v`))[0].v === null) return
+    const rows = await q<{ id: string; status: string; tech: string }>(
+      `select m.id, m.status, o.assigned_technician_id as tech
+         from latest_customer_messages m join orders o on o.id = m.order_id
+        where m.order_id = $1`,
+      [orderId],
+    )
+    if (rows.length === 0 || rows[0].status !== 'not_sent') return
+    await rpcAs(actor ?? rows[0].tech, 'confirm_customer_message', { p_message_id: rows[0].id })
+  }
+
   const advance = async (
     orderId: string,
     target: AdvanceTarget,
@@ -529,7 +550,15 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
       extraCharges: opts.extraCharges ?? 0,
     })
     if (target === 'job_done') return summary(orderId)
-    await transition(people.managerSA, orderId, 'reviewed')
+    await tellCustomer(orderId)
+    // A Manager whose home branch is the order's (seed: one per branch).
+    const managers = await q<{ id: string }>(
+      `select s.id from staff s join orders o on o.id = $1
+        where s.role = 'manager' and s.active and s.branch_id = o.branch_id
+        order by s.name limit 1`,
+      [orderId],
+    )
+    await transition(managers[0]?.id ?? people.managerSA, orderId, 'reviewed')
     return summary(orderId)
   }
 
@@ -567,6 +596,7 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
     summary,
     transition,
     pay,
+    tellCustomer,
     submit,
     filePath,
     upload,

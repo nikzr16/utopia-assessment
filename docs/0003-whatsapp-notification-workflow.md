@@ -52,8 +52,8 @@ rework return.
 
 ### 2. Show the message — `latest_customer_messages`
 
-**Reads:** The newest row per order, with the editor's and confirmer's names (`security_invoker` view; RLS: the assigned technician and Admins only).
-**Where:** The **Customer message** panel (`CustomerMessagePanel`) on the technician's job page (above the customer details) and on the Admin order detail (above the order details), while the order is Job Done, Reviewed or Closed. Nothing is shown in other statuses or when there is no message.
+**Reads:** The newest row per order, with the editor's and confirmer's names (`security_invoker` view; RLS: whoever can read the order, since 0004: the assigned technician, Admins, Finance, and Managers of the branch).
+**Where:** The **Customer message** panel (`CustomerMessagePanel`) on the technician's job page (above the customer details), on the Admin order detail (above the order details), and on the Manager / Finance order page (0004: Managers can send it on behalf of the technician, Finance reads it), while the order is Job Done, Reviewed or Closed. Nothing is shown in other statuses or when there is no message.
 **Panel:**
 - WhatsApp: "Message to the customer" with the text; "Edited by X at T" and **Show original** / **Hide original** when edited; **Send to customer on WhatsApp** and **Edit message**.
 - Landline: "No WhatsApp number for this customer (landline). Call them instead." and **Call the customer** (`tel:+60…`).
@@ -64,7 +64,7 @@ rework return.
 
 ### 3. Edit before sending — `edit_customer_message(p_message_id, p_body)`
 
-**Who / when:** The assigned technician or an Admin; order Job Done, Reviewed or Closed; the order's newest message; WhatsApp channel; still `not_sent`.
+**Who / when:** The assigned technician or an Admin (not Managers, 0004); order Job Done, Reviewed or Closed; the order's newest message; WhatsApp channel; still `not_sent`.
 **Form:** **Edit message** opens "Message to send to the customer" (pre-filled, "1 to 1,000 characters. The original is kept.") with **Cancel** and **Save message**. The text is trimmed; empty or over 1,000 characters is refused on the field. Saving unchanged text closes the form without a database call.
 **Output:** `body`, `edited_by`, `edited_at` updated; `prepared_body` never changes. Audit `customer_message_edited` with the previous and new text.
 
@@ -72,7 +72,7 @@ rework return.
 
 **Send:** **Send to customer on WhatsApp** opens `https://wa.me/<phone>?text=<body>` in a new tab; the person presses Send in WhatsApp. The same tap opens "Have you sent it to the customer?" ("Tap Yes only after you pressed Send in WhatsApp. You cannot undo this.") with **No, not yet** and **Yes, I sent it**.
 **No:** Closes the question; nothing changes.
-**Yes:** Same who / when rules as stage 3 (any channel). Sets `sent`, `confirmed_by`, `confirmed_at` under the order row lock. Audit `customer_messaged` with channel, phone, the text sent and whether it was edited. The panel shows "Sent by X at T", disables Send and Edit, and the badge clears everywhere.
+**Yes:** Same who / when rules as stage 3 (any channel), plus a Manager covering the branch (0004), whose WhatsApp text is the on-behalf version (`docs/0004-review-and-close-workflow.md` stage 4). Sets `sent`, `confirmed_by`, `confirmed_at` under the order row lock. Audit `customer_messaged` with channel, phone, the text sent and whether it was edited. The panel shows "Sent by X at T", disables Send and Edit, and the badge clears everywhere.
 **On failure:** No signal → the question stays open with the error so Yes can be tapped again. Any other refusal → the question closes, the message is shown, and the panel reloads (so "Already sent by X at T" ends with the sent state on screen).
 
 ### 5. Landline: call and confirm — `confirm_customer_message(p_message_id)`
@@ -100,7 +100,8 @@ The migration wrote one `not_sent` message for every order already Job Done, Rev
 
 | Error | Cause | Handling |
 |---|---|---|
-| "Only the assigned technician or an Admin can change the customer message of an order" | Other technician, Manager, Finance | Rejected by both RPCs |
+| "Only the assigned technician, an Admin or a Manager of the branch can send the customer message of an order" | Other technician, Finance, Manager of another branch (0004 wording) | Rejected by both RPCs |
+| "Managers send the prepared message as it is; only the assigned technician or an Admin can edit it" | A covering Manager editing (0004) | Rejected |
 | "A customer message can only be edited / confirmed while the order is Job Done, Reviewed or Closed (it is currently X)" | Order returned for rework or cancelled | Rejected |
 | "A newer message has been prepared for this order. Reload the page to see it." | An older message after a rework resubmission | Rejected |
 | "Already sent by X at T" / "Already told by phone by X at T" | Message already confirmed (the other person got there first) | Rejected; the panel reloads to the sent state |
@@ -120,7 +121,7 @@ The migration wrote one `not_sent` message for every order already Job Done, Rev
 | Statuses offering the message | Job Done, Reviewed, Closed (`CUSTOMER_MESSAGE_STATUSES`) |
 | Edited text | 1 – 1,000 characters, trimmed |
 | Undo after confirming | None |
-| Who can see messages | Assigned technician and Admins (Manager / Finance: 0004) |
+| Who can see messages | Whoever can read the order (0004): assigned technician, Admins, Finance, Managers of the branch |
 
 ## Behavioral Constraints
 
@@ -153,3 +154,4 @@ The migration wrote one `not_sent` message for every order already Job Done, Rev
 | `docs/0002-technician-job-portal-workflow.md` | Workflow | Job page and job list that host the panel and the flag |
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0008-whatsapp-notification-implementation-details.md` | Decision log | Divergences from the 0003 PRD and plan |
+| `docs/0004-review-and-close-workflow.md` | Workflow | Manager sending on behalf; approval waits for this message |

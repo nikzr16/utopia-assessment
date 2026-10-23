@@ -22,8 +22,8 @@ in `supabase/migrations/20261022000005_admin_order_portal.sql`.
 ## Trigger
 
 A signed-in staff member whose active profile has role `admin` opens the app.
-`App.tsx` renders `AdminPortal` for Admins; every other role keeps its
-`RoleHome` placeholder whatever the URL.
+`App.tsx` renders `AdminPortal` for Admins; technicians, Managers and Finance
+get their own portals (0002, 0004) whatever the URL.
 
 ## Preconditions
 
@@ -70,13 +70,14 @@ The technician dropdown lists active technicians from `technician_options()`: th
 ### 3b. Customer message (0003)
 
 **When shown:** The order is Job Done, Reviewed, or Closed and has a customer message.
+**Approved / Closed (0004):** Reviewed and Closed orders show "Approved by X at T" (with the Manager's note) and "Closed by X at T" above the Customer message panel.
 **Shows:** The Customer message panel above the order details: the message, Edit, Send to customer on WhatsApp (or Call the customer for a landline), the "Have you sent it?" question, "Sent by X at T", and the "Customer not told yet" badge. The history reloads after an edit or confirmation. Details: `docs/0003-whatsapp-notification-workflow.md`.
 
 ### 3a. Completion section (0002)
 
 **When shown:** The order is In Progress, Job Done, Reviewed, or Closed.
 **Reads:** `fetchOrderRecords` (completion record, payments with receipts, latest rework note), reloaded whenever the order changes.
-**Shows:** The technician's record read-only (work done, extra charges, final amount, remarks, submitted by and when) or "Not submitted yet."; the rework note while a returned job is In Progress; **Photos, videos and PDFs** with the same uploader as the technician (an Admin can add or remove files only while the job is In Progress; read-only otherwise); **Payments** with Receipt links, or "No payments recorded yet." Uploader details: `docs/0002-technician-job-portal-workflow.md` stage 5.
+**Shows:** The technician's record read-only (work done, extra charges, final amount, remarks, submitted by and when) or "Not submitted yet."; the rework note while a returned job is In Progress; **Photos, videos and PDFs** with the same uploader as the technician (an Admin can add or remove files only while the job is In Progress; read-only otherwise); **Payments** with Receipt links and, for non-cash payments, "Not verified yet" or "✓ Verified by X at T" (0004), or "No payments recorded yet." The history names "Verified a payment" / "Undid a payment verification" (0004). Uploader details: `docs/0002-technician-job-portal-workflow.md` stage 5.
 
 ### 4. Notify the technician — WhatsApp deep link
 
