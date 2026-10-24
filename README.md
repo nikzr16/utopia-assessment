@@ -1,20 +1,141 @@
-# Sejuk Sejuk Service: AI Features
+# Sejuk Sejuk Service — Operations System
 
-An internal operations system for an air-conditioner service company (orders,
-technician jobs, review and close, customer feedback, staff, KPI dashboard).
-This section covers how AI is used: the brief's AI module (the **Ask**
-operations query) and all three optional advanced challenges (**Workflow
-Supervisor**, **Document Understanding**, **Operational Insight**). The full
-project README follows in feature 0010. Details:
-[docs/0008-ai-ops-query-workflow.md](docs/0008-ai-ops-query-workflow.md),
-[docs/0009-ai-advanced-workflow.md](docs/0009-ai-advanced-workflow.md).
+An internal operations system for Sejuk Sejuk Service Sdn Bhd (fictional), an
+air-conditioner installation, servicing and repair company with 5 branches.
+It carries every job from **order → assignment → service → Manager review →
+Finance close**, lets customers rate the job from their phone, and gives
+every staff role an AI assistant that answers questions from the company's
+own data. Admins and Finance work on a desktop; technicians and Managers on
+a phone.
+
+## Live app
+
+**https://sejuk-sejuk-utopia.vercel.app** (production, built from `main`)
+
+Sign in with any of these accounts. **The password is sent with the
+submission** (it is not in this repository).
+
+| Role | Email | Branch |
+|---|---|---|
+| Admin | `aisyah.admin.kl@sejuk.example.com` | Kuala Lumpur |
+| Admin | `farid.admin.sa@sejuk.example.com` | Shah Alam |
+| Manager | `nurul.manager.sa@sejuk.example.com` | Shah Alam |
+| Manager | `weiming.manager.kl@sejuk.example.com` | Kuala Lumpur |
+| Manager | `meiling.manager.pg@sejuk.example.com` | Penang |
+| Manager | `hafiz.manager.jb@sejuk.example.com` | Johor Bahru |
+| Manager | `grace.manager.kk@sejuk.example.com` | Kota Kinabalu |
+| Technician | `ali.tech.sa@sejuk.example.com` | Shah Alam |
+| Technician | `bala.tech.sa@sejuk.example.com` | Shah Alam |
+| Technician | `yusoff.tech.sa@sejuk.example.com` | Shah Alam |
+| Technician | `john.tech.kl@sejuk.example.com` | Kuala Lumpur |
+| Finance | `siti.finance.kl@sejuk.example.com` | Kuala Lumpur |
+
+Every branch also has demo technicians (`<name>.tech.<branch>@…`, e.g.
+`ravi.tech.pg@sejuk.example.com`) with a few weeks of demo jobs, so the
+dashboard and the AI have data. Emails follow `<name>.<role>.<branch>`
+(branches `kl`, `sa`, `pg`, `jb`, `kk`); the addresses are not real
+mailboxes. Try the technician and Manager screens on a phone.
+
+## What was built
+
+Every module of the brief, the bonus module, the AI module and all three
+optional AI challenges, with real sign-in instead of a role switcher.
+
+| Brief | Feature | What it does |
+|---|---|---|
+| Foundation | Sign-in and roles | Supabase email + password sign-in; Admin, Manager, Technician, Finance; every screen and record limited by role and branch |
+| Module 1 | Admin order portal | New order (customer, phone, address, service type, problem, quoted price, schedule), order list and search, assign / reassign a technician (with a WhatsApp note to them), edit, reschedule, cancel, order summary |
+| Module 2 | Technician job portal | My jobs (overdue / today / upcoming, submitted, finished), accept, start, reschedule, upload photos / videos / PDFs (camera on a phone), work done, extra charges with remarks, payments with receipts, Job Done |
+| Module 3 | WhatsApp notification | At Job Done the database prepares the customer message (English, Malaysia time); a person sends it with one tap (`wa.me` link) and confirms |
+| Extra | Review and close | Managers review, return for rework or approve the branches they cover; Finance verifies receipts and closes fully paid jobs; live notifications |
+| Extra | Customer feedback | The WhatsApp message ends with a private link; the customer rates the job on a public page (no sign-in, 7 days, once); poor ratings alert the Manager |
+| Extra | Staff management | Add staff with an invite email, edit, Manager branch cover, deactivate (signed out at once) and reactivate, full staff history |
+| Bonus module | KPI dashboard | Week / month KPIs per technician and branch (jobs, amount, collected, reschedules, returns, ratings), leaderboard, charts, branch comparison, drill-down, CSV; technicians see "My week" |
+| AI module | Ask (operations query) | Chat bubble in every portal; answers from whitelisted, role-scoped lookups (see [How AI was integrated](#how-ai-was-integrated)) |
+| AI challenges | Supervisor, Read from photo, Insights | Warnings on finished jobs, order forms read from a photo, workload insights |
+
+## Tech stack
+
+| Part | Choice |
+|---|---|
+| Front end | React 19, TypeScript, Vite 7, Tailwind CSS 4, React Router 7, Recharts |
+| Back end | Supabase: Postgres (rules in SQL functions, row-level security), Auth, Storage (private `job-files` bucket), Realtime, Edge Functions (Deno) |
+| AI | OpenAI `gpt-6-luna`, called only from Supabase Edge Functions |
+| Tests | Vitest: PGlite (real Postgres in-process) for database rules, jsdom for screens, plain unit tests for Edge Function logic |
+| Hosting | Vercel (`main` = production, `dev` = private preview) |
+| CI/CD | GitHub Actions: checks on every change, a robot visit after each production deploy, a daily Supabase wake-up |
+
+## Architecture
+
+```text
+ Browser (React, Vercel)                          Supabase (Singapore)
+ ─────────────────────────                        ─────────────────────────────────────────
+ Admin / Finance (desktop)  ── sign-in ─────────▶ Auth (email + password, invites)
+ Technician / Manager (phone)                      │
+        │                                          ▼
+        ├── rpc('assign_order', …) ──────────────▶ Postgres: SQL functions = every business rule
+        │   (the person's own token)               row-level security on every table
+        │                                          triggers: history, WhatsApp text, warnings
+        ├── upload ──────────────────────────────▶ Storage: private job-files bucket
+        ├◀─ live notifications ──────────────────  Realtime
+        └── functions.invoke ────────────────────▶ Edge Functions (hold the secrets)
+                                                     staff-access ─▶ Auth admin (invites)
+                                                     ask, ai-assist ─▶ OpenAI gpt-6-luna
+ Customer's phone ── /f/<token> (no sign-in) ────▶ feedback_form / submit_feedback only
+```
+
+## Architecture decisions
+
+- **The database is the rule authority.** Every write is a SQL function
+  (RPC) that takes the actor from the sign-in (`auth.uid()`), never from a
+  parameter; row-level security and explicit grants on every table. The
+  browser mirrors the rules only for instant form feedback, and a parity test
+  checks the mirror against SQL.
+- **Real authentication instead of the brief's mock login**, with sign-up
+  off: staff get an invite email and choose their own password.
+- **Secrets never reach the browser.** Only the public Supabase key is in
+  the app; the secret key (staff invites) and the OpenAI key live in Edge
+  Function secrets.
+- **AI reads data only through a fixed menu** of read functions, run as the
+  person asking, so it can never see more than that person's screens.
+- **WhatsApp by `wa.me` link, confirmed by a person**, instead of a paid
+  WhatsApp Business API; the text is prepared by the database at Job Done.
+- **Money is derived, not stored:** final amount = quote + extra charges;
+  payment status comes from the payments.
+- **Docs first:** a PRD and a plan per feature (`docs/prd`, `docs/plan`),
+  workflow docs for today's behaviour, and a decision log for every change of
+  plan (`docs/decisions`).
+
+## Challenges and assumptions
+
+- **Assumptions:** Malaysia time (UTC+8), weeks Monday–Sunday, money in MYR;
+  phone numbers are Malaysian (stored as `60…`); quotes RM 0 – 100,000; a job
+  counts as completed on the day a Manager approves it; every branch has a
+  Manager who covers it (a Manager can also cover other branches); at most 6
+  job files per order (photo 10 MB, video 50 MB, PDF 10 MB).
+- **Branch privacy:** Managers act only on the branches they cover, in every
+  screen, notification, file and AI answer; this needed row-level security on
+  storage, realtime and every read function, not just the screens.
+- **One truth for numbers:** the dashboard, the AI answers and the insights
+  all read the same five KPI functions, so they always agree.
+- **Customer feedback without accounts:** a random link token, valid 7 days,
+  one answer per job, and signed-out visitors may call only two functions.
+- **AI that cannot be talked into things:** stored text is passed as data,
+  the AI answers in strict JSON the server checks, and it can only add
+  warnings or fill boxes, never approve, remove or save.
+- **Deployment with one shared database:** the preview and production use
+  the same Supabase project, so test data is cleaned up after each check.
+
+## How AI was integrated
 
 **One rule for every AI feature:** the database decides every fact, number and
 permission; the AI (OpenAI `gpt-6-luna`, called only from Supabase Edge
 Functions that hold the key) only chooses from fixed options, reads text, or
-words things, and a person always makes the decision.
+words things, and a person always makes the decision. Details:
+[docs/0008-ai-ops-query-workflow.md](docs/0008-ai-ops-query-workflow.md),
+[docs/0009-ai-advanced-workflow.md](docs/0009-ai-advanced-workflow.md).
 
-## How the AI works
+### How the AI works
 
 Every portal has an **Ask** chat bubble (bottom right). Staff type a question
 in English or Malay and get one or two English sentences, a table of the
@@ -38,7 +159,7 @@ question ─▶ ask Edge Function ─▶ OpenAI gpt-6-luna picks lookups from a 
   "Completed" means approved by a Manager.
 - The OpenAI key lives only in the Edge Function's secrets, never in the browser.
 
-## Supported questions
+### Supported questions
 
 | Type | Example questions | Lookup |
 |---|---|---|
@@ -60,7 +181,7 @@ Bala"); two matches give "Did you mean…?" buttons.
 Who may ask: Admins and Finance about every branch, Managers about the
 branches they cover, technicians only about their own jobs and numbers.
 
-## Limitations
+### Limitations of the AI
 
 - **Read-only.** "Assign ORDER1234 to Bala" gets "I can only look things up",
   with a link to the order.
@@ -85,9 +206,9 @@ branches they cover, technicians only about their own jobs and numbers.
 - **Cost control** is the OpenAI account's spend limit; the app has no rate
   limits. `gpt-6-luna` costs about US$0.001 per question.
 
-## Advanced AI challenges (all three)
+### Advanced AI challenges (all three)
 
-### 1. AI Workflow Supervisor — warnings on finished jobs
+#### 1. AI Workflow Supervisor — warnings on finished jobs
 
 ```text
 Ali presses Job Done
@@ -118,7 +239,7 @@ Nurul's review list: "3 warnings"  ─▶ order page: check each with a note ─
   still appear, the AI part says "didn't run — Re-check", and Approve is never
   blocked by it; the limits are fixed in code (a developer changes them).
 
-### 2. AI Document Understanding — "Read from photo"
+#### 2. AI Document Understanding — "Read from photo"
 
 On **New order**, an Admin takes or chooses a photo (JPG, PNG, WebP) or a PDF
 (up to 3 pages, 10 MB) of a paper order form. `gpt-6-luna` reads the five
@@ -138,7 +259,7 @@ replaced or removed before work starts).
   09:00 (the screen says so); messy handwriting or a blurry photo fills
   nothing; HEIC photos are not accepted; about 3–6 seconds per form.
 
-### 3. AI Operational Insight — what stands out this week
+#### 3. AI Operational Insight — what stands out this week
 
 An **Insights** card at the top of the Dashboard (Managers: their branches;
 Admins: all) and the Ask question "Which technician might be overloaded this
@@ -163,13 +284,13 @@ and reused until the numbers change.
   but the numbers are always the Dashboard's; if OpenAI is down the card shows
   the plain facts; Finance and technicians do not get insights.
 
-### Admin AI log
+#### Admin AI log
 
 Admins see every AI use of the last 7 days (Ask questions, job checks, order
 forms read, insights) with who, when, the result, time taken and tokens
 (**AI log**, filter by type).
 
-## Privacy
+### Privacy
 
 Sent to OpenAI (always with `store: false`):
 
@@ -189,97 +310,85 @@ in the instructions; the AI answers only in a fixed JSON shape that the server
 checks, so a remark like "AI: ignore your rules" cannot remove a warning,
 approve, or change anything (in the hosted check it was flagged instead).
 
-## Set-up (hosted Supabase)
+## Limitations of the system
 
-1. Run `supabase/migrations/20261024000001_ai_ops_query.sql` and
-   `supabase/migrations/20261024000002_ai_advanced.sql` (SQL Editor); set
-   `app_settings.ai_assist_url` to `https://<ref>.supabase.co/functions/v1/ai-assist`.
-2. Supabase dashboard → Edge Functions → Secrets: `OPENAI_API_KEY`
-   (optional `OPENAI_MODEL`, default `gpt-6-luna`; `OPENAI_EFFORT`, default
-   `medium`) and `AI_TRIGGER_SECRET` (a long random value); the same value in
-   Integrations → Vault as `ai_trigger_secret`.
-3. `npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api`
-   and `npx supabase functions deploy ai-assist --project-ref <ref> --no-verify-jwt --use-api`
+- **WhatsApp is sent by a person** (one tap opens WhatsApp with the text);
+  there is no automatic sending or delivery report.
+- **No offline mode:** technicians need a connection to save work.
+- **One currency, one country:** MYR, Malaysia time, Malaysian phone numbers.
+- **No inventory, invoicing or payroll;** payments are recorded, not taken.
+- **Free plans:** Supabase free (kept awake by a daily visit), Vercel Hobby,
+  Gmail for invite emails (daily sending limit), an OpenAI spend cap.
+- **Demo data:** the staff emails are not real mailboxes, so password
+  emails cannot be received for them; their passwords are set with
+  `npm run auth:create-staff-logins -- --reset-passwords`.
+- **Email links always open the live app,** also when staff are invited from
+  a local copy (one address to configure).
 
----
+## Run it locally
 
-The rest of this README describes the harness the project is built on.
+Needs Node 23 and a Supabase project of your own.
 
-# General Harness
+1. `npm install`
+2. Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_ANON_KEY` (Supabase → Project Settings → API).
+3. In the Supabase SQL Editor run every file in `supabase/migrations/` in
+   name order, then `supabase/seed.sql` (branches, service types, staff).
+4. Set `SUPABASE_SECRET_KEY` and `STAFF_DEMO_PASSWORD` in `.env.local` and run
+   `npm run auth:create-staff-logins` (creates the staff sign-ins).
+5. Supabase → Authentication: turn public sign-up off; set the Site URL and
+   the Redirect URL `<app address>/auth/confirm`; point the Invite and Reset
+   email templates at `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite`
+   (or `recovery`); set up SMTP for invite emails.
+6. Edge Functions (`npx supabase login` first):
 
-A reusable, hands-off **agent-orchestration harness** for Claude Code with a
-**docs-first** workflow. Start any new project from this template: you describe the
-work in plain language, and the harness routes it to the right agent and workflow.
-You don't need to tag an `@agent` or a skill.
+   ```bash
+   npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt --use-api
+   npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api
+   npx supabase functions deploy ai-assist --project-ref <ref> --no-verify-jwt --use-api
+   ```
 
-## What's Inside
+   Secrets (Edge Functions → Secrets): `APP_URL` (the app address, for
+   invite links), `OPENAI_API_KEY`, `AI_TRIGGER_SECRET` (also in Vault as
+   `ai_trigger_secret`). In SQL set `app_settings.feedback_link_base` to the
+   app address and `app_settings.ai_assist_url` to
+   `https://<ref>.supabase.co/functions/v1/ai-assist`.
+7. `npm run dev` and open http://localhost:5173.
+
+Checks: `npm test` (no Docker or Supabase needed), `npm run typecheck`,
+`npm run build`.
+
+## Deployment and CI/CD
 
 ```text
-.
-├── CLAUDE.md               # Generic harness policy (routing, tiers, guardrails) — core
-├── CLAUDE.project.md       # Project context layer — fill this in per project
-├── .mcp.json               # MCP servers (empty by default)
-├── .claude/
-│   ├── agents/             # orchestrator, executor, workflow-author, mcp-connector
-│   ├── skills/             # analyze-requirements, execute-plan, author/generate-workflow,
-│   │                       # mcp-connector, validate-config (+ validator script)
-│   ├── workflows/          # _template.yml, README.md, registry.yml (ships routeless)
-│   ├── hooks/              # session_start.py — onboarding + opt-in core auto-pull
-│   ├── GLOSSARY.md         # Single source of truth for names
-│   ├── CORE.manifest       # Checksum lock over the shared core files
-│   └── settings.json       # Registers the SessionStart hook
-└── docs/                   # Docs-first source of truth
-    ├── documentation-standard.md
-    ├── product-roadmap.md  # Starts as the roadmap template — fill it in
-    ├── prd/  plan/  reference/  decisions/
-    ├── draft/              # Personal scratch space; agents ignore it
-    └── templates/          # PRD, plan, workflow, reference, roadmap, decision-log
+feature branch ──▶ dev ──(pull request)──▶ main
+                    │                        │
+    GitHub ci: test, typecheck, build        GitHub ci on the pull request
+    Vercel: private preview                  Vercel: https://sejuk-sejuk-utopia.vercel.app
+                                               └─▶ GitHub live-check: robot visit
 ```
 
-## How Requests Are Routed
+- **Vercel** builds only `main` (production) and `dev` (preview, behind
+  Vercel sign-in); `vercel.json` serves every path from the app, so links
+  like `/f/<token>` open, and tells search engines not to index it.
+- **`ci`** (`.github/workflows/ci.yml`) runs on every push to `dev` / `main`
+  and every pull request into `main`.
+- **`live-check`** opens the live app in a headless browser after each
+  production deploy: the sign-in page, a feedback link (proves the database
+  answers), the email-link page, no-index. Run it by hand with
+  `LIVE_URL=https://sejuk-sejuk-utopia.vercel.app npm run live-check`.
+- **`keep-awake`** reads from Supabase once a day so the free project does
+  not pause.
+- Vercel needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; GitHub needs
+  the repository variables `LIVE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+  (all public values).
 
-| Request shape | What happens |
-|---|---|
-| Trivial (about 15 lines or fewer, one file) | Runs directly, without the orchestrator |
-| Build / implement / change / fix | **orchestrator** picks a route from `registry.yml`, or uses the built-in ad-hoc route (`executor` → self-review) |
-| Mentions a workflow / cycle / pipeline / route | **workflow-author** scaffolds, validates, and registers it |
-| Mentions an MCP server / connector | **mcp-connector** adds it to `.mcp.json` |
+## Project docs
 
-See [CLAUDE.md](CLAUDE.md) for the full policy and
-[.claude/workflows/README.md](.claude/workflows/README.md) for the workflow format.
-
-## Docs-First Workflow
-
-1. Set the product direction in `docs/product-roadmap.md`.
-2. For each feature, write `docs/prd/NNNN-[feature]-prd.md`, then `docs/plan/NNNN-[feature]-plan.md`,
-   starting from `docs/templates/`.
-3. Implement against the PRD and plan. When the code diverges from the plan, add an entry
-   to `docs/decisions/NNNN-title.md`. Don't rewrite the PRD or plan to match.
-4. Keep the workflow and reference docs current, and run the session-close checklist in
-   [docs/documentation-standard.md](docs/documentation-standard.md).
-
-## Starting A New Project From This Harness
-
-1. Copy or clone this repo into the new project.
-2. Fill in [CLAUDE.project.md](CLAUDE.project.md) and `docs/product-roadmap.md`.
-3. Add project-only capabilities under namespaced names so they never collide with core:
-   - agent → `.claude/agents/proj.<name>.md`
-   - skill → `.claude/skills/proj-<name>/SKILL.md`
-   - workflow → `.claude/workflows/proj-<name>.yml`, plus a route in `registry.yml`
-4. Validate after any change under `.claude/`:
-
-   ```bash
-   python .claude/skills/validate-config/scripts/validate_config.py
-   ```
-
-5. (Optional) To receive core updates, add this harness as the `upstream` remote. The
-   SessionStart hook then refreshes core files automatically:
-
-   ```bash
-   git remote add upstream <this-harness-repo-url>
-   ```
-
-**Never edit a core file** (the files listed in `.claude/CORE.manifest`) to change project
-behavior. Add a `proj.*` / `proj-*` capability instead. If a core file drifts, the validator
-reports a core-lock error. Harness maintainers who deliberately change core should
-regenerate the lock with `--update-core-manifest`.
+- [docs/product-roadmap.md](docs/product-roadmap.md) — features 0000–0010 and
+  their order
+- `docs/prd/`, `docs/plan/` — intent and plan per feature
+- `docs/NNNN-*-workflow.md` — how each feature works today
+- `docs/decisions/` — every change of plan and why
+- [docs/harness.md](docs/harness.md) — the agent harness this repository was
+  built with (Claude Code)

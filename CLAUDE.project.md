@@ -38,7 +38,8 @@ renumbered in decisions 0009 and 0010; 0010 added in decision 0012).
 - **Charts:** Recharts (KPI dashboard only; loaded on demand with the dashboard pages)
 - **Storage:** Supabase Postgres and Supabase Storage (private `job-files` bucket for job photos / videos / PDFs and payment receipts)
 - **Packaging:** npm with `package-lock.json`; Node 23 (Vitest pinned to 3.x and jsdom to 26 until Node ≥ 24)
-- **Deployment:** Vercel (`main` = production, `dev` = integration); `vercel.json` rewrites all paths to the SPA
+- **Deployment:** Vercel project `sejuk-sejuk`, live at `https://sejuk-sejuk-utopia.vercel.app` (`main` = production, `dev` = private preview); `vercel.json` rewrites all paths to the SPA, builds only `main` / `dev`, sends no-index headers
+- **CI/CD:** GitHub Actions (`.github/workflows/`): `ci` on pushes to `dev` / `main` and pull requests into `main`; `live-check` robot visit after each production deploy; `keep-awake` daily Supabase visit (0010)
 
 ## Repository Layout
 
@@ -78,6 +79,8 @@ when structure, routes, schemas, or config change).
 | Deploy the staff function | `npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt --use-api` | After `npx supabase login` (the user signs in); redeploy when `supabase/functions/staff-access/` changes |
 | Deploy the AI function | `npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api` | Redeploy when `supabase/functions/ask/` or `_shared/` changes; needs the `OPENAI_API_KEY` function secret |
 | Deploy the AI assist function | `npx supabase functions deploy ai-assist --project-ref <ref> --no-verify-jwt --use-api` | Redeploy when `supabase/functions/ai-assist/` or `_shared/` changes; needs `OPENAI_API_KEY` and `AI_TRIGGER_SECRET` |
+| Robot visit of the live app | `LIVE_URL=https://sejuk-sejuk-utopia.vercel.app npm run live-check` | Needs `npx playwright install chromium` once; GitHub runs it after each production deploy |
+| Release to production | Pull request `dev` → `main` on GitHub, merged by the user (merge commit) when `ci` is green | Vercel deploys `main`; `docs/0010-production-deployment-workflow.md` |
 
 ## Code Conventions
 
@@ -135,7 +138,7 @@ when structure, routes, schemas, or config change).
    `submit_feedback`. One feedback per visit, link valid 7 days; 1–2 stars or
    "not working" alerts covering Managers; landline ratings are recorded by an
    Admin or covering Manager. The link address is
-   `app_settings.feedback_link_base` (local until 0010). Feedback rows are
+   `app_settings.feedback_link_base` (the live app since 0010). Feedback rows are
    never changed or deleted (cleanup must disable `customer_feedback_guard_trg`).
 10. Staff management: `docs/0006-staff-management-workflow.md`. Admins manage
    everyone and branch cover; a Manager manages technicians of branches they
@@ -143,7 +146,8 @@ when structure, routes, schemas, or config change).
    deactivates themselves; the last active Admin / Finance user stays. New
    staff get an invite email and choose their own password; sign-ins are
    changed only by the `staff-access` Edge Function (the only holder of the
-   secret key; deploy with `--no-verify-jwt --use-api`). Technicians need a
+   secret key; deploy with `--no-verify-jwt --use-api`); every email link
+   opens `<APP_URL>/auth/confirm`, the live app (0010). Technicians need a
    mobile; a phone belongs to one active staff member; a technician with open
    jobs cannot be deactivated. Deactivation blocks sign-in and signs the
    person out at once. Staff are never deleted; every change goes to the
@@ -201,8 +205,11 @@ when structure, routes, schemas, or config change).
   the user, never seen by the agent): `OPENAI_API_KEY` for `ask` and
   `ai-assist` (optional `OPENAI_MODEL`, default `gpt-6-luna`; `OPENAI_EFFORT`,
   default `medium`), `AI_TRIGGER_SECRET` for `ai-assist` (the same value as
-  the Supabase Vault secret `ai_trigger_secret`), `APP_ORIGINS` for
-  `staff-access`.
+  the Supabase Vault secret `ai_trigger_secret`), `APP_URL` (the live app
+  address) for `staff-access`.
+- Vercel (Production and Preview): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+  GitHub repository variables (public values): `LIVE_URL`, `SUPABASE_URL`,
+  `SUPABASE_ANON_KEY`.
 
 ## Testing And Definition Of Done
 
@@ -220,9 +227,13 @@ when structure, routes, schemas, or config change).
 - Hosted Supabase project (Singapore). Public sign-up must stay OFF. Staff
   sign-ins come from Staff screen invites (custom SMTP: Gmail app password;
   Invite / Reset templates link to `/auth/confirm` with a token hash; links
-  last 24 h; Redirect URLs list each local address's `/auth/confirm`), or the
+  last 24 h; Site URL and the only Redirect URL are the live app's), or the
   login script on a fresh project. Set-up steps: `docs/draft/0006-auth-setup.md`.
-- Demo staff emails are `<name>@sejuk.example.com` (see `supabase/seed.sql`).
+- Demo staff emails are `<name>.<role>.<branch>@sejuk.example.com` (role
+  `admin` / `manager` / `tech` / `finance`, branch `kl` / `sa` / `pg` / `jb` /
+  `kk`; see `supabase/seed.sql`). The hosted project also has 7 demo
+  technicians and the demo orders (admin note "Demo data (0010)"; decision
+  0018); test cleanup must keep them.
 - `docs/draft/` is local-only and partly ignored via `.git/info/exclude`.
 - Storage files cannot be deleted with SQL (Supabase blocks it); remove test
   files in the dashboard (Storage → `job-files`). Hosted SQL for each feature

@@ -26,17 +26,9 @@ export type StaffAccessAction = (typeof STAFF_ACCESS_ACTIONS)[number]
 /** The step a "Saved, but…" answer offers to run again. */
 export type RetryAction = 'resend_invite' | 'reset_password' | 'retry_block' | 'retry_unblock' | 'retry_email'
 
-/**
- * The app addresses an email link may open (0010 adds the deployed one
- * through APP_ORIGINS). Supabase's redirect list does not accept `[::1]`, so
- * the app sends `localhost` for the second-role tab (same server).
- */
-export const DEFAULT_APP_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5176',
-  'http://localhost:5177',
-] as const
+/** The answer when the function's `APP_URL` secret is missing or not an address. */
+export const APP_URL_MISSING =
+  'The app address is not set up yet, so no email can be sent. Ask the person who runs the system.'
 
 export interface StaffFields {
   name: string
@@ -52,7 +44,7 @@ export interface StaffAccessRequest {
   action: StaffAccessAction
   staffId?: string
   staff?: StaffFields
-  /** `<app address>/auth/confirm`: where the email link opens. */
+  /** `<live app>/auth/confirm`: where the email link opens (from `APP_URL`, never the browser). */
   redirectTo: string
 }
 
@@ -134,11 +126,12 @@ async function call(deps: StaffAccessDeps, fn: string, args: Record<string, unkn
 const target = async (deps: StaffAccessDeps, fn: string, args: Record<string, unknown>) =>
   (await call(deps, fn, args)) as StaffTarget
 
-/** Request body → a checked request, or the reason it is not one. */
-export function parseStaffAccessRequest(
-  body: unknown,
-  appOrigins: readonly string[] = DEFAULT_APP_ORIGINS,
-): StaffAccessRequest | string {
+/**
+ * Request body → a checked request, or the reason it is not one. Email links
+ * always open `redirectTo` (the live app, 0010); an address the browser sends
+ * is ignored.
+ */
+export function parseStaffAccessRequest(body: unknown, redirectTo: string): StaffAccessRequest | string {
   if (!body || typeof body !== 'object') return 'Send a JSON body'
   const b = body as Record<string, unknown>
   if (!(STAFF_ACCESS_ACTIONS as readonly unknown[]).includes(b.action)) return 'Unknown staff action'
@@ -155,17 +148,27 @@ export function parseStaffAccessRequest(
       return 'Choose branches to cover'
     }
   }
-  if (typeof b.redirectTo !== 'string' || !isConfirmAddress(b.redirectTo, appOrigins)) return 'Unknown app address'
-  return b as unknown as StaffAccessRequest
+  return {
+    action,
+    staffId: b.staffId as string | undefined,
+    staff: b.staff as StaffFields | undefined,
+    redirectTo,
+  }
 }
 
-/** The `/auth/confirm` page of one of the app's own addresses. */
-export function isConfirmAddress(value: string, appOrigins: readonly string[] = DEFAULT_APP_ORIGINS): boolean {
+/**
+ * The `/auth/confirm` page of the app address in the `APP_URL` secret
+ * (0010: every invite and reset link opens the live app, wherever it was
+ * made), or null when the setting is missing or not a plain http(s) address.
+ */
+export function confirmAddressFor(appUrl: string | null | undefined): string | null {
+  if (!appUrl?.trim()) return null
   try {
-    const u = new URL(value)
-    return appOrigins.includes(u.origin) && u.pathname === '/auth/confirm' && !u.search && !u.hash
+    const u = new URL(appUrl.trim())
+    const plain = !u.username && !u.password && !u.search && !u.hash && /^\/*$/.test(u.pathname)
+    return (u.protocol === 'https:' || u.protocol === 'http:') && plain ? `${u.origin}/auth/confirm` : null
   } catch {
-    return false
+    return null
   }
 }
 

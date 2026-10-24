@@ -14,16 +14,18 @@ current state; record the divergence in the decision log.
 ## Overview
 
 Where the application, database, tests, and docs live. Covers everything up to
-and including feature 0009 (AI advanced challenges).
+and including feature 0010 (production deployment).
 
 ## Directory Layout
 
 ```text
 .
 ├── index.html                  Vite entry HTML
-├── package.json                Scripts: dev, build, test, typecheck, auth:create-staff-logins; `recharts` + `react-is` pinned exact (0007)
+├── package.json                Scripts: dev, build, test, typecheck, auth:create-staff-logins, live-check (0010); `recharts` + `react-is` pinned exact (0007); dev: `playwright`, `yaml` (0010)
 ├── vite.config.ts              Vite + React + Tailwind + Vitest config
-├── vercel.json                 SPA rewrite: every path serves index.html (deep links like /orders/ORDER1001)
+├── vercel.json                 SPA rewrite (deep links like /orders/ORDER1001); only `main` and `dev` build (`ignoreCommand`); no-index and safety headers (0010)
+├── public/robots.txt           `Disallow: /` (0010)
+├── .github/workflows/          GitHub Actions (0010): `ci.yml` (test, typecheck, build, harness check), `live-check.yml` (robot visit after a production deploy), `keep-awake.yml` (daily Supabase visit)
 ├── tsconfig*.json              TypeScript project references (app, node + scripts, test incl. src + DOM + JSX)
 ├── .env.example                Env template → copy to .env.local (browser + script-only vars)
 ├── src/
@@ -50,7 +52,8 @@ and including feature 0009 (AI advanced challenges).
 │   └── lib/                    Supabase client and config, shared API plumbing, order records, inactive-staff tags, hooks, drafts
 ├── scripts/
 │   ├── create-staff-logins.ts  Creates/links Supabase Auth accounts for staff (secret key)
-│   └── lib/                    Pure planning logic for the script
+│   ├── live-check.ts           Robot visit of the live app in headless Chromium (Playwright, 0010)
+│   └── lib/                    Pure logic for the scripts (login planning; live-check checks)
 ├── supabase/
 │   ├── config.toml             Supabase CLI: `staff-access` (0006), `ask` (0008) and `ai-assist` (0009) deploy with the JWT check off
 │   ├── functions/staff-access/ Edge Function (0006): creates / changes sign-ins with the secret key
@@ -62,11 +65,11 @@ and including feature 0009 (AI advanced challenges).
 ├── tests/
 │   ├── domain/                 Unit tests for src/domain
 │   ├── auth/                   Unit tests for auth helpers
-│   ├── scripts/                Unit tests for the login script's planning logic
+│   ├── scripts/                Unit tests for the scripts' logic, `vercel.json` and the GitHub workflows (0010)
 │   ├── ui/                     Component tests (jsdom + Testing Library; api.ts replaced by test doubles)
 │   ├── functions/              Edge Function logic tests (fake database, Auth and AI clients, 0006, 0008, 0009)
 │   └── db/                     PGlite database tests (Supabase shim + migrations + seed)
-└── docs/                       Roadmap, PRDs, plans, workflows, reference, decisions
+└── docs/                       Roadmap, PRDs, plans, workflows, reference, decisions; `harness.md` (the agent harness, moved out of the README in 0010)
 ```
 
 ## Domain (`src/domain/`)
@@ -284,6 +287,8 @@ and including feature 0009 (AI advanced challenges).
 |---|---|
 | `create-staff-logins.ts` | `npm run auth:create-staff-logins`: Admin API with `SUPABASE_SECRET_KEY`; creates confirmed accounts for active staff (`--reset-passwords` to update), then `link_staff_accounts()` |
 | `lib/plan-staff-logins.ts` | Pure logic: which accounts to create / update / skip |
+| `live-check.ts` | `npm run live-check` (0010): opens `LIVE_URL` in headless Chromium (Playwright) at phone size and prints PASS / FAIL per check; exit 1 on any failure |
+| `lib/live-check.ts` | Pure checks for the robot visit (`runLiveCheck`, `readLiveEnv`, `formatResults`): sign-in form, no set-up notice, `/f/<made-up token>` answered by the database, `/auth/confirm`, no-index header, `robots.txt`, page errors |
 
 Since 0006 the script is for setting up a fresh project (seed / demo staff and
 the first Admin); staff are added on screen afterwards.
@@ -292,8 +297,8 @@ the first Admin); staff are added on screen afterwards.
 
 | File | Purpose |
 |---|---|
-| `handler.ts` | Plain TypeScript (tested in `tests/functions/`): `parseStaffAccessRequest` (actions, staff fields, `redirectTo` must be an app address's `/auth/confirm`), `handleStaffAccess`: staff RPC as the caller first, then the Auth step; "Saved, but…" answers with a retry; `authProblem` / database errors → fixed sentences; `DEFAULT_APP_ORIGINS` |
-| `index.ts` | Deno entry: CORS, caller token check (`auth.getUser`), caller client (publishable / anon key + token), secret-key client (`inviteUserByEmail`, `resetPasswordForEmail`, `updateUserById` email / ban, `deleteUser`, `link_invited_staff`); keys from `SUPABASE_SECRET_KEYS` / `SUPABASE_PUBLISHABLE_KEYS` or the legacy variables; extra app addresses from the `APP_ORIGINS` secret; raw errors to the function log |
+| `handler.ts` | Plain TypeScript (tested in `tests/functions/`): `parseStaffAccessRequest` (actions, staff fields; `redirectTo` is set from the live address, a browser value is ignored, 0010), `confirmAddressFor` (`APP_URL` → `/auth/confirm`), `APP_URL_MISSING`, `handleStaffAccess`: staff RPC as the caller first, then the Auth step; "Saved, but…" answers with a retry; `authProblem` / database errors → fixed sentences |
+| `index.ts` | Deno entry: CORS, caller token check (`auth.getUser`), caller client (publishable / anon key + token), secret-key client (`inviteUserByEmail`, `resetPasswordForEmail`, `updateUserById` email / ban, `deleteUser`, `link_invited_staff`); keys from `SUPABASE_SECRET_KEYS` / `SUPABASE_PUBLISHABLE_KEYS` or the legacy variables; email links to `<APP_URL>/auth/confirm` (secret `APP_URL`, 0010; 500 when missing); raw errors to the function log |
 
 Actions: `create`, `update`, `deactivate`, `reactivate`, `resend_invite`,
 `reset_password`, `retry_block`, `retry_unblock`, `retry_email`. Deploy:
@@ -348,7 +353,7 @@ secret `ai_trigger_secret`). Deploy:
 | `migrations/20261023000005_kpi_dashboard.sql` | 0007: `order_reschedules.technician_id` + `order_reschedules_technician_trg` and backfill; indexes `order_reschedules_technician_idx`, `audit_log_reviewed_idx`, `audit_log_returned_idx` (partial), `order_reschedules_created_idx`, `payments_recorded_idx`, `staff_history_staff_created_idx`; private `_kpi_day_start`, `_kpi_period`, `_kpi_visible_branches`, `_kpi_needs_attention`, `_kpi_completed_jobs`, `_kpi_events`, `_kpi_active_technicians`, `_kpi_metrics`; read functions `kpi_summary`, `kpi_technicians`, `kpi_branches`, `kpi_trend`, `kpi_technician_events` (documented with `comment on function`); grants (authenticated only) |
 | `migrations/20261024000001_ai_ops_query.sql` | 0008: `pg_trgm` (schema `extensions`); `_ask_scope` (visible branches, period, own-only rule; granted), `_ask_contains_pattern`; read functions `ask_jobs`, `ask_payments` (security invoker, RLS) and `ask_find_people` (definer; `_ask_normalize_name`, `_ask_name_score`); tables `ask_chats`, `ask_messages`, `ask_log` (RLS: own chats, Admins read the log, 7 days) and view `ask_log_entries`; `ask_rename_chat`, `ask_delete_chat`; `ask_record`, `ask_purge_old` (service role); `pg_cron` job `ask-purge-old` (guarded); grants |
 | `migrations/20261024000002_ai_advanced.sql` | 0009: `ask_log.feature` / `order_id`, wider outcome check, `ask_log_entries` recreated (feature, order number), `ai_log_record` (service role); `supervisor_runs`, `order_warnings` (`seq`, guard: no deletes while the order exists, text never changes; one live warning per rule) + RLS (Admins, Finance, covering Managers); `_supervisor_over_quote`, `_supervisor_money`, `_supervisor_apply`, `_supervisor_rules`; `app_settings.ai_assist_url`; `_supervisor_post` (`pg_net` + Vault secret, guarded), `_supervisor_start_run`; triggers `orders_supervisor_job_done_trg`, `customer_feedback_supervisor_trg`, `order_reschedules_supervisor_trg`, `orders_open_warnings_guard_trg` (approve guard); `supervisor_retry_pending` (`pg_cron` `supervisor-retry`, every 5 min), `supervisor_ai_input`, `supervisor_save_ai` (service role); `check_order_warning`, `request_supervisor_recheck`; `attachments.is_order_form` (+ check, one per order), `attachments_limit` (order form not counted), `_order_form_order`, `_order_form_write_error`, `_can_access_job_file` replaced, `set_order_form`, `remove_order_form`; `_insight_busy`, `_insight_quiet`, `_insight_reschedules_up`, `_insight_rating_drop`, `insight_facts`; `insight_wordings` + `insight_wording_get` / `_put` (service role); `ask_purge_old` replaced (also wordings); `pg_net` / `pg_cron` extensions and Realtime publication (guarded); grants |
-| `seed.sql` | 5 branches, service types, staff with `@sejuk.example.com` emails (incl. Ali, John, Bala, Yusoff; one Manager per branch since 0004); no auth accounts |
+| `seed.sql` | 5 branches, service types, 12 staff with `<name>.<role>.<branch>@sejuk.example.com` emails (0010; incl. Ali, John, Bala, Yusoff; one Manager per branch since 0004); no auth accounts. The hosted project also has 7 demo technicians (decision 0018) |
 
 ### Tables
 
@@ -431,7 +436,9 @@ Acknowledged). Policies `job_files_read`,
 | File | Covers |
 |---|---|
 | `db/helpers.ts` | Fresh PGlite database per file: Supabase shim (`auth` schema, `auth.uid()`, roles, `storage.buckets` / `storage.objects` with RLS and the delete guard), migrations in filename order, seed; act-as / signed-out helpers; upload / Storage-API delete helpers; `holdBackMigrations` / `applyMigration` to seed data before a migration runs (0003 backfill) |
-| `db/seed.test.ts` | AC1 |
+| `db/seed.test.ts` | AC1; 0010: emails are `<name>.<role>.<branch>@sejuk.example.com` and match role and branch |
+| `scripts/live-check.test.ts` | 0010: the robot's checks on a fake live app (healthy, blank page, no Supabase settings, no rewrite, database down, page errors), texts match the app |
+| `scripts/deploy-config.test.ts` | 0010: `vercel.json` (rewrite, branches, headers), `robots.txt`, the three GitHub workflows (triggers, steps, Node 23, variables only) |
 | `db/auth.test.ts` | AC2, AC16, AC17, account linking, `current_staff()` |
 | `db/audit.test.ts` | AC2 (actor recorded), AC12 |
 | `db/transitions.test.ts` | AC3–AC8 |

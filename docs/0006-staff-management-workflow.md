@@ -42,8 +42,10 @@ secret key. Screens: `src/features/staff/` and the password pages in
 - Supabase Auth: custom SMTP (Gmail app password), the Invite user and Reset
   password templates link to
   `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=invite|recovery`,
-  Redirect URLs list each app address's `/auth/confirm`, Email OTP
+  Site URL and the only Redirect URL are the live app
+  (`https://sejuk-sejuk-utopia.vercel.app/auth/confirm`, 0010), Email OTP
   Expiration 86400 (24 h), sign-up off. Steps: `docs/draft/0006-auth-setup.md`.
+- `staff-access` has the secret `APP_URL` (the live app address, 0010).
 - The seeded staff keep their script sign-ins (`npm run
   auth:create-staff-logins`, for setting up a fresh project only).
 
@@ -72,7 +74,7 @@ decides every time (RPCs as the signed-in person); the screen only hides what
 
 **Form:** Name, Email ("They sign in with this email"), Phone, Role (Admins: all four; Managers: Technician only, fixed), Home branch (Admins: all; Managers: covered branches), Also covers (Admins, Managers only, home branch not offered).
 **Before Save:** the form checks itself (`validateStaffForm`) and asks the database 0.4 s after typing stops (`staff_form_check`): phone in use, technician without a mobile, email in use, "Manager first", last Manager, last Admin / Finance. Database problems show under their field once it was touched (branch / role / cover at once).
-**Save:** `staff-access` runs `create_staff` as the person (rules, history) → `inviteUserByEmail` with `redirectTo = <app>/auth/confirm` → links the new sign-in (`link_invited_staff`, secret key only) → `staff_access_event('invite_sent')`. The page shows "<Name> is added. An invite was sent to <email>." (about 10 s with Gmail).
+**Save:** `staff-access` runs `create_staff` as the person (rules, history) → `inviteUserByEmail` with `redirectTo = <APP_URL>/auth/confirm` (set by the function, never by the browser; 0010) → links the new sign-in (`link_invited_staff`, secret key only) → `staff_access_event('invite_sent')`. The page shows "<Name> is added. An invite was sent to <email>." (about 10 s with Gmail).
 **Invite fails:** the person stays added; amber "The invite email was not sent: <fixed reason>" with **Send the invite again**.
 
 ### 4. Email link — `/auth/confirm`, `ConfirmLinkPage`
@@ -137,7 +139,7 @@ Staff screens tag names "(inactive)": order list and summary, order history acto
 | "This phone number or email is already used by someone else. Reload and try again." | Two saves at once hit a unique index | Rejected |
 | "Your account is no longer active. Ask your administrator if this is a mistake." | Deactivated (open app or sign-in) | Signed out |
 | "This link has expired or was already used…" | Old or used email link | Link page |
-| "Unknown app address" | `redirectTo` not one of the app's addresses | Function rejects (400) |
+| "The app address is not set up yet, so no email can be sent. Ask the person who runs the system." | The function's `APP_URL` secret is missing or not a plain http(s) address | Function answers 500; nothing is changed or sent |
 
 ## Defaults
 
@@ -148,7 +150,7 @@ Staff screens tag names "(inactive)": order list and summary, order history acto
 | Email link lifetime | 24 hours (Auth setting) |
 | Password | 8–72 characters |
 | Ban for inactive staff | 876000 h (lifted on reactivation) |
-| App addresses for email links | `http://localhost:5173`, `:5174`, `:5176`, `:5177` (the app asks for `localhost` when the tab runs on `[::1]` / `127.0.0.1`); more via the function secret `APP_ORIGINS` (0010) |
+| Address in email links | `<APP_URL>/auth/confirm` = `https://sejuk-sejuk-utopia.vercel.app/auth/confirm`, wherever the action was taken (local, preview or live; 0010) |
 | Joined date before 0006 | 22 Oct 2026 00:00 Malaysia time |
 
 ## Behavioral Constraints

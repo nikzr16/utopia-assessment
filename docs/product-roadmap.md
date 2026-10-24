@@ -83,7 +83,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
-| 0010 `production-deployment` | — | planned | Vercel set-up and production test of every feature, incl. the 0005 feedback link from a real phone (decision 0012); PRD not written yet |
+| `docs/prd/0010-production-deployment-prd.md` | `vercel.json`, `.github/workflows/`, `README.md`, `supabase/`, `src/features/staff/` | shipped | Vercel `sejuk-sejuk-utopia.vercel.app` (`main` production, `dev` private preview, one Supabase project); CI/CD on GitHub Actions (checks on `dev` and `dev` → `main` pull requests, robot visit after each live deploy, daily wake-up); email and feedback links on the live address (`APP_URL`); staff emails `name.role.branch@sejuk.example.com`; demo data and 7 demo technicians on the hosted project; end-to-end check on live (technician and Manager on a real phone, the feedback link from a real phone); full project README (decisions 0012, 0018) |
 
 ## Cross-Cutting Concerns
 
@@ -91,7 +91,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 |---|---|---|---|
 | Authentication and access (Supabase Auth, RLS, actor from `auth.uid()`) | 0000 | 0006 | Real email/password sign-in; public sign-up off; Managers read and act on the branches they cover (home + additional); signed-out visitors may call only the two feedback page functions, keyed by a random link token; staff and sign-ins managed on screen: invite / reset emails (custom SMTP), the `staff-access` Edge Function is the only holder of the secret key, deactivation blocks sign-in and signs the person out at once |
 | Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0007 | Transitions, enums, phone, price, editable / reschedulable statuses, extra charges, file types / sizes / paths, file and receipt permissions, payment rules, job list tabs, notification events, mobile check, Malaysia time format, customer message rules, branch cover, review / payment tabs, approve / close guards, payment verification, on-behalf message, feedback answers, poor rating, link text and states, phone rating rule, staff name / email, phone by role, open jobs, who may manage whom, staff history actions, KPI week / month starts, tie ranking, needs attention |
-| Deployment (Vercel) | 0001 | 0010 | `vercel.json` SPA rewrite in place; app not deployed yet; 0005 feedback links use a database setting for the public address (local for now); the 0006 `staff-access` Edge Function is deployed to the hosted project, and its email links accept the local addresses until 0010 adds the deployed one (`APP_ORIGINS`) |
+| Deployment (Vercel) and CI/CD | 0001 | 0010 | Live at `https://sejuk-sejuk-utopia.vercel.app` from `main`; `dev` is a private preview; only `main` / `dev` build; no-index headers; releases are `dev` → `main` pull requests merged by the user; GitHub Actions run tests, typecheck and build on every change, a headless-browser robot visit after each production deploy, and a daily Supabase wake-up; feedback links (`feedback_link_base`) and every email link (`staff-access` `APP_URL`) use the live address |
 | AI features (OpenAI via Edge Functions) | 0008 | 0009 | `gpt-6-luna` behind the `ask` and `ai-assist` Edge Functions (key in their secrets); the AI only chooses from a fixed menu of read functions run with the person's token (Ask), or returns strict JSON the server checks (job checks, form reading, insight wording); rules and numbers always come from the database; the database starts the job check itself (`pg_net`, a Vault secret); no phone numbers or addresses sent as text; warnings kept with the order, AI calls in the Admin AI log for 7 days (nightly `pg_cron` purge); no app rate limits (OpenAI spend cap) |
 | File storage (Supabase Storage) | 0002 | 0009 | Private `job-files` bucket; policies follow order visibility; files registered by RPC from the stored object's real type and size; the paper order form at `<order>/form/` (0009) |
 | Live updates (Supabase Realtime) | 0002 | 0009 | `notifications` streamed to the recipient under RLS; a person's own `staff` row streamed so deactivation signs them out at once (0006); an order's warnings and AI checks (0009); refresh on return as a fallback |
@@ -111,6 +111,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | `docs/prd/0007-kpi-dashboard-prd.md` | 3 – Insights | `src/features/kpi/`, `supabase/migrations/` | shipped |
 | `docs/prd/0008-ai-ops-query-prd.md` | 3 – Insights | `src/features/ask/`, `supabase/functions/`, `supabase/migrations/` | shipped |
 | `docs/prd/0009-ai-advanced-prd.md` | 4 – Stretch | `src/features/supervisor/`, `src/features/orders/`, `src/features/kpi/`, `src/features/ask/`, `supabase/functions/`, `supabase/migrations/` | shipped |
+| `docs/prd/0010-production-deployment-prd.md` | 5 – Production | `vercel.json`, `.github/workflows/`, `README.md`, `supabase/`, `src/features/staff/` | shipped |
 
 ## Prioritization Log
 
@@ -127,6 +128,7 @@ _When a feature moves between phases or priorities shift, record the change and 
 | 2026-10-23 | Phase 2 graduated: 0001–0006 shipped (0006 staff management last) | Every graduation criterion met: an order goes from creation to Closed on screen, customers leave feedback, staff are managed on screen; Phase 3 (0007, 0008) can start |
 | 2026-10-24 | Phase 3 graduated: 0007 and 0008 shipped (0008 AI operations query last) | Every graduation criterion met: the KPI dashboard and the AI query window work on the hosted project for every role; Phase 4 (0009) can start |
 | 2026-10-24 | Phase 4 graduated: 0009 shipped with all three optional AI challenges | Every graduation criterion met: Workflow Supervisor, Document Understanding and Operational Insight work on the hosted project with the real model; Phase 5 (0010 production deployment) can start |
+| 2026-10-24 | Phase 5 graduated: 0010 shipped (production deployment) | The app runs on Vercel (`main` production, `dev` preview) against the hosted project; every portal, the customer feedback link and the invite email passed the end-to-end check on the live app with technician and Manager on a real phone (decision 0018); all planned features 0000–0010 are shipped |
 
 ## Related Documents
 
