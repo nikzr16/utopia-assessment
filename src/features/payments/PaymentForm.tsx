@@ -1,8 +1,21 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import {
+  Banknote,
+  CircleX,
+  CreditCard,
+  Landmark,
+  LoaderCircle,
+  Paperclip,
+  RotateCw,
+  Smartphone,
+  Trash2,
+  Upload,
+  type LucideIcon,
+} from 'lucide-react'
+import { ActionBar } from '../../components/ActionBar'
 import { Dialog } from '../../components/Dialog'
 import { Field } from '../../components/Field'
-import { BUTTON, CARD, INPUT, LINK } from '../../components/styles'
+import { BUTTON, CARD, INPUT } from '../../components/styles'
 import {
   PAYMENT_FORM_FIELDS,
   PAYMENT_METHODS,
@@ -27,6 +40,14 @@ import { clearDraft, loadDraft, saveDraft } from '../../lib/drafts'
 import { deleteStoredFile, uploadFile } from '../attachments/api'
 import { preparePhoto, type PhotoCodec } from '../attachments/resize'
 import type { RecordPayment } from './api'
+import { BackLink, PageHeader } from '../../components/ui'
+
+const METHOD_ICONS: Record<PaymentMethod, LucideIcon> = {
+  cash: Banknote,
+  bank_transfer: Landmark,
+  card: CreditCard,
+  ewallet: Smartphone,
+}
 
 /** A receipt uploaded to Storage, waiting to be saved with the payment. */
 interface UploadedReceipt {
@@ -218,24 +239,32 @@ export function PaymentForm({
 
   return (
     <form noValidate onSubmit={submit} aria-label="Record payment" className="space-y-4">
-      <Link to={backTo} className={`${LINK} inline-flex min-h-11 items-center text-sm`}>
-        ← {backLabel}
-      </Link>
-      <div>
-        <h2 className="text-xl font-semibold">Record payment</h2>
-        <p className="text-sm text-slate-600">
-          {order.order_no} · Final amount {formatMYR(order.final_amount)} · Paid {formatMYR(order.amount_paid)} ·{' '}
-          <strong>Balance {formatMYR(order.balance)}</strong>
-        </p>
-      </div>
+      <BackLink to={backTo}>{backLabel}</BackLink>
+      <PageHeader title="Record payment" description={order.order_no} />
+
+      <dl className="grid grid-cols-2 gap-2 text-sm tabular sm:grid-cols-3 sm:gap-3">
+        <div className="rounded-xl border border-line bg-surface px-3 py-2.5 shadow-card">
+          <dt className="text-xs text-ink-muted">Final amount</dt>
+          <dd className="mt-0.5 font-semibold text-ink">{formatMYR(order.final_amount)}</dd>
+        </div>
+        <div className="rounded-xl border border-line bg-surface px-3 py-2.5 shadow-card">
+          <dt className="text-xs text-ink-muted">Paid</dt>
+          <dd className="mt-0.5 font-semibold text-ink">{formatMYR(order.amount_paid)}</dd>
+        </div>
+        <div className="col-span-2 flex items-baseline justify-between gap-3 rounded-xl border border-brand/30 bg-brand-soft px-3 py-2.5 text-brand-ink sm:col-span-1 sm:block">
+          <dt className="text-xs font-medium">Balance</dt>
+          <dd className="text-base font-semibold sm:mt-0.5 sm:text-sm">{formatMYR(order.balance)}</dd>
+        </div>
+      </dl>
 
       {formError ? (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
-          {formError}
+        <p role="alert" className="flex gap-2 rounded-xl border border-danger/35 bg-danger-soft px-4 py-3 text-sm text-danger-ink">
+          <CircleX className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">{formError}</span>
         </p>
       ) : null}
 
-      <div className={`${CARD} space-y-4`}>
+      <div className={`${CARD} space-y-5`}>
         <Field id={fieldId('amount')} label="Amount received (RM)" error={errors.amount}>
           {(control) => (
             <input
@@ -251,41 +280,46 @@ export function PaymentForm({
         </Field>
 
         <fieldset aria-describedby={errors.method ? 'payment-method-error' : undefined}>
-          <legend className="text-sm font-medium text-slate-800">Payment method</legend>
-          <div className="mt-1 grid grid-cols-2 gap-2">
-            {PAYMENT_METHODS.map((m, i) => (
-              <label
-                key={m}
-                className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm ${
-                  values.method === m ? 'border-sky-600 bg-sky-50 text-sky-900' : 'border-slate-300 bg-white'
-                }`}
-              >
-                <input
-                  id={i === 0 ? fieldId('method') : undefined}
-                  type="radio"
-                  name="payment-method"
-                  value={m}
-                  checked={values.method === m}
-                  onChange={() => change('method', m)}
-                  className="h-4 w-4"
-                />
-                {PAYMENT_METHOD_LABELS[m]}
-              </label>
-            ))}
+          <legend className="text-sm font-medium text-ink">Payment method</legend>
+          <div className="mt-1.5 grid grid-cols-2 gap-2 sm:gap-3">
+            {PAYMENT_METHODS.map((m, i) => {
+              const Icon = METHOD_ICONS[m]
+              const on = values.method === m
+              return (
+                <label
+                  key={m}
+                  className={`flex min-h-14 cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 text-sm font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus ${
+                    on ? 'border-brand bg-brand-soft text-brand-ink ring-1 ring-brand' : 'border-line-strong bg-surface text-ink hover:bg-sunken'
+                  }`}
+                >
+                  <input
+                    id={i === 0 ? fieldId('method') : undefined}
+                    type="radio"
+                    name="payment-method"
+                    value={m}
+                    checked={on}
+                    onChange={() => change('method', m)}
+                    className="size-4 shrink-0 accent-brand"
+                  />
+                  <Icon className={`size-5 shrink-0 ${on ? 'text-brand' : 'text-ink-faint'}`} aria-hidden="true" />
+                  <span className="min-w-0">{PAYMENT_METHOD_LABELS[m]}</span>
+                </label>
+              )
+            })}
           </div>
           {errors.method ? (
-            <p id="payment-method-error" className="mt-1 text-sm text-red-700">
+            <p id="payment-method-error" className="mt-1 text-sm text-danger-ink">
               {errors.method}
             </p>
           ) : null}
         </fieldset>
 
         <div>
-          <p className="text-sm font-medium text-slate-800">
+          <p className="text-sm font-medium text-ink">
             Receipt photo or PDF
-            {needsReceipt ? null : <span className="font-normal text-slate-500"> (optional for cash)</span>}
+            {needsReceipt ? null : <span className="font-normal text-ink-faint"> (optional for cash)</span>}
           </p>
-          <p className="text-xs text-slate-500">Required for bank transfer, card and e-wallet: the slip or screenshot.</p>
+          <p className="text-xs text-ink-faint">Required for bank transfer, card and e-wallet: the slip or screenshot.</p>
           <input
             ref={fileInput}
             id={fieldId('receipt-file')}
@@ -296,17 +330,29 @@ export function PaymentForm({
           />
           <div className="mt-2 space-y-2">
             {receipt.status === 'uploading' ? (
-              <p role="status" className="text-sm text-slate-700">
+              <p role="status" className="flex items-center gap-2 rounded-lg border border-line bg-sunken px-3 py-2.5 text-sm text-ink-muted">
+                <LoaderCircle className="size-4 shrink-0 animate-spin text-brand" aria-hidden="true" />
                 Uploading {receipt.fileName}…
               </p>
             ) : receipt.status === 'ready' ? (
-              <p className="text-sm text-slate-800">
-                ✓ {receipt.fileName} <span className="text-slate-500">· {formatFileSize(receipt.size)}</span>
-              </p>
+              <div className="flex items-center gap-3 rounded-lg border border-success/35 bg-success-soft px-3 py-2.5 text-sm">
+                <span
+                  aria-hidden="true"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-success"
+                >
+                  <Paperclip className="size-4" />
+                </span>
+                <p className="min-w-0 break-words text-success-ink">
+                  ✓ {receipt.fileName} <span className="text-ink-muted">· {formatFileSize(receipt.size)}</span>
+                </p>
+              </div>
             ) : receipt.status === 'failed' ? (
-              <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
-                <p>
-                  {receipt.fileName}: {receipt.error}
+              <div role="alert" className="rounded-lg border border-danger/35 bg-danger-soft px-3 py-2.5 text-sm text-danger-ink">
+                <p className="flex gap-2">
+                  <CircleX className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 break-words">
+                    {receipt.fileName}: {receipt.error}
+                  </span>
                 </p>
                 {receipt.file ? (
                   <button
@@ -314,6 +360,7 @@ export function PaymentForm({
                     onClick={() => receipt.file && void uploadReceipt(receipt.file)}
                     className={`${BUTTON.primary} mt-2 min-h-11`}
                   >
+                    <RotateCw aria-hidden="true" />
                     Retry
                   </button>
                 ) : null}
@@ -326,18 +373,20 @@ export function PaymentForm({
                 onClick={() => fileInput.current?.click()}
                 disabled={receipt.status === 'uploading'}
                 aria-describedby={errors.receipt ? 'payment-receipt-error' : undefined}
-                className={`${BUTTON.secondary} min-h-11 flex-1`}
+                className={`${BUTTON.secondary} min-h-11 flex-1 ${receipt.status === 'ready' ? '' : 'border-dashed'}`}
               >
+                <Upload aria-hidden="true" />
                 {receipt.status === 'ready' ? 'Replace receipt' : 'Add receipt'}
               </button>
               {receipt.status === 'ready' ? (
-                <button type="button" onClick={removeReceipt} className={`${BUTTON.secondary} min-h-11`}>
+                <button type="button" onClick={removeReceipt} className={`${BUTTON.dangerSoft} min-h-11`}>
+                  <Trash2 aria-hidden="true" />
                   Remove receipt
                 </button>
               ) : null}
             </div>
             {errors.receipt ? (
-              <p id="payment-receipt-error" className="text-sm text-red-700">
+              <p id="payment-receipt-error" className="text-sm text-danger-ink">
                 {errors.receipt}
               </p>
             ) : null}
@@ -358,15 +407,16 @@ export function PaymentForm({
         </Field>
       </div>
 
-      <div className="sticky bottom-0 -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <button type="submit" disabled={saving} className={`${BUTTON.primary} min-h-11 w-full`}>
+      <ActionBar>
+        <button type="submit" disabled={saving} className={`${BUTTON.primary} min-h-12 w-full text-base md:min-h-11 md:text-sm`}>
+          <Banknote aria-hidden="true" />
           {saving ? 'Saving…' : 'Record payment'}
         </button>
-      </div>
+      </ActionBar>
 
       {confirmOver ? (
         <Dialog title="More than the balance" onClose={() => setConfirmOver(null)}>
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-ink-muted">
             {formatMYR(confirmOver.input.amount)} is {formatMYR(confirmOver.over)} more than the balance of{' '}
             {formatMYR(order.balance)}. Record it anyway?
           </p>

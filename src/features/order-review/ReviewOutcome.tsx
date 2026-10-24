@@ -1,3 +1,4 @@
+import { BadgeCheck, Lock } from 'lucide-react'
 import { approvedLabel, closedLabel, type OrderStatus } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import { staffName, useInactiveStaff } from '../../lib/staffStatus'
@@ -13,14 +14,22 @@ export function ReviewOutcomeLines({ facts }: { facts: ReviewFacts }) {
   const closed = closedLabel({ ...facts, closed_by_name: staffName(facts.closed_by_name, facts.closed_by_id) })
   if (!approved && !closed) return null
   return (
-    <div role="status" className="space-y-1 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-900">
+    <div role="status" className="space-y-1.5 rounded-lg border border-success/35 bg-success-soft px-3 py-2.5 text-sm text-success-ink">
       {approved ? (
-        <p>
-          <span className="font-medium">{approved}</span>
-          {facts.review_note ? <span className="block break-words">Note: {facts.review_note}</span> : null}
-        </p>
+        <div className="flex gap-2">
+          <BadgeCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p className="min-w-0">
+            <span className="font-medium">{approved}</span>
+            {facts.review_note ? <span className="block break-words">Note: {facts.review_note}</span> : null}
+          </p>
+        </div>
       ) : null}
-      {closed ? <p className="font-medium">{closed}</p> : null}
+      {closed ? (
+        <div className="flex gap-2">
+          <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p className="min-w-0 font-medium">{closed}</p>
+        </div>
+      ) : null}
     </div>
   )
 }

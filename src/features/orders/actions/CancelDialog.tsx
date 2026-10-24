@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Dialog } from '../../../components/Dialog'
 import { Field } from '../../../components/Field'
+import { Ban, TriangleAlert } from 'lucide-react'
 import { BUTTON, INPUT } from '../../../components/styles'
 import { cancelOrder, type OrderSummary } from '../api'
 
@@ -43,10 +44,13 @@ export function CancelDialog({
   return (
     <Dialog title={`Cancel ${order.order_no}`} onClose={onClose}>
       <form noValidate onSubmit={submit} className="space-y-4">
-        <p className="text-sm text-slate-700">
-          Cancelling is final: the order can no longer be changed.
-          {order.technician_name ? ` Let ${order.technician_name} know it is off.` : ''}
-        </p>
+        <div className="flex gap-3 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2.5 text-sm text-danger-ink">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p>
+            Cancelling is final: the order can no longer be changed.
+            {order.technician_name ? ` Let ${order.technician_name} know it is off.` : ''}
+          </p>
+        </div>
         <Field id="cancel-reason" label="Reason" error={error ?? undefined}>
           {(control) => (
             <textarea
@@ -62,11 +66,12 @@ export function CancelDialog({
             />
           )}
         </Field>
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className={BUTTON.secondary} disabled={saving}>
+        <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} className={`${BUTTON.secondary} min-h-11`} disabled={saving}>
             Keep order
           </button>
-          <button type="submit" className={BUTTON.danger} disabled={saving}>
+          <button type="submit" className={`${BUTTON.danger} min-h-11`} disabled={saving}>
+            <Ban aria-hidden="true" />
             {saving ? 'Cancelling…' : 'Cancel order'}
           </button>
         </div>

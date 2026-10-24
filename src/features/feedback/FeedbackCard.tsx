@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react'
+import { CircleX, Clock, PhoneCall, RotateCw, Save, Star, TriangleAlert } from 'lucide-react'
 import { Dialog } from '../../components/Dialog'
 import { BUTTON, CARD } from '../../components/styles'
 import {
@@ -75,10 +76,12 @@ export function FeedbackCard({
   if (state.status === 'error') {
     return (
       <section className={CARD} aria-label="Customer feedback">
-        <p role="alert" className="text-sm text-red-900">
-          Could not load the customer feedback. {state.message}
+        <p role="alert" className="flex gap-2 text-sm text-danger-ink">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">Could not load the customer feedback. {state.message}</span>
         </p>
-        <button type="button" onClick={reload} className="mt-2 min-h-11 text-sm font-medium underline">
+        <button type="button" onClick={reload} className={`${BUTTON.secondary} mt-3 min-h-11`}>
+          <RotateCw aria-hidden="true" />
           Try again
         </button>
       </section>
@@ -93,18 +96,27 @@ export function FeedbackCard({
 
   return (
     <section className={CARD} aria-labelledby={headingId}>
-      <h3 id={headingId} className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+      <h3 id={headingId} className="flex items-center gap-2 text-base font-semibold text-ink">
+        <Star className="size-4.5 text-warning" aria-hidden="true" />
         Customer feedback
       </h3>
 
       {latest && !latestRated && customerMessageOffered(orderStatus) ? (
-        <p className="mt-3 text-sm text-slate-700">{waitingText(latest)}</p>
+        <p className="mt-3 flex gap-2 text-sm text-ink-muted">
+          <Clock className="mt-0.5 size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+          <span className="min-w-0">{waitingText(latest)}</span>
+        </p>
       ) : null}
 
       {feedback.length > 0 ? (
         <ol className="mt-3 space-y-3">
           {feedback.map((f) => (
-            <li key={f.id} className="rounded-md border border-slate-200 px-3 py-2">
+            <li
+              key={f.id}
+              className={`rounded-lg border px-3 py-2.5 ${
+                isLowFeedback(f.rating, f.working_well) ? 'border-danger/30 bg-danger-soft/40' : 'border-line bg-sunken/50'
+              }`}
+            >
               <FeedbackItem feedback={f} showVisit={feedback.length > 1} />
             </li>
           ))}
@@ -117,6 +129,7 @@ export function FeedbackCard({
           onClick={() => setRecording(true)}
           className={`${BUTTON.secondary} mt-3 min-h-11 w-full sm:w-auto`}
         >
+          <PhoneCall aria-hidden="true" />
           Record rating taken by phone
         </button>
       ) : null}
@@ -158,13 +171,14 @@ function FeedbackItem({ feedback: f, showVisit }: { feedback: OrderFeedback; sho
         <span
           role="img"
           aria-label={`${f.rating} out of ${FEEDBACK_RATING_MAX} stars`}
-          className="text-lg leading-none text-amber-500"
+          className="text-lg leading-none text-warning"
         >
           {ratingStars(f.rating)}
         </span>
         <span className="font-medium">{FEEDBACK_RATING_LABELS[f.rating]}</span>
         {low ? (
-          <span className="inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-900 ring-1 ring-inset ring-red-200">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-danger-soft px-2.5 py-0.5 text-xs font-medium text-danger-ink ring-1 ring-inset ring-danger/30">
+            <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
             Poor rating
           </span>
         ) : null}
@@ -173,11 +187,11 @@ function FeedbackItem({ feedback: f, showVisit }: { feedback: OrderFeedback; sho
         Aircon working well now: <span className="font-medium">{f.working_well ? 'Yes' : 'No'}</span>
       </p>
       {f.comment ? (
-        <blockquote className="whitespace-pre-line break-words border-l-2 border-slate-300 pl-3 text-slate-800">
+        <blockquote className="whitespace-pre-line break-words border-l-2 border-line-strong pl-3 text-ink">
           {f.comment}
         </blockquote>
       ) : null}
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-ink-faint">
         {feedbackSourceLabel({ ...f, recorded_by_name: staffName(f.recorded_by_name, f.recorded_by) })}
         {showVisit ? ` · visit done ${formatMalaysiaDateTime(f.job_done_at)}` : ''}
       </p>
@@ -233,7 +247,7 @@ function PhoneFeedbackDialog({
           void save()
         }}
       >
-        <p className="text-sm text-slate-700">Ask the customer these questions and enter their answers.</p>
+        <p className="text-sm text-ink-muted">Ask the customer these questions and enter their answers.</p>
         <FeedbackQuestions
           values={values}
           errors={errors}
@@ -243,8 +257,9 @@ function PhoneFeedbackDialog({
           byPhone
         />
         {error ? (
-          <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
-            {error}
+          <p role="alert" className="flex gap-2 rounded-lg border border-danger/35 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
+            <CircleX className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0">{error}</span>
           </p>
         ) : null}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -252,6 +267,7 @@ function PhoneFeedbackDialog({
             Cancel
           </button>
           <button type="submit" disabled={saving} className={`${BUTTON.primary} min-h-11`}>
+            <Save aria-hidden="true" />
             {saving ? 'Saving…' : 'Save rating'}
           </button>
         </div>

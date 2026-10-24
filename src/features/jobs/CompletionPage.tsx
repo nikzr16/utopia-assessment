@@ -20,6 +20,9 @@ import { clearDraft, loadDraft, saveDraft } from '../../lib/drafts'
 import { useLoad } from '../../lib/useLoad'
 import { JobFiles, type JobFilesStatus } from '../attachments'
 import { fetchJob, submitCompletion, type JobDetail } from './api'
+import { BackLink } from '../../components/ui'
+import { SendHorizontal } from 'lucide-react'
+import { ActionBar } from '../../components/ActionBar'
 
 const fieldId = (field: keyof CompletionFormValues) => `completion-${field}`
 
@@ -164,18 +167,16 @@ function CompletionForm({ detail }: { detail: JobDetail }) {
 
   return (
     <form noValidate onSubmit={submit} aria-label="Complete job" className="space-y-4">
-      <Link to={`/jobs/${encodeURIComponent(job.order_no)}`} className={`${LINK} inline-flex min-h-11 items-center text-sm`}>
-        ← Back to the job
-      </Link>
+      <BackLink to={`/jobs/${encodeURIComponent(job.order_no)}`}>Back to the job</BackLink>
       <h2 className="text-xl font-semibold">Complete job</h2>
 
       {restored ? (
-        <p role="status" className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+        <p role="status" className="rounded-md border border-brand/30 bg-brand-soft px-3 py-2 text-sm text-brand-ink">
           Restored what you typed earlier on this phone.
         </p>
       ) : null}
       {formError ? (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+        <p role="alert" className="rounded-md border border-danger/40 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
           {formError}
         </p>
       ) : null}
@@ -213,8 +214,8 @@ function CompletionForm({ detail }: { detail: JobDetail }) {
             />
           )}
         </Field>
-        <div className="rounded-md bg-slate-50 px-3 py-2 text-sm">
-          <p className="text-slate-600">
+        <div className="rounded-md bg-sunken px-3 py-2 text-sm">
+          <p className="text-ink-muted">
             Quoted price {formatMYR(job.quoted_price)}
             {finalAmount !== null && finalAmount !== job.quoted_price
               ? ` + extra ${formatMYR(finalAmount - job.quoted_price)}`
@@ -230,7 +231,7 @@ function CompletionForm({ detail }: { detail: JobDetail }) {
       </div>
 
       <section className={CARD} aria-label="Photos and files">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Photos, videos and PDFs</h3>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">Photos, videos and PDFs</h3>
         <JobFiles orderId={job.id} canChange onStatus={setFiles} />
       </section>
 
@@ -259,15 +260,16 @@ function CompletionForm({ detail }: { detail: JobDetail }) {
         </div>
       </div>
 
-      <div className="sticky bottom-0 -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <button type="submit" disabled={saving} className={`${BUTTON.primary} min-h-11 w-full`}>
+      <ActionBar label="Submit">
+        <button type="submit" disabled={saving} className={`${BUTTON.primary} min-h-12 w-full text-base`}>
+          <SendHorizontal aria-hidden="true" />
           {saving ? 'Submitting…' : 'Submit job'}
         </button>
-      </div>
+      </ActionBar>
 
       {askNoFiles ? (
         <Dialog title="Submit without photos?" onClose={() => setAskNoFiles(false)}>
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-ink-muted">
             No photos, videos or PDFs are attached. The manager will review the job without them.
           </p>
           <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

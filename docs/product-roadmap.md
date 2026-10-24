@@ -85,6 +85,15 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 |---|---|---|---|
 | `docs/prd/0010-production-deployment-prd.md` | `vercel.json`, `.github/workflows/`, `README.md`, `supabase/`, `src/features/staff/` | shipped | Vercel `sejuk-sejuk-utopia.vercel.app` (`main` production, `dev` private preview, one Supabase project); CI/CD on GitHub Actions (checks on `dev` and `dev` → `main` pull requests, robot visit after each live deploy, daily wake-up); email and feedback links on the live address (`APP_URL`); staff emails `name.role.branch@sejuk.example.com`; demo data and 7 demo technicians on the hosted project; end-to-end check on live (technician and Manager on a real phone, the feedback link from a real phone); full project README (decisions 0012, 0018) |
 
+### Phase 6: Polish
+
+**Trigger:** Phase 5 shipped (every planned feature live).
+**Graduation criteria:** Every screen of every role and the customer feedback page use one design system and pass the desktop, tablet and phone checks, light and dark if chosen, with Technician, Manager and the feedback page on a real phone (0011 shipped).
+
+| PRD | Module | Status | Notes |
+|---|---|---|---|
+| `docs/prd/0011-ui-ux-enhancement-prd.md` | `src/components/`, `src/features/*/`, `src/index.css`, `src/App.tsx` | shipped | UI/UX redesign of every screen and portal: design system, brand, navigation per role, states, toasts, charts, Ask, sign-in / email-link and customer feedback pages, accessibility; no data, rule or permission changes; EN / BM customer page; notifications as compact one-line rows (decisions 0020, 0021) |
+
 ## Cross-Cutting Concerns
 
 | Concern | Introduced In | Matured In | Current State |
@@ -96,6 +105,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | File storage (Supabase Storage) | 0002 | 0009 | Private `job-files` bucket; policies follow order visibility; files registered by RPC from the stored object's real type and size; the paper order form at `<order>/form/` (0009) |
 | Live updates (Supabase Realtime) | 0002 | 0009 | `notifications` streamed to the recipient under RLS; a person's own `staff` row streamed so deactivation signs them out at once (0006); an order's warnings and AI checks (0009); refresh on return as a fallback |
 | In-app notifications UI | 0002 | 0005 | Technicians, Managers and Finance (bell and list open the order in each portal); Managers also get poor-rating notices; Admins have none |
+| Design system and app frame (UI) | 0011 | 0011 | Named colour tokens for light and dark (device setting or the account menu), Poppins and Lucide bundled, one frame per role (sidebar ≥ 1024 px, icon rail on tablets, bottom tabs on phones), shared page patterns (tables / phone cards, folding filters, sticky action bar, skeletons, empty / error states, toasts), draggable Ask button, branded sign-in and customer page with EN / BM; axe checks in `npm test` (decisions 0020, 0021) |
 
 ## PRD Registry
 
@@ -112,6 +122,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | `docs/prd/0008-ai-ops-query-prd.md` | 3 – Insights | `src/features/ask/`, `supabase/functions/`, `supabase/migrations/` | shipped |
 | `docs/prd/0009-ai-advanced-prd.md` | 4 – Stretch | `src/features/supervisor/`, `src/features/orders/`, `src/features/kpi/`, `src/features/ask/`, `supabase/functions/`, `supabase/migrations/` | shipped |
 | `docs/prd/0010-production-deployment-prd.md` | 5 – Production | `vercel.json`, `.github/workflows/`, `README.md`, `supabase/`, `src/features/staff/` | shipped |
+| `docs/prd/0011-ui-ux-enhancement-prd.md` | 6 – Polish | `src/components/`, `src/features/*/`, `src/index.css`, `src/App.tsx` | shipped |
 
 ## Prioritization Log
 
@@ -129,6 +140,8 @@ _When a feature moves between phases or priorities shift, record the change and 
 | 2026-10-24 | Phase 3 graduated: 0007 and 0008 shipped (0008 AI operations query last) | Every graduation criterion met: the KPI dashboard and the AI query window work on the hosted project for every role; Phase 4 (0009) can start |
 | 2026-10-24 | Phase 4 graduated: 0009 shipped with all three optional AI challenges | Every graduation criterion met: Workflow Supervisor, Document Understanding and Operational Insight work on the hosted project with the real model; Phase 5 (0010 production deployment) can start |
 | 2026-10-24 | Phase 5 graduated: 0010 shipped (production deployment) | The app runs on Vercel (`main` production, `dev` preview) against the hosted project; every portal, the customer feedback link and the invite email passed the end-to-end check on the live app with technician and Manager on a real phone (decision 0018); all planned features 0000–0010 are shipped |
+| 2026-10-24 | New Phase 6 Polish with feature 0011 `ui-ux-enhancement` (decision 0020) | The app works end to end but looks like a prototype; the brief asks for a clean, practical UI for a real internal tool; a UI-only redesign is safest after everything is live |
+| 2026-10-24 | Phase 6 graduated: 0011 shipped (UI/UX enhancement) | Every screen of every role and the customer page use one design system and passed the checks at 375, 768, 1024 and 1280 px, light and dark, with a full order flow on the hosted project; the user chose to mark it shipped before the real-phone check of technician, Manager and the feedback link on the `dev` preview, with a fix commit if that check finds a problem (decision 0021) |
 
 ## Related Documents
 

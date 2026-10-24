@@ -17,7 +17,7 @@ export function Pager({
   const last = Math.min(total, page * pageSize)
   return (
     <nav aria-label="Pages" className="flex flex-col items-center justify-between gap-2 text-sm sm:flex-row">
-      <p className="text-slate-600">
+      <p className="text-ink-muted">
         Showing {first}–{last} of {total}
       </p>
       <div className="flex gap-2">

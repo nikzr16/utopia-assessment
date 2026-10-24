@@ -1,1 +1,202 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens (0011). Screens use only these named colours
+ * (bg-surface, text-ink-muted, border-line, bg-brand, ...), never raw
+ * palette classes, so light and dark switch in one place.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  /* Height of the phone bottom bar; sticky action bars, toasts and Ask sit above it. */
+  --nav-h: 0px;
+  color-scheme: light;
+  --canvas: #f4f7f9;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --sunken: #edf2f5;
+  --line: #dfe6ec;
+  --line-strong: #c7d2dc;
+  --ink: #0f1d2b;
+  --ink-muted: #4a5a6b;
+  --ink-faint: #5b6a7d;
+  --brand: #0e7490;
+  --brand-strong: #155e75;
+  --brand-soft: #e3f4f8;
+  --brand-ink: #0b4f61;
+  --on-brand: #ffffff;
+  --panel: #0e7490;
+  --on-panel: #ffffff;
+  --success: #15803d;
+  --success-soft: #e7f6ec;
+  --success-ink: #14532d;
+  --warning: #b45309;
+  --warning-soft: #fdf2df;
+  --warning-ink: #78350f;
+  --danger: #b91c1c;
+  --danger-strong: #991b1b;
+  --danger-soft: #fdeceb;
+  --danger-ink: #7f1d1d;
+  --info: #4338ca;
+  --info-soft: #eceefd;
+  --info-ink: #312e81;
+  --on-danger: #ffffff;
+  --whatsapp: #15803d;
+  --whatsapp-strong: #166534;
+  --on-whatsapp: #ffffff;
+  --focus: #0891b2;
+  --scrim: rgb(15 29 43 / 0.45);
+  --shadow-color: 215 30% 20%;
+  --chart-1: #0e7490;
+  --chart-2: #22a3bd;
+  --chart-3: #7cc8d8;
+  --chart-4: #b45309;
+  --chart-grid: #e3e9ee;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0a1117;
+  --surface: #111b23;
+  --raised: #17232d;
+  --sunken: #0d161d;
+  --line: #22313d;
+  --line-strong: #344654;
+  --ink: #e7eef4;
+  --ink-muted: #a9b7c4;
+  --ink-faint: #8798a7;
+  --brand: #3cc6dc;
+  --brand-strong: #7fdcea;
+  --brand-soft: #0d2e37;
+  --brand-ink: #8fe1ee;
+  --on-brand: #04252d;
+  --panel: #0b4250;
+  --on-panel: #e7f7fa;
+  --success: #3ccf7c;
+  --success-soft: #0f2a1c;
+  --success-ink: #8ee8b2;
+  --warning: #f2a93b;
+  --warning-soft: #2c1f0b;
+  --warning-ink: #f8cf86;
+  --danger: #f2706d;
+  --danger-strong: #f79a97;
+  --danger-soft: #2d1414;
+  --danger-ink: #f9b2b0;
+  --info: #9aa4ff;
+  --info-soft: #1a1d3d;
+  --info-ink: #c3c9ff;
+  --on-danger: #1d0909;
+  --whatsapp: #17783c;
+  --whatsapp-strong: #1b8a45;
+  --on-whatsapp: #ffffff;
+  --focus: #5fd4e6;
+  --scrim: rgb(0 0 0 / 0.6);
+  --shadow-color: 210 40% 2%;
+  --chart-1: #3cc6dc;
+  --chart-2: #2b8fa3;
+  --chart-3: #8fe1ee;
+  --chart-4: #f2a93b;
+  --chart-grid: #22313d;
+}
+
+@theme inline {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-on-brand: var(--on-brand);
+  --color-panel: var(--panel);
+  --color-on-panel: var(--on-panel);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-ink: var(--success-ink);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-ink: var(--warning-ink);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-ink: var(--danger-ink);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-ink: var(--info-ink);
+  --color-on-danger: var(--on-danger);
+  --color-whatsapp: var(--whatsapp);
+  --color-on-whatsapp: var(--on-whatsapp);
+  --color-whatsapp-strong: var(--whatsapp-strong);
+  --color-focus: var(--focus);
+  --color-scrim: var(--scrim);
+
+  --shadow-card: 0 1px 2px hsl(var(--shadow-color) / 0.06), 0 1px 3px hsl(var(--shadow-color) / 0.06);
+  --shadow-pop: 0 4px 12px hsl(var(--shadow-color) / 0.1), 0 12px 32px hsl(var(--shadow-color) / 0.14);
+
+  --animate-skeleton: skeleton 1.4s ease-in-out infinite;
+  --animate-toast-in: toast-in 180ms ease-out;
+  --animate-sheet-in: sheet-in 200ms ease-out;
+}
+
+@keyframes skeleton {
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+@layer base {
+  html {
+    scrollbar-gutter: stable;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    font-size: 15px;
+  }
+  @media (max-width: 767px) {
+    body {
+      font-size: 16px;
+    }
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--brand) 25%, transparent);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

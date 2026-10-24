@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router'
-import { Notice } from '../../components/Notice'
-import { LINK } from '../../components/styles'
+import { Ban, SearchX } from 'lucide-react'
+import { BUTTON } from '../../components/styles'
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui'
 import { canRecordPayment } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import type { PhotoCodec } from '../attachments/resize'
@@ -19,33 +20,35 @@ export function FinancePaymentPage({ codec, newId }: { codec?: PhotoCodec; newId
 
   if (state.status === 'loading') {
     return (
-      <Notice title="Loading…">
-        <p>Getting order {orderNo}.</p>
-      </Notice>
+      <div className="mx-auto max-w-2xl">
+        <LoadingState variant="cards" count={2} label={`Loading… Getting order ${orderNo}.`} />
+      </div>
     )
   }
   if (state.status === 'error') {
     return (
-      <Notice tone="error" title="Could not load the order">
+      <ErrorState title="Could not load the order" onRetry={reload}>
         <p>{state.message}</p>
-        <button type="button" onClick={reload} className="mt-3 min-h-11 font-medium underline">
-          Try again
-        </button>
-      </Notice>
+      </ErrorState>
     )
   }
   if (!state.data || !canRecordPayment(state.data.status, 'finance', false)) {
     return (
-      <Notice tone="error" title={state.data ? 'Payments cannot be recorded now' : 'Order not found'}>
+      <EmptyState
+        title={state.data ? 'Payments cannot be recorded now' : 'Order not found'}
+        icon={state.data ? <Ban className="size-5" /> : <SearchX className="size-5" />}
+        action={
+          <Link to={state.data ? orderPath : '/finance'} className={BUTTON.secondary}>
+            {state.data ? 'Back to the order' : 'Back to the list'}
+          </Link>
+        }
+      >
         <p>
           {state.data
             ? 'Payments are recorded while the order is In Progress, Job Done or Reviewed.'
             : `There is no order ${orderNo}.`}
         </p>
-        <Link to={state.data ? orderPath : '/finance'} className={`${LINK} mt-3 inline-block`}>
-          {state.data ? 'Back to the order' : 'Back to the list'}
-        </Link>
-      </Notice>
+      </EmptyState>
     )
   }
   return (

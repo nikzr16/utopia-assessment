@@ -17,6 +17,7 @@ export function Field({
   hint,
   error,
   optional,
+  optionalText = '(optional)',
   children,
 }: {
   id: string
@@ -24,6 +25,8 @@ export function Field({
   hint?: ReactNode
   error?: string
   optional?: boolean
+  /** The "(optional)" word, for the Malay feedback page. */
+  optionalText?: string
   children: (control: FieldControlProps) => ReactNode
 }) {
   const hintId = hint ? `${id}-hint` : undefined
@@ -31,12 +34,12 @@ export function Field({
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-slate-800">
+      <label htmlFor={id} className="block text-sm font-medium text-ink">
         {label}
-        {optional ? <span className="font-normal text-slate-500"> (optional)</span> : null}
+        {optional ? <span className="font-normal text-ink-faint"> {optionalText}</span> : null}
       </label>
       {hint ? (
-        <p id={hintId} className="mt-0.5 text-xs text-slate-500">
+        <p id={hintId} className="mt-0.5 text-xs text-ink-faint">
           {hint}
         </p>
       ) : null}
@@ -44,7 +47,7 @@ export function Field({
         {children({ id, 'aria-invalid': Boolean(error), 'aria-describedby': describedBy })}
       </div>
       {error ? (
-        <p id={errorId} className="mt-1 text-sm text-red-700">
+        <p id={errorId} className="mt-1 text-sm text-danger">
           {error}
         </p>
       ) : null}
@@ -56,8 +59,8 @@ export function Field({
 export function ReadOnlyField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="block text-sm font-medium text-slate-800">{label}</p>
-      <div className="mt-1 rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+      <p className="block text-sm font-medium text-ink">{label}</p>
+      <div className="mt-1 rounded-md border border-dashed border-line-strong bg-sunken px-3 py-2 text-sm text-ink-muted">
         {children}
       </div>
     </div>

@@ -1,9 +1,9 @@
 import { useId, useState, type FormEvent } from 'react'
+import { Eye, EyeOff, LoaderCircle, LogIn } from 'lucide-react'
+import { BUTTON, INPUT } from '../../components/styles'
+import { AuthLayout } from './AuthLayout'
 import { validateSignInInput } from './errors'
 import { useAuth } from './useAuth'
-
-const INPUT_CLASS =
-  'mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-base shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-slate-100'
 
 export function SignInForm() {
   const { signIn, notice } = useAuth()
@@ -12,6 +12,7 @@ export function SignInForm() {
   const errorId = useId()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,76 +35,83 @@ export function SignInForm() {
   }
 
   return (
-    <section
-      aria-labelledby="sign-in-title"
-      className="mx-auto w-full max-w-sm rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
-    >
-      <h2 id="sign-in-title" className="text-xl font-semibold">
-        Sign in
-      </h2>
-      <p className="mt-1 text-sm text-slate-600">Use your work email and the password you chose.</p>
-      {notice ? (
-        <p role="status" className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {notice}
-        </p>
-      ) : null}
-
-      <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-4">
-        <div>
-          <label htmlFor={emailId} className="block text-sm font-medium text-slate-700">
-            Email
-          </label>
-          <input
-            id={emailId}
-            type="email"
-            inputMode="email"
-            autoComplete="username"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={submitting}
-            aria-describedby={error ? errorId : undefined}
-            className={INPUT_CLASS}
-          />
-        </div>
-        <div>
-          <label htmlFor={passwordId} className="block text-sm font-medium text-slate-700">
-            Password
-          </label>
-          <input
-            id={passwordId}
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={submitting}
-            aria-describedby={error ? errorId : undefined}
-            className={INPUT_CLASS}
-          />
-        </div>
-
-        {error ? (
-          <p
-            id={errorId}
-            role="alert"
-            className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900"
-          >
-            {error}
+    <AuthLayout>
+      <section aria-labelledby="sign-in-title">
+        <h2 id="sign-in-title" className="text-2xl font-semibold tracking-tight">
+          Sign in
+        </h2>
+        <p className="mt-1.5 text-sm text-ink-muted">Use your work email and the password you chose.</p>
+        {notice ? (
+          <p role="status" className="mt-4 rounded-xl border border-warning/40 bg-warning-soft px-3 py-2.5 text-sm text-warning-ink">
+            {notice}
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-sky-700 px-4 py-2.5 text-base font-medium text-white hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-300 disabled:cursor-not-allowed disabled:bg-sky-400"
-        >
-          {submitting ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-    </section>
+        <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+          <div>
+            <label htmlFor={emailId} className="block text-sm font-medium text-ink">
+              Email
+            </label>
+            <input
+              id={emailId}
+              type="email"
+              inputMode="email"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              required
+              placeholder="name@sejuk.example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={submitting}
+              aria-describedby={error ? errorId : undefined}
+              className={`${INPUT} mt-1.5 min-h-11 text-base`}
+            />
+          </div>
+          <div>
+            <label htmlFor={passwordId} className="block text-sm font-medium text-ink">
+              Password
+            </label>
+            <div className="relative mt-1.5">
+              <input
+                id={passwordId}
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={submitting}
+                aria-describedby={error ? errorId : undefined}
+                className={`${INPUT} min-h-11 pr-12 text-base`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 inline-flex w-11 items-center justify-center rounded-r-lg text-ink-faint hover:text-ink"
+              >
+                {showPassword ? <EyeOff className="size-4.5" aria-hidden="true" /> : <Eye className="size-4.5" aria-hidden="true" />}
+                <span className="sr-only">Show password</span>
+              </button>
+            </div>
+          </div>
+
+          {error ? (
+            <p id={errorId} role="alert" className="rounded-xl border border-danger/35 bg-danger-soft px-3 py-2.5 text-sm text-danger-ink">
+              {error}
+            </p>
+          ) : null}
+
+          <button type="submit" disabled={submitting} className={`${BUTTON.primary} min-h-12 w-full text-base`}>
+            {submitting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <LogIn aria-hidden="true" />}
+            {submitting ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+        <p className="mt-6 text-center text-xs text-ink-faint">
+          Forgot your password? Ask your manager or an Admin to send you a reset email.
+        </p>
+      </section>
+    </AuthLayout>
   )
 }

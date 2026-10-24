@@ -3,8 +3,8 @@ import type { ReactNode } from 'react'
 type Tone = 'info' | 'error'
 
 const TONES: Record<Tone, string> = {
-  info: 'border-sky-200 bg-sky-50 text-sky-900',
-  error: 'border-red-300 bg-red-50 text-red-900',
+  info: 'border-brand/30 bg-brand-soft text-brand-ink',
+  error: 'border-danger/40 bg-danger-soft text-danger-ink',
 }
 
 export function Notice({

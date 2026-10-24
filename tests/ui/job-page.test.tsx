@@ -46,7 +46,8 @@ function renderJob(orderNo = 'ORDER1001') {
   )
 }
 
-const actionBar = () => screen.queryByRole('button', { name: 'Reschedule' })?.parentElement ?? null
+// 0011: the job's buttons sit in the sticky action bar (a labelled group).
+const actionBar = () => screen.queryByRole('group', { name: 'Actions' })
 
 beforeEach(() => {
   vi.resetAllMocks()

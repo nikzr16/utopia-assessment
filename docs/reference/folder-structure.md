@@ -20,19 +20,20 @@ and including feature 0010 (production deployment).
 
 ```text
 .
-├── index.html                  Vite entry HTML
-├── package.json                Scripts: dev, build, test, typecheck, auth:create-staff-logins, live-check (0010); `recharts` + `react-is` pinned exact (0007); dev: `playwright`, `yaml` (0010)
+├── index.html                  Vite entry HTML; sets the theme (`sejuk.theme`) before the app loads; favicon (0011)
+├── package.json                Scripts: dev, build, test, typecheck, auth:create-staff-logins, live-check (0010); `recharts` + `react-is` pinned exact (0007); dev: `playwright`, `yaml` (0010); `@fontsource/poppins`, `lucide-react`, dev `vitest-axe` (0011)
 ├── vite.config.ts              Vite + React + Tailwind + Vitest config
 ├── vercel.json                 SPA rewrite (deep links like /orders/ORDER1001); only `main` and `dev` build (`ignoreCommand`); no-index and safety headers (0010)
 ├── public/robots.txt           `Disallow: /` (0010)
+├── public/favicon.svg          Snowflake mark in the brand square (0011)
 ├── .github/workflows/          GitHub Actions (0010): `ci.yml` (test, typecheck, build, harness check), `live-check.yml` (robot visit after a production deploy), `keep-awake.yml` (daily Supabase visit)
 ├── tsconfig*.json              TypeScript project references (app, node + scripts, test incl. src + DOM + JSX)
 ├── .env.example                Env template → copy to .env.local (browser + script-only vars)
 ├── src/
-│   ├── main.tsx                React root
-│   ├── App.tsx                 App shell (BrowserRouter): public `/f/:token` feedback page (0005) and `/auth/confirm` email link page (0006); otherwise setup notice → sign-in → `/account/password` or the Admin, Technician, Manager or Finance portal
-│   ├── index.css               Tailwind entry
-│   ├── components/             Shared UI: AppHeader (Change password, Sign out), SetupNotice, Notice, Field, Dialog, StatusBadge, Pager, RescheduleDialog, styles
+│   ├── main.tsx                React root; bundled Poppins (Latin 400–700, 0011)
+│   ├── App.tsx                 `ThemeProvider` + BrowserRouter: public `/f/:token` feedback page (0005) and `/auth/confirm` email link page (0006); otherwise setup notice → sign-in → the Admin, Technician, Manager or Finance portal (each in its own frame, with `/account/password`, 0011)
+│   ├── index.css               Tailwind entry; 0011 design tokens (named colours for light and dark, `@theme`, `dark:` = `[data-theme=dark]`), base styles, focus ring, reduced motion
+│   ├── components/             Shared UI (0011 kit): `shell/` (AppShell, UserMenu), ui (PageHeader, BackLink, Card, DetailList, Badge, SegmentedTabs, Skeleton / LoadingState, EmptyState, ErrorState), Logo, Toast, ActionBar, FilterPanel, Dialog, Field, StatusBadge, Pager, RescheduleDialog, SetupNotice, Notice, styles
 │   ├── domain/                 Pure business rules mirrored from the database
 │   ├── features/auth/          Supabase Auth: session context, sign-in form, staff profile, live sign-out, email link and change-password pages (0006)
 │   ├── features/orders/        Admin order portal (0001): routes, pages, dialogs, data access; Completion section (0002)
@@ -72,6 +73,20 @@ and including feature 0010 (production deployment).
 └── docs/                       Roadmap, PRDs, plans, workflows, reference, decisions; `harness.md` (the agent harness, moved out of the README in 0010)
 ```
 
+## Shared UI (`src/components/`, 0011)
+
+| File | Purpose |
+|---|---|
+| `shell/AppShell.tsx` | The signed-in frame: one `nav` per role drawn as sidebar (≥ 1024 px, collapsible, `sejuk.sidebar`), icon rail (768–1023 px) or phone bottom bar (< 768 px, "More" for the rest); skip link; `--nav-h` |
+| `shell/UserMenu.tsx` | Account menu: name / role / branch, Light / Dark / System, Change password, Sign out; `initials` |
+| `ui.tsx` | `PageHeader`, `BackLink`, `Card`, `DetailList`, `Badge`, `SegmentedTabs`, `Skeleton`, `LoadingState`, `EmptyState`, `ErrorState` |
+| `styles.ts` | Class strings on the design tokens: `BUTTON.*`, `INPUT`, `CARD`, `LINK`, `EYEBROW`, `TABLE.*` |
+| `Logo.tsx` | Snowflake mark + "Sejuk Sejuk" / "Sejuk Sejuk Service" |
+| `Toast.tsx` | Success pop-up rendered by the page (auto-dismiss, status role) |
+| `ActionBar.tsx` | Sticky bottom bar for a page's main buttons; shares its height as `--action-h` (`panelOnWide`: 0 from 1024 px) |
+| `FilterPanel.tsx` | Filters inline on wide screens, bottom sheet + chips on a phone |
+| `Dialog.tsx`, `Field.tsx`, `StatusBadge.tsx`, `Pager.tsx`, `RescheduleDialog.tsx`, `SetupNotice.tsx`, `Notice.tsx` | Restyled on the tokens; `Field` takes `optionalText` (Malay feedback page) |
+
 ## Domain (`src/domain/`)
 
 | File | Purpose |
@@ -105,7 +120,8 @@ and including feature 0010 (production deployment).
 | File | Purpose |
 |---|---|
 | `AuthContext.ts`, `AuthProvider.tsx`, `useAuth.ts` | Supabase session, staff profile state, sign in / sign out; 0006: `notice` (why signed out), live sign-out on deactivation (Realtime on the person's own staff row, re-check on focus / return / `ACCESS_LOST_EVENT`) |
-| `SignInForm.tsx` | Email + password sign-in screen; shows the sign-out `notice` |
+| `SignInForm.tsx` | Email + password sign-in screen; shows the sign-out `notice`; show-password button (0011) |
+| `AuthLayout.tsx` | 0011: signed-out frame: deep-teal brand panel beside the form from 1024 px, logo above it on a phone |
 | `profile.ts` | `current_staff()` result → profile state (ready / no profile / error) |
 | `errors.ts` | Maps Supabase auth errors to friendly messages; `DEACTIVATED_MESSAGE` (also for `user_banned`) |
 | `api.ts` | 0006: `verifyEmailLink` (`verifyOtp` with the token hash), `setNewPassword`, `changeOwnPassword` (re-checks the current password); `LINK_EXPIRED_MESSAGE` |
@@ -180,7 +196,8 @@ and including feature 0010 (production deployment).
 |---|---|
 | `api.ts` | `fetchFeedbackForm` (`feedback_form`), `submitFeedback` (`submit_feedback`) for the signed-out page; `fetchOrderFeedback` (`order_feedback`), `recordPhoneFeedback` (`record_phone_feedback`) for staff |
 | `FeedbackPage.tsx` | Public page at `/f/:token`: job facts, the three questions, single submit, "Thank you", pages for used / replaced / expired / unknown links, retry on no signal |
-| `FeedbackQuestions.tsx` | The three questions (stars, working well, comment) shared by the page and the phone dialog; clears each error when answered |
+| `FeedbackQuestions.tsx` | The three questions (stars, working well, comment) shared by the page and the phone dialog; clears each error when answered; words from `i18n.ts` (0011) |
+| `i18n.ts` | 0011: the customer page's words in English and Malay (`FEEDBACK_TEXT`), `sejuk.feedback.lang`, Malay date format |
 | `FeedbackCard.tsx` | "Customer feedback" card for the Admin, technician and Manager / Finance order pages (every visit, latest first; link status while waiting); `PhoneFeedbackDialog` for Admins and covering Managers |
 | `index.ts` | Barrel export |
 
@@ -191,6 +208,7 @@ and including feature 0010 (production deployment).
 | `api.ts` | `listStaff` (`staff_list`), `fetchStaffDetail` (`staff_detail`), `fetchBranchCover` (`branch_cover_overview`), `fetchBranchOptions` (branches / `covered_branches`), `checkStaffForm` (`staff_form_check`); `staffAccess` (every write, through the `staff-access` function); `confirmAddress` (`<app>/auth/confirm`, `localhost` for `[::1]` / `127.0.0.1`) |
 | `StaffRoutes.tsx` | Routes under `/staff`: list, `new`, `:staffId`, `:staffId/edit`; `orderPath` per portal |
 | `StaffListPage.tsx` | Search, role / branch / status filters and paging in the address (`toStaffQuery`), table / cards, `BranchCoverPanel` |
+| `StaffBits.tsx` | 0011: initials avatar, role and status badges shared by the staff screens |
 | `StaffFormPage.tsx` | `NewStaffPage`, `EditStaffPage`: the form, live database warnings, role / email / cover per permission, save through the function |
 | `StaffPage.tsx` | Details, sign-in state, actions with confirm dialogs (deactivation blocker and open-job links), "Saved, but…" banner with retry, open jobs, history |
 | `index.ts` | Barrel export (`StaffRoutes`) |
@@ -207,7 +225,7 @@ and including feature 0010 (production deployment).
 | `MyWeekPage.tsx` | The technician's own numbers (no rank, no other names) |
 | `useKpiAddress.ts` | `view` / `start` / `branch` kept in the address |
 | `download.ts` | `downloadTextFile` (CSV save) |
-| `components/` | `PeriodPicker`, `BranchFilter`, `SummaryCards`, `Leaderboard` (table ≥ 768 px, cards below, sort), `BranchComparison`, `EventList`, `KpiState` (loading / error / Try again); `InsightsCard` (0009: facts at once, then the AI wording and tip) |
+| `components/` | `PeriodPicker`, `BranchFilter`, `SummaryCards`, `Leaderboard` (table ≥ 1024 px, compact ranked list below, sort; 0011), `BranchComparison`, `EventList`, `KpiState` (loading / error / Try again); `InsightsCard` (0009: facts at once, then the AI wording and tip) |
 | `charts/` | `theme.ts` (palette, axis / grid styles), `ChartPanel` ("Show as table"), `DataTable`, `ChartTooltip`, `useReducedMotion`, `JobsByTechnicianChart` (max 15 bars), `TrendChart`, `ReschedulesByReasonChart`, `BranchBarChart` |
 | `index.ts` | Barrel export (`DashboardRoutes`, `MyWeek`) |
 
@@ -217,7 +235,8 @@ and including feature 0010 (production deployment).
 |---|---|
 | `api.ts` | `askQuestion` (`fetch` to `/functions/v1/ask` with the session token; reads the newline-separated JSON events: step, result, error; 404 → not set up), `fetchChats` / `fetchChatMessages` (`ask_chats`, `ask_messages`, RLS: own, 7 days), `renameChat` (`ask_rename_chat`), `deleteChat` (`ask_delete_chat`), `fetchQuestionLog` (`ask_log_entries`, Admins; 0009 adds `feature` and `order_no`) |
 | `types.ts` | Type-only re-exports of the `ask` function's `AskResult`, `AskEvent`, `AskTable`, `DashboardLink` (one source for browser and server) |
-| `AskAssistant.tsx` | `AskAssistant`: the floating **Ask** bubble (above sticky action bars on phones) and the panel: chat list (open, rename, delete), conversation, example questions, step text while waiting, 20-second limit, error with Try again / Dashboard link; full screen below 640 px, a 420 px (or wider) panel above |
+| `AskLauncher.tsx` | 0011: the floating **Ask** button: above the bottom bar and any action bar, draggable, snaps to a side, back in its corner after a reload |
+| `AskAssistant.tsx` | `AskAssistant`: the Ask button (`AskLauncher`) and the panel: chat list (open, rename, delete), conversation, example questions, step text while waiting, 20-second limit, error with Try again / Dashboard link; full screen below 640 px, a 420 px (or wider) panel above |
 | `AnswerCard.tsx` | One answer: sentence, choice / example buttons, **Open ORDER…**, tables, **Open in Dashboard** / **My week** (`dashboardPath`), "How I found this" in plain words |
 | `RecordTable.tsx` | The records per lookup kind (events, jobs, payments, technicians, branches, trend, summary, insights (0009)): table from 640 px, cards below, empty columns left out, order links |
 | `QuestionLogPage.tsx` | Admin AI log at `/ai-log` (0009; was the Question log): last 7 days of every AI use, filter by type (Ask, Job check, Order form, Insights), person and result, lookups in plain words, time and tokens |
@@ -248,6 +267,7 @@ and including feature 0010 (production deployment).
 | `OrderReviewPage.tsx` | One order for a Manager or Finance: details, completion, payments, history, actions card (first on a phone), return notes, customer message; flash after actions and `?paid`; Warnings box and Approve held while warnings are open (0009) |
 | `actions.tsx` | `ApproveDialog` (optional note), `ReturnDialog` (required note), `CloseDialog` |
 | `QueueList.tsx` | `QueueTabs` (`?tab=`), `BranchFilter` (`?branch=`), `ReturnFlags` (Returned N×, Needs attention), `QueueList` (table on desktop, cards on a phone) |
+| `useWide.ts` | 0011: `matchMedia` ≥ 1024 px, so the order page's buttons render once (side panel or action bar) |
 | `ReviewOutcome.tsx` | "Approved by / Closed by" lines (`ReviewOutcomeLines`) and the self-loading `ReviewOutcome` for the Admin and technician pages |
 | `index.ts` | Barrel export |
 
@@ -279,6 +299,7 @@ and including feature 0010 (production deployment).
 | `useLoad.ts` | Load-on-key hook with reload; ignores stale responses (moved from `features/orders/`) |
 | `useRefreshOnReturn.ts` | Calls a refresh when the page becomes visible or the connection returns |
 | `drafts.ts` | Form drafts in `localStorage` (`sejuk-draft:` prefix); `clearAllDrafts` on sign-out |
+| `theme.tsx` | 0011: `ThemeProvider` / `useTheme` (Light / Dark / System, `sejuk.theme`, follows the device) |
 | `aiAssist.ts` | 0009: `callAiAssist` (POST to `/functions/v1/ai-assist` with the session token, time limit, refusals as `ApiError`) |
 
 ## Scripts (`scripts/`)
@@ -456,7 +477,7 @@ Acknowledged). Policies `job_files_read`,
 | `db/finance.test.ts` | 0004 AC10–AC13: `verify_payment` / `unverify_payment`, close guard, Finance payments with receipt, `finance_orders` |
 | `ui/review-close.test.tsx` | 0004 AC5–AC15: queues, tabs, branch filters, review page, approve / return / close, verify / undo, Finance payment form, notification links, Approved / Closed lines, verification history; 0009 Warnings box (check, Re-check, read-only for Finance), Approve held, queue counts and filter |
 | `db/feedback.test.ts` | 0005 AC1–AC13: tokens and link line, address setting, `feedback_form` states and fields, `submit_feedback` (once, answers, after Close, rework), poor-rating notices, `record_phone_feedback` rules and audit, RLS reads, Manager rating column |
-| `ui/feedback.test.tsx` | 0005 AC1–AC5, AC7, AC9, AC13, AC14: public route, form validation and single submit, retry, link states, feedback card, phone dialog by role, link line and placeholder warning in the message panel |
+| `ui/feedback.test.tsx` | 0005 AC1–AC5, AC7, AC9, AC13, AC14: public route, form validation and single submit, retry, link states, feedback card, phone dialog by role, link line and placeholder warning in the message panel; 0011 EN / BM switch (every page word, remembered, same answers sent) |
 | `domain/feedback.test.ts` | 0005 form rule, poor rating, link line, phone-rating rule, labels |
 | `db/staff.test.ts` | 0006 AC1, AC7–AC17: backfill on existing staff, `create_staff` / `update_staff` / `set_staff_active` by role, self and last-role guards, open jobs, phone / email rules, "Manager first" messages, rules by plain SQL, history (incl. cleanup deletes), sign-in steps and state, `staff_list` / `staff_detail` / `branch_cover_overview` / `staff_form_check`, `order_review_summary` ids |
 | `functions/staff-access.test.ts` | 0006 AC4–AC6, AC11, AC12, AC19: request checks, database-then-Auth order, partial failures and retries, unused-invite restart, error text never leaked |
@@ -469,6 +490,8 @@ Acknowledged). Policies `job_files_read`,
 | `domain/kpi.test.ts` | 0007 periods across month / year ends, labels, address, ranking and sorting, CSV |
 | `db/ask.test.ts` | 0008 AC1, AC3–AC5, AC11: `ask_jobs` / `ask_payments` / `ask_find_people` per role, filters, Malaysia day edges and KPI parity, name matching (slips, titles, two Alis, inactive), chats and log visibility, service-role-only saving, 7-day hiding and purge |
 | `functions/ask.test.ts`, `functions/ask-periods.test.ts` | 0008 AC2, AC3, AC5–AC10, AC12: the AI loop with a scripted fake model (menu, strict schemas, max 3 lookups, reply tools, refusals, Did you mean, own-only, no phone / address / notes sent, follow-up context, errors and timeout); named periods and parity with `src/domain/kpi.ts` |
+| `ui/shell.test.tsx` | 0011: menu per role and "More", skip link, account menu (theme, password, sign out), storage fallback, remembered sidebar, toast timing, Ask drag and reset, sign-in page, axe on the frames |
+| `ui/design-tokens.test.ts` | 0011: no raw Tailwind palette class or hex colour in `src/` |
 | `ui/ask.test.tsx` | 0008 AC7, AC9, AC11, AC12, AC14: bubble per role, examples, steps, answer card and links, plain "How I found this", choice buttons, errors and 20-second limit, saved chats, Question log (AI log since 0009, with the Type filter), phone layout |
 | `db/supervisor.test.ts` | 0009 AC1–AC5, AC15: each rule and its limits, resolve / reopen, AI runs at Job Done and resubmission, approve guard, who may check / re-check, notes, RLS (no technicians), delete / change guard, the function-side input (no customer details) and save, retry sweep, AI log |
 | `db/order-form.test.ts` | 0009 AC8: `set_order_form` / `remove_order_form` (Admin, statuses, types, paths, retry, replace), not one of the 6 files, no photo rule, Storage read / write / delete by role |

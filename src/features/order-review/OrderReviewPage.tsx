@@ -1,8 +1,23 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { Notice } from '../../components/Notice'
+import {
+  Banknote,
+  Building2,
+  CircleCheckBig,
+  ClipboardCheck,
+  Info,
+  Lock,
+  RotateCcw,
+  SearchX,
+  TriangleAlert,
+  UserRound,
+  Wallet,
+} from 'lucide-react'
+import { ActionBar } from '../../components/ActionBar'
 import { StatusBadge } from '../../components/StatusBadge'
-import { BUTTON, CARD, LINK } from '../../components/styles'
+import { BUTTON, CARD } from '../../components/styles'
+import { Toast } from '../../components/Toast'
+import { BackLink, EmptyState, ErrorState, LoadingState, PageHeader } from '../../components/ui'
 import {
   approveBlockReason,
   approveWarningsBlock,
@@ -10,6 +25,7 @@ import {
   canRecordPayment,
   closeBlockReason,
   customerOnBehalfMessage,
+  formatMYR,
   formatMalaysiaDateTime,
   isTerminal,
   needsAttention,
@@ -35,6 +51,7 @@ import {
 } from './api'
 import { ReturnFlags } from './QueueList'
 import { ReviewOutcomeLines } from './ReviewOutcome'
+import { useWide } from './useWide'
 
 export type ReviewRole = 'manager' | 'finance'
 
@@ -50,6 +67,10 @@ async function loadPage(orderNo: string): Promise<{ order: OrderReview | null; h
  * with the actions of the role. A Manager approves (once the customer was
  * told) or returns for rework, and can send the customer message on behalf of
  * the technician; Finance verifies receipts, records payments, and closes.
+ *
+ * 0011 Q16: details on the left and an action panel (status, money, main
+ * buttons) on the right that stays in view; on a phone one column with the
+ * main buttons in the sticky bottom bar.
  */
 export function OrderReviewPage({
   role,
@@ -70,39 +91,35 @@ export function OrderReviewPage({
   const [feedbackKey, setFeedbackKey] = useState(0)
   // 0009: open supervisor warnings hold Approve (null while they load).
   const [openWarnings, setOpenWarnings] = useState<number | null>(null)
+  const wide = useWide()
 
   if (state.status === 'loading') {
-    return (
-      <Notice title="Loading…">
-        <p>Getting order {orderNo}.</p>
-      </Notice>
-    )
+    return <LoadingState variant="page" label={`Loading… Getting order ${orderNo}.`} />
   }
   if (state.status === 'error') {
     return (
-      <Notice tone="error" title="Could not load the order">
+      <ErrorState title="Could not load the order" onRetry={reload}>
         <p>{state.message}</p>
-        <button type="button" onClick={reload} className="mt-3 min-h-11 font-medium underline">
-          Try again
-        </button>
-      </Notice>
+      </ErrorState>
     )
   }
   const { order, history } = state.data
-  const back = (
-    <Link to={basePath} className={`${LINK} inline-flex min-h-11 items-center text-sm`}>
-      ← Back to the list
-    </Link>
-  )
   if (!order) {
     return (
-      <Notice tone="error" title="Order not found">
+      <EmptyState
+        title="Order not found"
+        icon={<SearchX className="size-5" />}
+        action={
+          <Link to={basePath} className={BUTTON.secondary}>
+            Back to the list
+          </Link>
+        }
+      >
         <p>
           There is no order {orderNo}
           {role === 'manager' ? ' in the branches you cover' : ''}.
         </p>
-        {back}
-      </Notice>
+      </EmptyState>
     )
   }
 
@@ -133,178 +150,237 @@ export function OrderReviewPage({
     else await verifyPayment(p.id)
   }
 
-  return (
-    <div className="space-y-4">
-      {back}
+  const canReview = isManager && order.status === 'job_done'
+  const canPay = !isManager && canRecordPayment(order.status, 'finance', false)
+  const canClose = !isManager && order.status === 'reviewed'
+  const hasButtons = canReview || canPay || canClose
+  const paymentPath = `${basePath}/${encodeURIComponent(order.order_no)}/payment`
+  const big = wide ? 'min-h-11 w-full' : 'min-h-12 w-full text-base'
+  const small = wide ? 'min-h-11 w-full' : 'min-h-11 flex-1 whitespace-nowrap px-3'
 
-      {flash ? (
-        <div
-          role="status"
-          className="flex items-start justify-between gap-4 rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900"
-        >
-          <p>{flash}</p>
-          <button type="button" onClick={() => setFlash(null)} className="font-medium underline">
-            Dismiss
+  // The main buttons, once: in the side panel on a desktop, in the bottom bar on a phone.
+  const buttons = hasButtons ? (
+    <>
+      {canReview ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setDialog('approve')}
+            disabled={approveBlocked !== null || warningsBlock !== null}
+            className={`${BUTTON.primary} ${big}`}
+          >
+            <CircleCheckBig aria-hidden="true" />
+            Approve job
           </button>
+          <div className={wide ? '' : 'flex gap-2'}>
+            <button type="button" onClick={() => setDialog('return')} className={`${BUTTON.secondary} ${small}`}>
+              <RotateCcw aria-hidden="true" />
+              Return for rework
+            </button>
+          </div>
+        </>
+      ) : null}
+      {canClose ? (
+        <button
+          type="button"
+          onClick={() => setDialog('close')}
+          disabled={closeBlocked !== null}
+          className={`${BUTTON.primary} ${big}`}
+        >
+          <Lock aria-hidden="true" />
+          Close order
+        </button>
+      ) : null}
+      {canPay ? (
+        <div className={wide ? '' : 'flex gap-2'}>
+          <Link to={paymentPath} className={`${canClose ? BUTTON.secondary : BUTTON.primary} ${canClose ? small : big}`}>
+            <Banknote aria-hidden="true" />
+            Record payment
+          </Link>
         </div>
       ) : null}
+    </>
+  ) : null
 
-      <header className="flex flex-col gap-2">
-        <p className="text-sm text-slate-600">
-          {order.branch_name} · {tagStaff(order.technician_name, order.assigned_technician_id) ?? 'No technician'}
-        </p>
-        <h2 className="flex flex-wrap items-center gap-3 text-2xl font-semibold">
-          {order.order_no} <StatusBadge status={order.status} />
-          <ReturnFlags order={order} />
-        </h2>
-      </header>
+  const warningsBox = (
+    <WarningsBox orderId={order.id} orderStatus={order.status} isManager={isManager} onOpenCount={setOpenWarnings} />
+  )
+  const returnsCard =
+    returns.length > 0 ? (
+      <section className={CARD} aria-labelledby="review-returns">
+        <h3 id="review-returns" className="flex items-center gap-2 text-base font-semibold text-ink">
+          <RotateCcw className="size-4.5 text-warning" aria-hidden="true" />
+          Returned {returns.length} time{returns.length === 1 ? '' : 's'}
+        </h3>
+        {needsAttention(returns.length) ? (
+          <p className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-sm font-medium text-danger-ink">
+            Needs attention: returned {NEEDS_ATTENTION_RETURNS} or more times.
+          </p>
+        ) : null}
+        <ol className="mt-3 space-y-3 text-sm">
+          {returns.map((r) => (
+            <li key={r.id} className="border-l-2 border-warning/50 pl-3">
+              <p className="whitespace-pre-line break-words text-ink">{r.note}</p>
+              <p className="mt-0.5 text-xs text-ink-faint">
+                {tagStaff(r.actor_name, r.actor_id)} · {formatMalaysiaDateTime(r.created_at)}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </section>
+    ) : null
+  const messagePanel = (
+    <CustomerMessagePanel
+      orderId={order.id}
+      orderStatus={order.status}
+      canManage={isManager && canConfirmCustomerMessage(order.status, 'manager', true)}
+      onBehalfBody={onBehalfBody}
+      canEdit={false}
+      onChange={() => {
+        reload()
+        setFeedbackKey((k) => k + 1)
+      }}
+    />
+  )
+  const summary = <OrderSummaryCard order={order} />
+  const completion = (
+    <CompletionSection
+      order={order}
+      canChangeFiles={false}
+      toggleVerified={role === 'finance' && !isTerminal(order.status) ? toggleVerified : undefined}
+      onPaymentsChange={reload}
+    />
+  )
+  const feedback = (
+    <FeedbackCard
+      orderId={order.id}
+      orderStatus={order.status}
+      role={role}
+      coversBranch={isManager}
+      refreshKey={feedbackKey}
+    />
+  )
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <OrderSummaryCard order={order} />
-          <CompletionSection
-            order={order}
-            canChangeFiles={false}
-            toggleVerified={
-              role === 'finance' && !isTerminal(order.status) ? toggleVerified : undefined
-            }
-            onPaymentsChange={reload}
-          />
+  return (
+    <div className="space-y-5">
+      <BackLink to={basePath}>Back to the list</BackLink>
+
+      {flash ? (
+        <Toast key={flash} onDismiss={() => setFlash(null)}>
+          {flash}
+        </Toast>
+      ) : null}
+
+      <PageHeader
+        eyebrow={
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="inline-flex items-center gap-1.5">
+              <Building2 className="size-4 text-ink-faint" aria-hidden="true" />
+              {order.branch_name}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <UserRound className="size-4 text-ink-faint" aria-hidden="true" />
+              {tagStaff(order.technician_name, order.assigned_technician_id) ?? 'No technician'}
+            </span>
+          </span>
+        }
+        title={order.order_no}
+        badge={
+          <>
+            <StatusBadge status={order.status} />
+            <ReturnFlags order={order} />
+          </>
+        }
+      />
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        {/* Details. A Manager checks the warnings and the message first; Finance the money. */}
+        <div className="min-w-0 space-y-4">
+          {isManager ? (
+            <>
+              {warningsBox}
+              {messagePanel}
+              {returnsCard}
+              {summary}
+              {completion}
+              {feedback}
+            </>
+          ) : (
+            <>
+              {completion}
+              {summary}
+              {warningsBox}
+              {messagePanel}
+              {feedback}
+              {returnsCard}
+            </>
+          )}
           <OrderHistory entries={history} />
         </div>
 
-        {/* Actions first on a phone; beside the details on a wide screen. */}
-        <div className="order-first space-y-4 lg:order-none">
+        {/* The action panel: first on a phone, beside the details (and in view) on a wide screen. */}
+        <aside className="order-first space-y-4 self-start lg:sticky lg:top-6 lg:order-none">
           <section className={CARD} aria-labelledby="review-actions">
-            <h3 id="review-actions" className="text-base font-semibold">
+            <h3 id="review-actions" className="flex items-center gap-2 text-base font-semibold text-ink">
+              {isManager ? (
+                <ClipboardCheck className="size-4.5 text-brand" aria-hidden="true" />
+              ) : (
+                <Wallet className="size-4.5 text-brand" aria-hidden="true" />
+              )}
               {isManager ? 'Review' : 'Payment and close'}
             </h3>
             <div className="mt-3 space-y-3">
               <ReviewOutcomeLines facts={order} />
 
-              {isManager && order.status === 'job_done' ? (
+              <dl className="space-y-1.5 text-sm tabular">
+                <MoneyRow label="Final amount">
+                  <strong className="font-semibold">{formatMYR(order.final_amount)}</strong>
+                </MoneyRow>
+                <MoneyRow label="Paid">{formatMYR(order.amount_paid)}</MoneyRow>
+              </dl>
+              <dl
+                className={`flex items-center justify-between rounded-lg px-3 py-2.5 ${
+                  order.balance > 0 ? 'bg-warning-soft text-warning-ink' : 'bg-success-soft text-success-ink'
+                }`}
+              >
+                <dt className="text-sm font-medium">Balance</dt>
+                <dd className="text-lg font-semibold tabular">{formatMYR(order.balance)}</dd>
+              </dl>
+
+              {canReview ? (
                 <>
                   {approveBlocked ? (
-                    <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                      {approveBlocked}. Send the message below (or call) first.
-                    </p>
+                    <Callout>{approveBlocked}. Send the customer message (or call) first.</Callout>
                   ) : null}
-                  {warningsBlock ? (
-                    <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                      {warningsBlock}. See Warnings below.
-                    </p>
-                  ) : null}
-                  <div className="flex flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDialog('approve')}
-                      disabled={approveBlocked !== null || warningsBlock !== null}
-                      className={`${BUTTON.primary} min-h-11`}
-                    >
-                      Approve job
-                    </button>
-                    <button type="button" onClick={() => setDialog('return')} className={`${BUTTON.secondary} min-h-11`}>
-                      Return for rework
-                    </button>
-                  </div>
+                  {warningsBlock ? <Callout>{warningsBlock}. See Warnings.</Callout> : null}
                 </>
               ) : null}
               {isManager && order.status !== 'job_done' && !order.reviewed_at ? (
-                <p className="text-sm text-slate-600">Nothing to review: the job is not Job Done.</p>
+                <Note>Nothing to review: the job is not Job Done.</Note>
               ) : null}
 
               {!isManager ? (
                 <>
                   {order.unverified_count > 0 ? (
-                    <p className="text-sm text-amber-950">
+                    <Callout>
                       {order.unverified_count} receipt{order.unverified_count === 1 ? '' : 's'} to verify under
                       Payments.
-                    </p>
+                    </Callout>
                   ) : null}
-                  {order.status === 'reviewed' && closeBlocked ? (
-                    <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                      {closeBlocked}
-                    </p>
-                  ) : null}
+                  {order.status === 'reviewed' && closeBlocked ? <Callout>{closeBlocked}</Callout> : null}
                   {order.status !== 'reviewed' && order.status !== 'closed' ? (
-                    <p className="text-sm text-slate-600">The order can be closed once a Manager has approved it.</p>
+                    <Note>The order can be closed once a Manager has approved it.</Note>
                   ) : null}
-                  <div className="flex flex-col gap-2">
-                    {canRecordPayment(order.status, 'finance', false) ? (
-                      <Link
-                        to={`${basePath}/${encodeURIComponent(order.order_no)}/payment`}
-                        className={`${BUTTON.secondary} min-h-11`}
-                      >
-                        Record payment
-                      </Link>
-                    ) : null}
-                    {order.status === 'reviewed' ? (
-                      <button
-                        type="button"
-                        onClick={() => setDialog('close')}
-                        disabled={closeBlocked !== null}
-                        className={`${BUTTON.primary} min-h-11`}
-                      >
-                        Close order
-                      </button>
-                    ) : null}
-                  </div>
                 </>
               ) : null}
+
+              {wide && buttons ? <div className="space-y-2 border-t border-line pt-3">{buttons}</div> : null}
             </div>
           </section>
-
-          <WarningsBox
-            orderId={order.id}
-            orderStatus={order.status}
-            isManager={isManager}
-            onOpenCount={setOpenWarnings}
-          />
-
-          {returns.length > 0 ? (
-            <section className={CARD} aria-labelledby="review-returns">
-              <h3 id="review-returns" className="text-base font-semibold">
-                Returned {returns.length} time{returns.length === 1 ? '' : 's'}
-              </h3>
-              {needsAttention(returns.length) ? (
-                <p className="mt-1 text-sm text-red-800">
-                  Needs attention: returned {NEEDS_ATTENTION_RETURNS} or more times.
-                </p>
-              ) : null}
-              <ol className="mt-3 space-y-3 text-sm">
-                {returns.map((r) => (
-                  <li key={r.id} className="border-l-2 border-amber-300 pl-3">
-                    <p className="break-words">{r.note}</p>
-                    <p className="text-xs text-slate-500">
-                      {tagStaff(r.actor_name, r.actor_id)} · {formatMalaysiaDateTime(r.created_at)}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ) : null}
-
-          <CustomerMessagePanel
-            orderId={order.id}
-            orderStatus={order.status}
-            canManage={isManager && canConfirmCustomerMessage(order.status, 'manager', true)}
-            onBehalfBody={onBehalfBody}
-            canEdit={false}
-            onChange={() => {
-              reload()
-              setFeedbackKey((k) => k + 1)
-            }}
-          />
-
-          <FeedbackCard
-            orderId={order.id}
-            orderStatus={order.status}
-            role={role}
-            coversBranch={isManager}
-            refreshKey={feedbackKey}
-          />
-        </div>
+        </aside>
       </div>
+
+      {!wide && buttons ? <ActionBar>{buttons}</ActionBar> : null}
 
       {dialog === 'approve' ? (
         <ApproveDialog
@@ -326,3 +402,32 @@ export function OrderReviewPage({
     </div>
   )
 }
+
+function MoneyRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="text-ink">{children}</dd>
+    </div>
+  )
+}
+
+/** Why a main button is held, next to it. */
+function Callout({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex gap-2 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning-ink">
+      <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span className="min-w-0">{children}</span>
+    </p>
+  )
+}
+
+function Note({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex gap-2 text-sm text-ink-muted">
+      <Info className="mt-0.5 size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+      <span className="min-w-0">{children}</span>
+    </p>
+  )
+}
+

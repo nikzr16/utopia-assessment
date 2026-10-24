@@ -668,7 +668,7 @@ describe('Technician page (AC16)', () => {
     const returned = within(screen.getByRole('region', { name: 'Returned for rework' }))
     expect(returned.getByText('Photos missing')).toBeTruthy()
 
-    expect(screen.getByRole('link', { name: '← Back to the dashboard' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: 'Back to the dashboard' }).getAttribute('href')).toBe(
       '/dashboard?view=week&start=2026-10-19&branch=b-sa',
     )
     // The trend is available as a table too.

@@ -1,8 +1,24 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Notice } from '../../components/Notice'
-import { BUTTON, CARD } from '../../components/styles'
-import { NOTIFICATION_EVENT_LABELS, formatMalaysiaDateTime, notificationOpensJob } from '../../domain'
+import {
+  BadgeCheck,
+  Ban,
+  Banknote,
+  Bell,
+  BellOff,
+  CheckCheck,
+  CircleCheckBig,
+  ClipboardPlus,
+  Lock,
+  PencilLine,
+  RotateCcw,
+  Star,
+  UserRoundX,
+  type LucideIcon,
+} from 'lucide-react'
+import { BUTTON } from '../../components/styles'
+import { EmptyState, ErrorState, LoadingState, PageHeader } from '../../components/ui'
+import { NOTIFICATION_EVENT_LABELS, formatMalaysiaDateTime, notificationOpensJob, type NotificationEvent } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import {
   NOTIFICATION_LIMIT,
@@ -12,6 +28,20 @@ import {
   type AppNotification,
 } from './api'
 import { useNotifications } from './NotificationsProvider'
+
+const EVENT_ICONS: Record<NotificationEvent, LucideIcon> = {
+  assigned: ClipboardPlus,
+  job_done: CircleCheckBig,
+  rework: RotateCcw,
+  reviewed: BadgeCheck,
+  order_updated: PencilLine,
+  cancelled: Ban,
+  reassigned_away: UserRoundX,
+  payment_recorded: Banknote,
+  job_approved: BadgeCheck,
+  job_closed: Lock,
+  low_feedback: Star,
+}
 
 /**
  * The signed-in staff member's notifications, newest first (PRD AC12).
@@ -56,75 +86,87 @@ export function NotificationsPage({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Notifications</h2>
-        {(unread ?? 0) > 0 ? (
-          <button type="button" onClick={() => void markAll()} disabled={markingAll} className={`${BUTTON.secondary} min-h-11`}>
-            {markingAll ? 'Marking…' : 'Mark all as read'}
-          </button>
-        ) : null}
-      </div>
+    <div className="max-w-3xl space-y-4">
+      <PageHeader
+        row
+        title="Notifications"
+        actions={
+          (unread ?? 0) > 0 ? (
+            <button type="button" onClick={() => void markAll()} disabled={markingAll} className={BUTTON.secondary}>
+              <CheckCheck aria-hidden="true" />
+              {markingAll ? 'Marking…' : 'Mark all as read'}
+            </button>
+          ) : null
+        }
+      />
 
       {error ? (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+        <p role="alert" className="rounded-xl border border-danger/35 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
           {error}
         </p>
       ) : null}
 
       {state.status === 'loading' ? (
-        <p className="text-sm text-slate-600" role="status">
-          Loading notifications…
-        </p>
+        <LoadingState variant="rows" count={5} label="Loading notifications…" />
       ) : state.status === 'error' ? (
-        <Notice tone="error" title="Could not load notifications">
+        <ErrorState title="Could not load notifications" onRetry={reload}>
           <p>{state.message}</p>
-          <button type="button" onClick={reload} className="mt-3 min-h-11 font-medium underline">
-            Try again
-          </button>
-        </Notice>
+        </ErrorState>
       ) : state.data.length === 0 ? (
-        <div className={`${CARD} text-center`}>
-          <p className="text-sm text-slate-700">No notifications yet.</p>
-        </div>
+        <EmptyState title="No notifications yet." icon={<BellOff className="size-5" />}>
+          New jobs, reviews and payments will show up here.
+        </EmptyState>
       ) : (
         <>
-          <ul className="space-y-2" aria-label="Notifications">
-            {state.data.map((n) => (
-              <li key={n.id}>
-                <button
-                  type="button"
-                  onClick={() => open(n)}
-                  className={`block w-full rounded-lg border p-4 text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-300 ${
-                    n.read_at ? 'border-slate-200 bg-white' : 'border-sky-300 bg-sky-50'
-                  }`}
-                >
-                  <span className="flex items-center justify-between gap-2 text-xs">
-                    <span className="font-semibold uppercase tracking-wide text-slate-600">
-                      {NOTIFICATION_EVENT_LABELS[n.event] ?? n.event}
+          <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface shadow-card" aria-label="Notifications">
+            {state.data.map((n) => {
+              const Icon = EVENT_ICONS[n.event] ?? Bell
+              const unreadItem = !n.read_at
+              return (
+                <li key={n.id}>
+                  <button
+                    type="button"
+                    onClick={() => open(n)}
+                    className={`group relative flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-sunken sm:items-center sm:py-2.5 ${unreadItem ? 'bg-brand-soft/50' : ''}`}
+                  >
+                    {unreadItem ? <span aria-hidden="true" className="absolute left-1.5 top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-brand" /> : null}
+                    <span
+                      aria-hidden="true"
+                      className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full ${
+                        n.event === 'low_feedback' || n.event === 'rework' || n.event === 'cancelled'
+                          ? 'bg-warning-soft text-warning'
+                          : 'bg-brand-soft text-brand'
+                      }`}
+                    >
+                      <Icon className="size-4" />
                     </span>
-                    {n.read_at ? null : (
-                      <span className="inline-flex items-center gap-1 font-semibold text-sky-800">
-                        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-sky-600" />
-                        Unread
+                    <span className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-3">
+                      <span className="block shrink-0 text-[11px] font-medium uppercase tracking-wide text-ink-faint sm:w-32 sm:truncate">
+                        {NOTIFICATION_EVENT_LABELS[n.event] ?? n.event}
+                        {unreadItem ? <span className="sr-only">Unread</span> : null}
                       </span>
-                    )}
-                  </span>
-                  <span className={`mt-1 block break-words text-sm ${n.read_at ? 'text-slate-800' : 'font-medium text-slate-900'}`}>
-                    {n.message}
-                  </span>
-                  <span className="mt-1 block text-xs text-slate-500">{formatMalaysiaDateTime(n.created_at)}</span>
-                  {gone === n.id ? (
-                    <span role="status" className="mt-2 block text-sm text-amber-900">
-                      {goneMessage}
+                      <span
+                        title={n.message}
+                        className={`block break-words text-sm sm:min-w-0 sm:flex-1 sm:truncate ${unreadItem ? 'font-semibold text-ink' : 'text-ink-muted'}`}
+                      >
+                        {n.message}
+                      </span>
+                      <span className="mt-0.5 block shrink-0 whitespace-nowrap text-xs text-ink-faint tabular sm:mt-0">
+                        {formatMalaysiaDateTime(n.created_at)}
+                      </span>
+                      {gone === n.id ? (
+                        <span role="status" className="mt-1 block text-sm text-warning-ink sm:mt-0">
+                          {goneMessage}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                </button>
-              </li>
-            ))}
+                  </button>
+                </li>
+              )
+            })}
           </ul>
           {state.data.length >= NOTIFICATION_LIMIT ? (
-            <p className="text-center text-xs text-slate-500">Showing the latest {NOTIFICATION_LIMIT}.</p>
+            <p className="text-center text-xs text-ink-faint">Showing the latest {NOTIFICATION_LIMIT}.</p>
           ) : null}
         </>
       )}
