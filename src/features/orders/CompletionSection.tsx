@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
-import { CARD } from '../../components/styles'
+import { Banknote, CircleCheckBig, Images, RotateCcw } from 'lucide-react'
+import { CARD, EYEBROW } from '../../components/styles'
+import { Skeleton } from '../../components/ui'
 import { canChangeJobFiles, formatMYR, formatMalaysiaDateTime, type OrderStatus } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import { staffName, useInactiveStaff } from '../../lib/staffStatus'
@@ -46,23 +48,27 @@ export function CompletionSection({
 
   return (
     <section className={CARD} aria-labelledby="order-completion">
-      <h3 id="order-completion" className="text-base font-semibold">
+      <h3 id="order-completion" className="flex items-center gap-2 text-base font-semibold text-ink">
+        <CircleCheckBig className="size-4.5 text-ink-faint" aria-hidden="true" />
         Completion
       </h3>
 
       {state.status === 'loading' ? (
-        <p className="mt-3 text-sm text-slate-600" role="status">
-          Loading the completion record…
-        </p>
+        <div className="mt-3 space-y-2.5" role="status">
+          <span className="sr-only">Loading the completion record…</span>
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-4 w-1/3" />
+        </div>
       ) : state.status === 'error' ? (
-        <p role="alert" className="mt-3 text-sm text-red-800">
+        <p role="alert" className="mt-3 rounded-lg border border-danger/35 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
           Could not load the completion record: {state.message}{' '}
           <button type="button" onClick={reload} className="font-medium underline">
             Try again
           </button>
         </p>
       ) : state.data.completion ? (
-        <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+        <dl className="mt-4 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
           <Item label="Work done" wide>
             {state.data.completion.work_done}
           </Item>
@@ -78,25 +84,34 @@ export function CompletionSection({
           </Item>
         </dl>
       ) : (
-        <p className="mt-3 text-sm text-slate-600">Not submitted yet.</p>
+        <p className="mt-3 rounded-lg border border-dashed border-line-strong px-3 py-2.5 text-sm text-ink-muted">Not submitted yet.</p>
       )}
 
       {order.status === 'in_progress' && state.status === 'ready' && state.data.completion && state.data.rework ? (
-        <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          Returned for rework by {state.data.rework.by}: {state.data.rework.note}
-        </p>
+        <div className="mt-4 flex gap-2.5 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2.5 text-sm text-warning-ink">
+          <RotateCcw className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p className="min-w-0 whitespace-pre-line break-words">
+            Returned for rework by {state.data.rework.by}: {state.data.rework.note}
+          </p>
+        </div>
       ) : null}
 
-      <h4 className="mt-5 text-sm font-semibold text-slate-800">Photos, videos and PDFs</h4>
-      <div className="mt-2">
+      <h4 className="mt-5 flex items-center gap-2 border-t border-line pt-4 text-sm font-semibold text-ink">
+        <Images className="size-4 text-ink-faint" aria-hidden="true" />
+        Photos, videos and PDFs
+      </h4>
+      <div className="mt-3">
         <JobFiles orderId={order.id} canChange={canChangeFiles} />
       </div>
 
-      <h4 className="mt-5 text-sm font-semibold text-slate-800">Payments</h4>
+      <h4 className="mt-5 flex items-center gap-2 border-t border-line pt-4 text-sm font-semibold text-ink">
+        <Banknote className="size-4 text-ink-faint" aria-hidden="true" />
+        Payments
+      </h4>
       {state.status === 'ready' && state.data.payments.length > 0 ? (
-        <PaymentList payments={state.data.payments} className="mt-2" verifying={verifying} />
+        <PaymentList payments={state.data.payments} className="mt-3" verifying={verifying} />
       ) : state.status === 'ready' ? (
-        <p className="mt-2 text-sm text-slate-600">No payments recorded yet.</p>
+        <p className="mt-2 text-sm text-ink-muted">No payments recorded yet.</p>
       ) : null}
     </section>
   )
@@ -105,8 +120,8 @@ export function CompletionSection({
 function Item({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
     <div className={wide ? 'sm:col-span-2' : undefined}>
-      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
-      <dd className="mt-0.5 whitespace-pre-line break-words text-slate-900">{children}</dd>
+      <dt className={EYEBROW}>{label}</dt>
+      <dd className="mt-1 whitespace-pre-line break-words text-ink">{children}</dd>
     </div>
   )
 }

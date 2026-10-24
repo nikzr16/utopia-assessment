@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { MapPin } from 'lucide-react'
 import { INPUT } from '../../../components/styles'
 import type { KpiBranchOption } from '../api'
 
@@ -21,18 +22,21 @@ export function BranchFilter({
   const id = useId()
   if (branches.length < 2) return null
   return (
-    <div className="w-full sm:w-64">
-      <label htmlFor={id} className="block text-xs font-medium text-slate-600">
+    <div className="w-full sm:w-60">
+      <label htmlFor={id} className="mb-1 block text-xs font-medium text-ink-muted">
         Branch
       </label>
-      <select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value || null)} className={`${INPUT} mt-1 min-h-11`}>
-        <option value="">{allLabel}</option>
-        {branches.map((b) => (
-          <option key={b.id} value={b.id}>
-            {b.name}
-          </option>
-        ))}
-      </select>
+      <div className="relative">
+        <MapPin className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-faint" aria-hidden="true" />
+        <select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value || null)} className={`${INPUT} pl-9 max-md:min-h-11`}>
+          <option value="">{allLabel}</option>
+          {branches.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   )
 }

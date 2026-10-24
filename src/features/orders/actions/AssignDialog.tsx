@@ -1,7 +1,9 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Dialog } from '../../../components/Dialog'
 import { Field } from '../../../components/Field'
+import { UserRound, UserRoundPlus } from 'lucide-react'
 import { BUTTON } from '../../../components/styles'
+import { Skeleton } from '../../../components/ui'
 import { assignTechnician, fetchReferenceData, type OrderSummary } from '../api'
 import { TechnicianSelect } from '../TechnicianSelect'
 import { useLoad } from '../../../lib/useLoad'
@@ -50,18 +52,25 @@ export function AssignDialog({
   return (
     <Dialog title={reassign ? `Reassign ${order.order_no}` : `Assign ${order.order_no}`} onClose={onClose}>
       {reference.status === 'loading' ? (
-        <p className="text-sm text-slate-600">Loading technicians…</p>
+        <div role="status" className="space-y-3">
+          <span className="sr-only">Loading technicians…</span>
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
       ) : reference.status === 'error' ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="rounded-lg border border-danger/35 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
           {reference.message}
         </p>
       ) : (
         <form noValidate onSubmit={submit} className="space-y-4">
           {reassign ? (
-            <p className="text-sm text-slate-700">
-              Currently assigned to <strong>{order.technician_name}</strong>. The new technician must acknowledge
-              the job again.
-            </p>
+            <div className="flex gap-3 rounded-lg border border-line bg-sunken px-3 py-2.5 text-sm text-ink-muted">
+              <UserRound className="mt-0.5 size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+              <p>
+                Currently assigned to <strong className="font-semibold text-ink">{order.technician_name}</strong>. The new
+                technician must acknowledge the job again.
+              </p>
+            </div>
           ) : null}
           <Field id="assign-technician" label="Technician" error={error ?? undefined}>
             {(control) => (
@@ -79,11 +88,12 @@ export function AssignDialog({
               />
             )}
           </Field>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className={BUTTON.secondary} disabled={saving}>
+          <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onClose} className={`${BUTTON.secondary} min-h-11`} disabled={saving}>
               Back
             </button>
-            <button type="submit" className={BUTTON.primary} disabled={saving}>
+            <button type="submit" className={`${BUTTON.primary} min-h-11`} disabled={saving}>
+              <UserRoundPlus aria-hidden="true" />
               {saving ? 'Saving…' : reassign ? 'Reassign' : 'Assign'}
             </button>
           </div>

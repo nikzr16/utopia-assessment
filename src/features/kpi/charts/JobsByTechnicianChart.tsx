@@ -4,7 +4,7 @@ import type { KpiTechnicianRow } from '../api'
 import { ChartPanel } from './ChartPanel'
 import { TooltipBox, plural } from './ChartTooltip'
 import { DataTable } from './DataTable'
-import { BAR_RADIUS, CHART_AXIS, CHART_BLUE, CHART_GRID, MARGIN, TICK } from './theme'
+import { BAR_RADIUS, CHART_AXIS, CHART_CURSOR, CHART_GRID, CHART_PRIMARY, MARGIN, TICK } from './theme'
 import { useReducedMotion } from './useReducedMotion'
 
 /** Bars are capped so the chart stays readable; the table lists everyone. */
@@ -36,11 +36,11 @@ export function JobsByTechnicianChart({ rows, view }: { rows: readonly KpiTechni
         <>
           <ResponsiveContainer width="100%" height={Math.max(120, bars.length * ROW_HEIGHT + 36)}>
             <BarChart data={bars} layout="vertical" margin={MARGIN} barCategoryGap="25%">
-              <CartesianGrid horizontal={false} stroke={CHART_GRID} />
-              <XAxis type="number" allowDecimals={false} tick={TICK} stroke={CHART_AXIS} />
-              <YAxis type="category" dataKey="label" width={112} tick={TICK} stroke={CHART_AXIS} interval={0} />
+              <CartesianGrid horizontal={false} stroke={CHART_GRID} strokeDasharray="3 3" />
+              <XAxis type="number" allowDecimals={false} tick={TICK} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="label" width={112} tick={TICK} stroke={CHART_AXIS} tickLine={false} interval={0} />
               <Tooltip
-                cursor={{ fill: '#f1f5f9' }}
+                cursor={CHART_CURSOR}
                 content={({ active, payload }) => {
                   const bar = active ? (payload?.[0]?.payload as Entry | undefined) : undefined
                   return bar ? <TooltipBox lines={[{ text: `${bar.label} — ${plural(bar.jobs, 'job')}` }]} /> : null
@@ -49,14 +49,15 @@ export function JobsByTechnicianChart({ rows, view }: { rows: readonly KpiTechni
               <Bar
                 dataKey="jobs"
                 name="Jobs completed"
-                fill={CHART_BLUE}
+                fill={CHART_PRIMARY}
+                maxBarSize={22}
                 radius={[0, BAR_RADIUS, BAR_RADIUS, 0]}
                 isAnimationActive={!reduced}
               />
             </BarChart>
           </ResponsiveContainer>
           {all.length > bars.length ? (
-            <p className="mt-2 text-xs text-slate-600">
+            <p className="mt-2 text-xs text-ink-faint">
               Showing the first {bars.length} of {all.length} technicians. Show as table lists everyone.
             </p>
           ) : null}

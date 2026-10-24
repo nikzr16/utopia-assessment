@@ -56,7 +56,7 @@ export function BranchComparison({
       summary={`${MEASURE_LABELS[measure]} per branch this ${view}: ${bars.map((b) => `${b.name} ${b.text}`).join(', ')}.`}
       chartless={!drawChart}
       controls={
-        <div role="radiogroup" aria-label="Measure" className="flex flex-wrap gap-2">
+        <div role="radiogroup" aria-label="Measure" className="grid grid-cols-2 gap-1 rounded-xl bg-sunken p-1 ring-1 ring-inset ring-line sm:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
           {MEASURES.map((m) => (
             <button
               key={m}
@@ -64,8 +64,8 @@ export function BranchComparison({
               role="radio"
               aria-checked={measure === m}
               onClick={() => setMeasure(m)}
-              className={`inline-flex min-h-11 items-center rounded-md border px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-300 ${
-                measure === m ? 'border-sky-300 bg-sky-100 text-sky-900' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+              className={`inline-flex min-h-9 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-focus max-md:min-h-11 sm:text-sm ${
+                measure === m ? 'bg-surface text-ink shadow-card ring-1 ring-line' : 'text-ink-muted hover:text-ink'
               }`}
             >
               {MEASURE_LABELS[m]}

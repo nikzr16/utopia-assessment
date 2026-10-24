@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
+import { ChartColumn, Table2 } from 'lucide-react'
 import { BUTTON, CARD } from '../../../components/styles'
 
 /**
@@ -31,23 +32,31 @@ export function ChartPanel({
   const showTable = chartless || asTable
   const canDraw = !chartless && emptyText === null
   return (
-    <section className={CARD} aria-labelledby={headingId}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={headingId} className="text-base font-semibold">
+    <section className={`${CARD} flex h-full flex-col`} aria-labelledby={headingId}>
+      <div className="flex items-start justify-between gap-3">
+        <h3 id={headingId} className="min-w-0 pt-1.5 text-base font-semibold text-ink">
           {title}
         </h3>
         {canDraw ? (
-          <button type="button" aria-pressed={asTable} onClick={() => setAsTable((v) => !v)} className={`${BUTTON.secondary} min-h-11`}>
+          <button
+            type="button"
+            aria-pressed={asTable}
+            onClick={() => setAsTable((v) => !v)}
+            className={`${BUTTON.ghost} shrink-0 px-2.5 max-md:min-h-11`}
+          >
+            {asTable ? <ChartColumn aria-hidden="true" /> : <Table2 aria-hidden="true" />}
             {asTable ? 'Show as chart' : 'Show as table'}
           </button>
         ) : null}
       </div>
       {controls && !showTable ? <div className="mt-3">{controls}</div> : null}
-      <div className="mt-3">
+      <div className="mt-4 flex-1">
         {showTable ? (
           table
         ) : emptyText !== null ? (
-          <p className="text-sm text-slate-600">{emptyText}</p>
+          <div className="flex min-h-40 items-center justify-center rounded-lg border border-dashed border-line-strong bg-sunken/40 px-4 text-center">
+            <p className="text-sm text-ink-muted">{emptyText}</p>
+          </div>
         ) : (
           <div role="img" aria-label={`${title}. ${summary}`}>
             {chart}

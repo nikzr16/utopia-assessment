@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { CARD, BUTTON } from '../../components/styles'
+import { MapPinned } from 'lucide-react'
+import { BUTTON } from '../../components/styles'
+import { PageHeader } from '../../components/ui'
 import {
   KPI_TREND_COUNTS,
   emptyPeriodMessage,
@@ -27,7 +29,7 @@ import { TrendChart } from './charts/TrendChart'
 import { BranchComparison } from './components/BranchComparison'
 import { BranchFilter } from './components/BranchFilter'
 import { InsightsCard } from './components/InsightsCard'
-import { KpiError, KpiLoading } from './components/KpiState'
+import { EmptyPeriod, KpiError, KpiLoading } from './components/KpiState'
 import { DEFAULT_SORT, Leaderboard, type LeaderboardSort } from './components/Leaderboard'
 import { PeriodPicker } from './components/PeriodPicker'
 import { SummaryCards } from './components/SummaryCards'
@@ -50,18 +52,23 @@ export function DashboardPage({ role }: { role: StaffRole }) {
 
   return (
     <div className="space-y-5">
-      <h2 className="text-xl font-semibold">Dashboard</h2>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <PeriodPicker view={address.view} start={address.start} onChange={setAddress} />
-        <BranchFilter
-          branches={branches}
-          value={address.branch}
-          allLabel={role === 'manager' ? 'All my branches' : 'All branches'}
-          onChange={(branch) => setAddress({ branch })}
-        />
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description="Approved jobs, money, reschedules and ratings for the period."
+        actions={
+          branches.length >= 2 ? (
+            <BranchFilter
+              branches={branches}
+              value={address.branch}
+              allLabel={role === 'manager' ? 'All my branches' : 'All branches'}
+              onChange={(branch) => setAddress({ branch })}
+            />
+          ) : null
+        }
+      />
+      <PeriodPicker view={address.view} start={address.start} onChange={setAddress} />
       {/* 0009: Managers and Admins (PRD Q16). */}
-      {role === 'admin' || role === 'manager' ? <InsightsCard key={addressKey(address)} address={address} /> : null}
+      {role === 'admin' || role === 'manager' ? <InsightsCard key={`insights|${addressKey(address)}`} address={address} /> : null}
       <DashboardBody
         key={addressKey(address)}
         address={address}
@@ -106,7 +113,8 @@ function DashboardBody({
         <KpiError message={state.message} onRetry={reload} />
         {branch ? (
           <div className="text-center">
-            <button type="button" onClick={onShowAllBranches} className={BUTTON.secondary}>
+            <button type="button" onClick={onShowAllBranches} className={`${BUTTON.secondary} max-md:min-h-11`}>
+              <MapPinned aria-hidden="true" />
               Show all branches
             </button>
           </div>
@@ -132,12 +140,9 @@ function DashboardBody({
       <SummaryCards figures={summary} />
 
       {empty ? (
-        <div className={CARD} role="status">
-          <p className="font-medium">{emptyPeriodMessage(view)}</p>
-          <p className="mt-1 text-sm text-slate-600">
-            Jobs are counted when a Manager approves them. Every technician active in the period is still listed below.
-          </p>
-        </div>
+        <EmptyPeriod message={emptyPeriodMessage(view)}>
+          Jobs are counted when a Manager approves them. Every technician active in the period is still listed below.
+        </EmptyPeriod>
       ) : null}
 
       <Leaderboard
@@ -151,14 +156,14 @@ function DashboardBody({
       {empty ? (
         compare ? <BranchComparison rows={branches} view={view} drawChart={false} /> : null
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           <div className="min-w-0">
             <JobsByTechnicianChart rows={ranked} view={view} />
           </div>
           <div className="min-w-0">
             <TrendChart points={trend} view={view} />
           </div>
-          <div className={`min-w-0 ${compare ? '' : 'lg:col-span-2'}`}>
+          <div className={`min-w-0 ${compare ? '' : 'xl:col-span-2'}`}>
             <ReschedulesByReasonChart data={summary.reason_by_requester} />
           </div>
           {compare ? (

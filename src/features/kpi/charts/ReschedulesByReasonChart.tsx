@@ -2,9 +2,9 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { RESCHEDULE_REASON_LABELS } from '../../../domain'
 import { RESCHEDULE_PARTIES, RESCHEDULE_REASONS, type ReasonByRequester, type ReschedulePartyName } from '../api'
 import { ChartPanel } from './ChartPanel'
-import { TooltipBox } from './ChartTooltip'
+import { TooltipBox, legendText } from './ChartTooltip'
 import { DataTable } from './DataTable'
-import { BAR_RADIUS, CHART_AXIS, CHART_GRID, CHART_INK, CHART_SURFACE, MARGIN, SERIES_COLORS, STACK_GAP, TICK } from './theme'
+import { BAR_RADIUS, CHART_AXIS, CHART_CURSOR, CHART_GRID, CHART_SURFACE, MARGIN, SERIES_COLORS, STACK_GAP, TICK } from './theme'
 import { useReducedMotion } from './useReducedMotion'
 
 const PARTY_LABELS: Record<ReschedulePartyName, string> = { customer: 'Customer', technician: 'Technician', admin: 'Admin' }
@@ -45,12 +45,12 @@ export function ReschedulesByReasonChart({ data }: { data: ReasonByRequester }) 
       chart={
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={rows} layout="vertical" margin={MARGIN} barCategoryGap="25%">
-            <CartesianGrid horizontal={false} stroke={CHART_GRID} />
-            <XAxis type="number" allowDecimals={false} tick={TICK} stroke={CHART_AXIS} />
-            <YAxis type="category" dataKey="reason" width={132} tick={TICK} stroke={CHART_AXIS} interval={0} />
-            <Legend iconType="square" wrapperStyle={{ color: CHART_INK, fontSize: 12 }} />
+            <CartesianGrid horizontal={false} stroke={CHART_GRID} strokeDasharray="3 3" />
+            <XAxis type="number" allowDecimals={false} tick={TICK} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="reason" width={132} tick={TICK} stroke={CHART_AXIS} tickLine={false} interval={0} />
+            <Legend iconType="circle" iconSize={8} formatter={legendText} wrapperStyle={{ paddingTop: 8 }} />
             <Tooltip
-              cursor={{ fill: '#f1f5f9' }}
+              cursor={CHART_CURSOR}
               content={({ active, payload }) => {
                 const row = active ? (payload?.[0]?.payload as Row | undefined) : undefined
                 if (!row) return null
@@ -75,6 +75,7 @@ export function ReschedulesByReasonChart({ data }: { data: ReasonByRequester }) 
                 stroke={CHART_SURFACE}
                 strokeWidth={STACK_GAP}
                 radius={BAR_RADIUS}
+                maxBarSize={22}
                 isAnimationActive={!reduced}
               />
             ))}

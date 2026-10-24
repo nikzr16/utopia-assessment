@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { CircleX, Images, LoaderCircle, RotateCw, Trash2, TriangleAlert, Upload } from 'lucide-react'
 import { BUTTON } from '../../components/styles'
+import { EmptyState, Skeleton } from '../../components/ui'
 import {
   JOB_FILE_ACCEPT,
   MAX_JOB_FILES,
@@ -180,23 +182,27 @@ export function JobFiles({
   return (
     <div className="space-y-3">
       {saved.status === 'loading' ? (
-        <p className="text-sm text-slate-600" role="status">
-          Loading files…
-        </p>
+        <div role="status" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <span className="sr-only">Loading files…</span>
+          <Skeleton className="aspect-square rounded-xl" />
+          <Skeleton className="aspect-square rounded-xl" />
+          <Skeleton className="hidden aspect-square rounded-xl sm:block" />
+        </div>
       ) : saved.status === 'error' ? (
-        <p role="alert" className="text-sm text-red-800">
+        <p role="alert" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-danger-ink">
+          <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
           Could not load the files: {saved.message}{' '}
-          <button type="button" onClick={reload} className="font-medium underline">
+          <button type="button" onClick={reload} className="inline-flex min-h-11 items-center font-medium underline">
             Try again
           </button>
         </p>
       ) : files.length === 0 && pending.length === 0 ? (
-        <p className="text-sm text-slate-600">No files yet.</p>
+        <EmptyState compact title="No files yet." icon={<Images className="size-5" />} />
       ) : null}
 
       <FileGallery files={files} onRemove={canChange ? (f) => void remove(f) : undefined} removingId={removingId} />
       {removeError ? (
-        <p role="alert" className="text-sm text-red-800">
+        <p role="alert" className="text-sm text-danger-ink">
           {removeError}
         </p>
       ) : null}
@@ -206,29 +212,37 @@ export function JobFiles({
           {pending.map((item) => (
             <li
               key={item.key}
-              className={`rounded-md border px-3 py-2 text-sm ${
-                item.step === 'failed' ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-slate-50'
+              className={`rounded-lg border px-3 py-2.5 text-sm ${
+                item.step === 'failed' ? 'border-danger/35 bg-danger-soft' : 'border-line bg-sunken'
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate font-medium text-slate-800">
-                  {item.name}
-                  <span className="font-normal text-slate-500"> · {formatFileSize(item.body?.size ?? item.file.size)}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  {item.step === 'failed' ? (
+                    <CircleX className="size-4 shrink-0 text-danger" aria-hidden="true" />
+                  ) : (
+                    <LoaderCircle className="size-4 shrink-0 animate-spin text-brand" aria-hidden="true" />
+                  )}
+                  <span className="min-w-0 truncate font-medium text-ink">
+                    {item.name}
+                    <span className="font-normal text-ink-faint"> · {formatFileSize(item.body?.size ?? item.file.size)}</span>
+                  </span>
                 </span>
                 {item.step !== 'failed' ? (
-                  <span role="status" className="shrink-0 text-slate-600">
+                  <span role="status" className="shrink-0 text-ink-muted">
                     {STEP_LABELS[item.step]}
                   </span>
                 ) : null}
               </div>
               {item.step === 'failed' ? (
                 <>
-                  <p role="alert" className="mt-1 text-red-900">
+                  <p role="alert" className="mt-1 text-danger-ink">
                     {item.error}
                   </p>
                   <div className="mt-2 flex gap-2">
                     {item.retryable ? (
                       <button type="button" onClick={() => retry(item)} className={`${BUTTON.primary} min-h-11 flex-1`}>
+                        <RotateCw aria-hidden="true" />
                         Retry
                       </button>
                     ) : null}
@@ -238,6 +252,7 @@ export function JobFiles({
                       aria-label={`Remove ${item.name}`}
                       className={`${BUTTON.secondary} min-h-11 flex-1`}
                     >
+                      <Trash2 aria-hidden="true" />
                       Remove
                     </button>
                   </div>
@@ -249,8 +264,9 @@ export function JobFiles({
       ) : null}
 
       {notice ? (
-        <p role="alert" className="text-sm text-amber-900">
-          {notice}
+        <p role="alert" className="flex gap-2 text-sm text-warning-ink">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">{notice}</span>
         </p>
       ) : null}
 
@@ -270,11 +286,12 @@ export function JobFiles({
             type="button"
             onClick={() => input.current?.click()}
             disabled={room <= 0 || saved.status !== 'ready'}
-            className={`${BUTTON.secondary} min-h-11 w-full`}
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line-strong bg-surface px-4 py-3 text-sm font-medium text-brand transition-colors hover:border-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:border-line-strong disabled:hover:bg-surface"
           >
+            <Upload className="size-5 shrink-0" aria-hidden="true" />
             {room <= 0 ? `${MAX_JOB_FILES} files added (the maximum)` : 'Add photos, videos or PDFs'}
           </button>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-ink-faint">
             Up to {MAX_JOB_FILES} files. Photos up to 10 MB (large ones are shrunk), videos up to 50 MB, PDFs up to 10 MB.
           </p>
         </div>

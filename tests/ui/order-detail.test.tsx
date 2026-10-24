@@ -81,7 +81,7 @@ describe('Order summary after submission (AC6)', () => {
     expect(heading.textContent).toContain('ORDER1001')
     expect(heading.textContent).toContain('Assigned')
     expect(screen.getByText('Order summary')).toBeTruthy()
-    expect(screen.getByRole('status').textContent).toContain('Order saved. Send the job to Ali on WhatsApp below.')
+    expect(screen.getByRole('status').textContent).toContain('Order saved. Send the job to Ali on WhatsApp.')
     for (const text of [
       'Puan Lim',
       '+60 12-345 6789',
@@ -150,11 +150,14 @@ describe('Actions follow the transition table (AC12)', () => {
       technicianPhone: unassigned ? null : '60120000011',
     })
     await renderDetail()
-    const header = screen.getByRole('heading', { level: 2 }).closest('header')!
-    const actions = within(header)
-      .queryAllByRole('link')
-      .concat(within(header).queryAllByRole('button'))
-      .map((el) => el.textContent)
+    // 0011: the actions moved from the page header to the action panel (bottom bar on a phone).
+    const panel = screen.queryByRole('group', { name: 'Order actions' })
+    const actions = panel
+      ? within(panel)
+          .queryAllByRole('link')
+          .concat(within(panel).queryAllByRole('button'))
+          .map((el) => el.textContent)
+      : []
     expect(actions).toEqual(expected)
   })
 })

@@ -4,10 +4,11 @@ import {
   formatMYR,
   formatMalaysiaDate,
   formatMalaysiaDateTime,
-  statusLabel,
   type OrderStatus,
   type RescheduleReason,
 } from '../../domain'
+import { ChartColumn, TableProperties } from 'lucide-react'
+import { StatusBadge } from '../../components/StatusBadge'
 import { LINK } from '../../components/styles'
 import type { AskTable, TableKind } from './types'
 
@@ -98,7 +99,7 @@ function show(row: Record<string, unknown>, col: Column, orderPath: (orderNo: st
         </Link>
       )
     case 'status':
-      return statusLabel(v as OrderStatus)
+      return <StatusBadge status={v as OrderStatus} />
     case 'money':
       return formatMYR(Number(v))
     case 'datetime':
@@ -127,17 +128,25 @@ function show(row: Record<string, unknown>, col: Column, orderPath: (orderNo: st
   }
 }
 
+/** Numbers line up on the right in the table. */
+const NUMERIC: ReadonlySet<Format> = new Set<Format>(['money', 'number', 'rating', 'insight'])
+
+const TITLE = 'flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint'
+
 export function RecordTable({ table, orderPath }: { table: AskTable; orderPath: (orderNo: string) => string }) {
   if (table.kind === 'summary') {
     const row = table.rows[0] ?? {}
     return (
       <section aria-label={table.title} className="mt-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{table.title}</h4>
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+        <h4 className={TITLE}>
+          <ChartColumn className="size-3.5" aria-hidden="true" />
+          {table.title}
+        </h4>
+        <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
           {SUMMARY.filter((col) => !empty(row[col.key])).map((col) => (
-            <div key={col.key} className="flex justify-between gap-2 border-b border-slate-100 py-1">
-              <dt className="text-slate-600">{col.label}</dt>
-              <dd className="font-medium text-slate-900">{show(row, col, orderPath)}</dd>
+            <div key={col.key} className="min-w-0 rounded-lg border border-line bg-sunken/60 px-3 py-2">
+              <dt className="truncate text-xs text-ink-muted">{col.label}</dt>
+              <dd className="mt-0.5 text-base font-semibold text-ink tabular">{show(row, col, orderPath)}</dd>
             </div>
           ))}
         </dl>
@@ -149,17 +158,24 @@ export function RecordTable({ table, orderPath }: { table: AskTable; orderPath: 
   const more = table.total > table.rows.length
   return (
     <section aria-label={table.title} className="mt-3">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{table.title}</h4>
+      <h4 className={TITLE}>
+        <TableProperties className="size-3.5" aria-hidden="true" />
+        {table.title}
+      </h4>
       {table.rows.length === 0 ? (
-        <p className="mt-1 text-sm text-slate-600">No records.</p>
+        <p className="mt-1.5 rounded-lg border border-dashed border-line-strong px-3 py-2 text-sm text-ink-muted">No records.</p>
       ) : (
         <>
-          <div className="mt-2 hidden overflow-x-auto sm:block">
+          <div className="mt-2 hidden overflow-x-auto rounded-lg border border-line sm:block">
             <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-xs text-slate-500">
+              <thead className="border-b border-line bg-sunken/70 text-xs font-medium uppercase tracking-wide text-ink-faint">
+                <tr>
                   {columns.map((col) => (
-                    <th key={col.key} scope="col" className="whitespace-nowrap py-1 pr-3 font-medium">
+                    <th
+                      key={col.key}
+                      scope="col"
+                      className={`whitespace-nowrap px-3 py-2 font-medium ${NUMERIC.has(col.format) ? 'text-right' : ''}`}
+                    >
                       {col.label}
                     </th>
                   ))}
@@ -167,9 +183,14 @@ export function RecordTable({ table, orderPath }: { table: AskTable; orderPath: 
               </thead>
               <tbody>
                 {table.rows.map((row, i) => (
-                  <tr key={i} className="border-b border-slate-100 align-top">
+                  <tr key={i} className="border-b border-line align-top last:border-0 hover:bg-sunken/60">
                     {columns.map((col) => (
-                      <td key={col.key} className="py-1 pr-3 text-slate-800">
+                      <td
+                        key={col.key}
+                        className={`px-3 py-2 text-ink ${NUMERIC.has(col.format) ? 'whitespace-nowrap text-right tabular' : ''} ${
+                          col.format === 'datetime' || col.format === 'date' ? 'whitespace-nowrap tabular' : ''
+                        }`}
+                      >
                         {show(row, col, orderPath)}
                       </td>
                     ))}
@@ -180,12 +201,14 @@ export function RecordTable({ table, orderPath }: { table: AskTable; orderPath: 
           </div>
           <ul className="mt-2 space-y-2 sm:hidden">
             {table.rows.map((row, i) => (
-              <li key={i} className="rounded-md border border-slate-200 p-2 text-sm">
-                <dl className="space-y-0.5">
+              <li key={i} className="rounded-lg border border-line bg-surface px-3 py-2.5 text-sm">
+                <dl className="divide-y divide-line">
                   {columns.map((col) => (
-                    <div key={col.key} className="flex justify-between gap-3">
-                      <dt className="text-slate-500">{col.label}</dt>
-                      <dd className="text-right text-slate-900">{show(row, col, orderPath)}</dd>
+                    <div key={col.key} className="flex items-baseline justify-between gap-3 py-1 first:pt-0 last:pb-0">
+                      <dt className="shrink-0 text-xs text-ink-faint">{col.label}</dt>
+                      <dd className={`min-w-0 break-words text-right text-ink ${NUMERIC.has(col.format) ? 'tabular' : ''}`}>
+                        {show(row, col, orderPath)}
+                      </dd>
                     </div>
                   ))}
                 </dl>
@@ -195,7 +218,7 @@ export function RecordTable({ table, orderPath }: { table: AskTable; orderPath: 
         </>
       )}
       {more && (
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1.5 text-xs text-ink-faint">
           Showing {table.rows.length} of {table.total}.
         </p>
       )}

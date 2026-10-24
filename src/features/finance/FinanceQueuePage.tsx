@@ -1,4 +1,7 @@
+import type { ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
+import { Banknote, CircleCheckBig, Lock, ReceiptText } from 'lucide-react'
+import { Badge, PageHeader } from '../../components/ui'
 import { FINANCE_VIEWS, FINANCE_VIEW_LABELS, formatMYR, formatMalaysiaDateTime, type FinanceView } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import { staffName } from '../../lib/staffStatus'
@@ -13,13 +16,23 @@ const EMPTY: Record<FinanceView, string> = {
   closed: 'No orders closed in the last 30 days.',
 }
 
+const EMPTY_ICON: Record<FinanceView, ReactNode> = {
+  not_reviewed: <ReceiptText className="size-5" />,
+  ready: <CircleCheckBig className="size-5" />,
+  outstanding: <Banknote className="size-5" />,
+  closed: <Lock className="size-5" />,
+}
+
 const MONEY: QueueColumn[] = [
   { header: 'Final amount', cell: (o) => formatMYR(o.final_amount) },
-  { header: 'Paid', cell: (o) => formatMYR(o.amount_paid) },
-  { header: 'Balance', cell: (o) => formatMYR(o.balance) },
+  { header: 'Paid', cell: (o) => formatMYR(o.amount_paid), hideOnPhone: true },
+  {
+    header: 'Balance',
+    cell: (o) => (o.balance > 0 ? <span className="font-medium text-ink">{formatMYR(o.balance)}</span> : formatMYR(o.balance)),
+  },
   {
     header: 'Receipts to verify',
-    cell: (o) => (o.unverified_count > 0 ? <span className="font-medium text-amber-900">{o.unverified_count}</span> : '—'),
+    cell: (o) => (o.unverified_count > 0 ? <Badge tone="warning">{o.unverified_count}</Badge> : '—'),
   },
 ]
 
@@ -53,14 +66,12 @@ export function FinanceQueuePage() {
   useRefreshOnReturn(reload)
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Payments and closing</h2>
-          <p className="text-sm text-slate-600">Every branch.</p>
-        </div>
-        {branches.status === 'ready' ? <BranchFilter branches={branches.data} allLabel="All branches" /> : null}
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        title="Payments and closing"
+        description="Every branch."
+        actions={branches.status === 'ready' ? <BranchFilter branches={branches.data} allLabel="All branches" /> : null}
+      />
       <QueueTabs label="Finance queue" views={FINANCE_VIEWS} labels={FINANCE_VIEW_LABELS} current={view} />
       <QueueList
         state={state}
@@ -69,6 +80,7 @@ export function FinanceQueuePage() {
         link={(o) => `/finance/${encodeURIComponent(o.order_no)}`}
         label={FINANCE_VIEW_LABELS[view]}
         empty={EMPTY[view]}
+        emptyIcon={EMPTY_ICON[view]}
       />
     </div>
   )

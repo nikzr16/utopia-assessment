@@ -36,6 +36,23 @@ dashboard and the AI have data. Emails follow `<name>.<role>.<branch>`
 (branches `kl`, `sa`, `pg`, `jb`, `kk`); the addresses are not real
 mailboxes. Try the technician and Manager screens on a phone.
 
+## Screenshots
+
+Demo data, light and dark mode (0011). Admins and Finance get a sidebar on
+a desktop; technicians and Managers get a bottom tab bar on a phone.
+
+| Admin orders (desktop) | Manager review (desktop) |
+|---|---|
+| ![Admin order list with filters, status badges and the sidebar](docs/images/admin-orders-desktop.png) | ![Manager review page with warnings, money and the Approve panel](docs/images/manager-review-desktop.png) |
+
+| KPI dashboard with AI insights (desktop) |
+|---|
+| ![Dashboard with period picker, AI insights and KPI tiles](docs/images/dashboard-desktop.png) |
+
+| Technician job (phone) | Technician jobs, dark mode (phone) | Customer feedback in Malay (phone) |
+|---|---|---|
+| ![Technician job page with Call, WhatsApp, Maps and the Complete job bar](docs/images/technician-job-phone.png) | ![Technician job list in dark mode](docs/images/technician-jobs-phone-dark.png) | ![Customer feedback page in Bahasa Melayu](docs/images/feedback-bm-phone.png) |
+
 ## What was built
 
 Every module of the brief, the bonus module, the AI module and all three
@@ -53,15 +70,16 @@ optional AI challenges, with real sign-in instead of a role switcher.
 | Bonus module | KPI dashboard | Week / month KPIs per technician and branch (jobs, amount, collected, reschedules, returns, ratings), leaderboard, charts, branch comparison, drill-down, CSV; technicians see "My week" |
 | AI module | Ask (operations query) | Chat bubble in every portal; answers from whitelisted, role-scoped lookups (see [How AI was integrated](#how-ai-was-integrated)) |
 | AI challenges | Supervisor, Read from photo, Insights | Warnings on finished jobs, order forms read from a photo, workload insights |
+| Polish | UI/UX redesign | One design system (icy-cyan brand, Poppins, Lucide icons, light and dark mode), sidebar on desktop and bottom tabs on a phone, loading placeholders, pop-up confirmations, a draggable Ask button, and the customer feedback page in English or Malay |
 
 ## Tech stack
 
 | Part | Choice |
 |---|---|
-| Front end | React 19, TypeScript, Vite 7, Tailwind CSS 4, React Router 7, Recharts |
+| Front end | React 19, TypeScript, Vite 7, Tailwind CSS 4 (design tokens for light and dark), React Router 7, Recharts, Lucide icons, Poppins (bundled) |
 | Back end | Supabase: Postgres (rules in SQL functions, row-level security), Auth, Storage (private `job-files` bucket), Realtime, Edge Functions (Deno) |
 | AI | OpenAI `gpt-6-luna`, called only from Supabase Edge Functions |
-| Tests | Vitest: PGlite (real Postgres in-process) for database rules, jsdom for screens, plain unit tests for Edge Function logic |
+| Tests | Vitest: PGlite (real Postgres in-process) for database rules, jsdom for screens (with axe accessibility checks), plain unit tests for Edge Function logic |
 | Hosting | Vercel (`main` = production, `dev` = private preview) |
 | CI/CD | GitHub Actions: checks on every change, a robot visit after each production deploy, a daily Supabase wake-up |
 
@@ -379,13 +397,15 @@ feature branch ──▶ dev ──(pull request)──▶ main
   `LIVE_URL=https://sejuk-sejuk-utopia.vercel.app npm run live-check`.
 - **`keep-awake`** reads from Supabase once a day so the free project does
   not pause.
-- Vercel needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; GitHub needs
-  the repository variables `LIVE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
-  (all public values).
+- Vercel needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, and
+  **Settings → Git → `repository_dispatch` Events** switched on (it is off
+  by default; that event starts `live-check`); GitHub needs the repository
+  variables `LIVE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` (all public
+  values).
 
 ## Project docs
 
-- [docs/product-roadmap.md](docs/product-roadmap.md) — features 0000–0010 and
+- [docs/product-roadmap.md](docs/product-roadmap.md) — features 0000–0011 and
   their order
 - `docs/prd/`, `docs/plan/` — intent and plan per feature
 - `docs/NNNN-*-workflow.md` — how each feature works today

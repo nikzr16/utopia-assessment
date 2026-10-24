@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
-import { BUTTON, CARD } from '../../components/styles'
+import { Camera, CircleCheck, LoaderCircle, Paperclip, ScanText, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { BUTTON } from '../../components/styles'
+import { Badge } from '../../components/ui'
 import { ORDER_FORM_ACCEPT, checkOrderFormFile, fileMimeType, type OrderFormValues } from '../../domain'
 import { preparePhoto, type PhotoCodec } from '../attachments/resize'
 import { readOrderFormPhoto, type ReadFormFields } from './api'
@@ -89,15 +91,33 @@ export function ReadFromPhoto({
     }
   }
 
+  const reading = phase.kind === 'reading'
   return (
-    <section className={CARD} aria-labelledby="read-from-photo">
-      <h3 id="read-from-photo" className="text-base font-semibold">
-        Paper order form
-      </h3>
-      <p className="mt-1 text-sm text-slate-600">
-        Take or choose a photo (or a PDF) of a paper order form and the AI fills the customer, service type, details,
-        amount and date for you to check.
-      </p>
+    <section
+      className="relative overflow-hidden rounded-xl border border-brand/30 bg-brand-soft/60 p-4 shadow-card sm:p-5"
+      aria-labelledby="read-from-photo"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand text-on-brand shadow-card"
+        >
+          <ScanText className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <h3 id="read-from-photo" className="flex flex-wrap items-center gap-2 text-base font-semibold text-ink">
+            Paper order form
+            <Badge tone="brand">
+              <Sparkles className="size-3" aria-hidden="true" />
+              AI fill
+            </Badge>
+          </h3>
+          <p className="mt-1 text-sm text-ink-muted">
+            Take or choose a photo (or a PDF) of a paper order form and the AI fills the customer, service type,
+            details, amount and date for you to check.
+          </p>
+        </div>
+      </div>
       <input
         ref={input}
         type="file"
@@ -107,44 +127,58 @@ export function ReadFromPhoto({
         aria-label="Photo or PDF of the order form"
         onChange={(e) => void pick(e.target.files?.[0])}
       />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => input.current?.click()}
-          disabled={phase.kind === 'reading'}
-          className={`${BUTTON.secondary} min-h-11`}
+          disabled={reading}
+          className={`${kept ? BUTTON.secondary : BUTTON.primary} min-h-11 max-sm:flex-1`}
         >
+          {reading ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Camera aria-hidden="true" />}
           {kept ? 'Read another photo' : 'Read from photo'}
         </button>
-        {kept && phase.kind !== 'reading' ? (
+        {kept && !reading ? (
           <button
             type="button"
             onClick={() => {
               onKeep(null)
               setPhase({ kind: 'idle' })
             }}
-            className={`${BUTTON.secondary} min-h-11`}
+            className={`${BUTTON.ghost} min-h-11`}
           >
+            <X aria-hidden="true" />
             Remove photo
           </button>
         ) : null}
       </div>
 
-      <div className="mt-3 space-y-2 text-sm" aria-live="polite">
-        {phase.kind === 'reading' ? <p role="status">Reading the form… this can take up to 30 seconds.</p> : null}
-        {phase.kind === 'filled' ? (
-          <p role="status" className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-900">
-            Filled from the photo: {phase.filled.join(', ')}. Check every field before saving.
-            {phase.timeGuessed ? ' No time was on the form: the time is set to 09:00.' : ''}
+      <div className="mt-3 space-y-2 text-sm empty:hidden" aria-live="polite">
+        {reading ? (
+          <p role="status" className="flex items-center gap-2 text-brand-ink">
+            <LoaderCircle className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+            Reading the form… this can take up to 30 seconds.
           </p>
+        ) : null}
+        {phase.kind === 'filled' ? (
+          <div role="status" className="flex gap-2.5 rounded-lg border border-success/35 bg-surface px-3 py-2.5 text-success-ink">
+            <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <p>
+              Filled from the photo: {phase.filled.join(', ')}. Check every field before saving.
+              {phase.timeGuessed ? ' No time was on the form: the time is set to 09:00.' : ''}
+            </p>
+          </div>
         ) : null}
         {phase.kind === 'failed' ? (
-          <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950">
-            {phase.message}
-          </p>
+          <div role="alert" className="flex gap-2.5 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2.5 text-warning-ink">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <p>{phase.message}</p>
+          </div>
         ) : null}
-        {kept && phase.kind !== 'reading' ? (
-          <p className="text-slate-600">“{kept.name}” will be saved with the order as its order form.</p>
+        {kept && !reading ? (
+          <div className="flex items-center gap-2 text-ink-muted">
+            <Paperclip className="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+            <p className="min-w-0 break-words">“{kept.name}” will be saved with the order as its order form.</p>
+          </div>
         ) : null}
       </div>
     </section>

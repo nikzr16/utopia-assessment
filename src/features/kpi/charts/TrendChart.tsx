@@ -1,10 +1,11 @@
+import { useId } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatAverageRating, formatMYR, periodLabel, periodShortLabel, type KpiView } from '../../../domain'
 import type { KpiTrendPoint } from '../api'
 import { ChartPanel } from './ChartPanel'
 import { TooltipBox, plural } from './ChartTooltip'
 import { DataTable } from './DataTable'
-import { CHART_AXIS, CHART_BLUE, CHART_GRID, LINE_WIDTH, MARGIN, TICK } from './theme'
+import { CHART_AXIS, CHART_GRID, CHART_PRIMARY, CHART_SURFACE, LINE_WIDTH, MARGIN, TICK } from './theme'
 import { useReducedMotion } from './useReducedMotion'
 
 interface Point {
@@ -15,8 +16,8 @@ interface Point {
 }
 
 /**
- * Jobs completed over the last 8 weeks or 6 months: a soft area under a 2px
- * line, one colour. The table view adds amount, reschedules and rating.
+ * Jobs completed over the last 8 weeks or 6 months: a soft fading area under a
+ * 2px line, one colour. The table view adds amount, reschedules and rating.
  */
 export function TrendChart({
   points,
@@ -28,6 +29,8 @@ export function TrendChart({
   title?: string
 }) {
   const reduced = useReducedMotion()
+  // An SVG id may not hold the colons React puts in its ids.
+  const fillId = `kpi-trend-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`
   const data: Point[] = points.map((p) => ({
     start: p.period_start,
     axis: periodShortLabel(view, p.period_start),
@@ -42,10 +45,17 @@ export function TrendChart({
       chart={
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={data} margin={MARGIN}>
-            <CartesianGrid vertical={false} stroke={CHART_GRID} />
-            <XAxis dataKey="axis" tick={TICK} stroke={CHART_AXIS} />
-            <YAxis allowDecimals={false} tick={TICK} stroke={CHART_AXIS} width={36} />
+            <defs>
+              <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={CHART_PRIMARY} stopOpacity={0.28} />
+                <stop offset="100%" stopColor={CHART_PRIMARY} stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke={CHART_GRID} strokeDasharray="3 3" />
+            <XAxis dataKey="axis" tick={TICK} stroke={CHART_AXIS} tickLine={false} />
+            <YAxis allowDecimals={false} tick={TICK} axisLine={false} tickLine={false} width={36} />
             <Tooltip
+              cursor={{ stroke: CHART_AXIS, strokeWidth: 1 }}
               content={({ active, payload }) => {
                 const p = active ? (payload?.[0]?.payload as Point | undefined) : undefined
                 return p ? <TooltipBox heading={p.label} lines={[{ text: plural(p.jobs, 'job') }]} /> : null
@@ -55,12 +65,11 @@ export function TrendChart({
               type="monotone"
               dataKey="jobs"
               name="Jobs completed"
-              stroke={CHART_BLUE}
+              stroke={CHART_PRIMARY}
               strokeWidth={LINE_WIDTH}
-              fill={CHART_BLUE}
-              fillOpacity={0.15}
-              dot={{ r: 3, fill: CHART_BLUE, stroke: CHART_BLUE }}
-              activeDot={{ r: 5 }}
+              fill={`url(#${fillId})`}
+              dot={{ r: 3, fill: CHART_SURFACE, stroke: CHART_PRIMARY, strokeWidth: 2 }}
+              activeDot={{ r: 5, fill: CHART_PRIMARY, stroke: CHART_SURFACE, strokeWidth: 2 }}
               isAnimationActive={!reduced}
             />
           </AreaChart>

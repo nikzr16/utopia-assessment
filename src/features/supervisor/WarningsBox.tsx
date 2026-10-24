@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { CircleCheck, RefreshCw, ShieldAlert, ShieldCheck, Sparkles } from 'lucide-react'
 import { BUTTON, CARD, INPUT } from '../../components/styles'
+import { Badge, Skeleton } from '../../components/ui'
 import {
   CHECK_NOTE_MAX,
   WARNING_RULE_LABELS,
@@ -85,21 +87,35 @@ export function WarningsBox({
   }
 
   let body
-  if (state.status === 'loading') body = <p className="text-sm text-slate-600">Loading warnings…</p>
-  else if (state.status === 'error') body = <p className="text-sm text-red-700">Could not load the warnings: {state.message}</p>
+  if (state.status === 'loading') {
+    body = (
+      <div className="space-y-2">
+        <span className="sr-only">Loading warnings…</span>
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    )
+  } else if (state.status === 'error') {
+    body = (
+      <p className="text-sm text-danger-ink">
+        Could not load the warnings: {state.message}
+      </p>
+    )
+  }
   else {
     const { warnings, run } = state.data
     const runText = rechecking ? 'AI check running…' : supervisorRunText(run?.status ?? null)
     body = (
       <>
         {warnings.length === 0 ? (
-          <p className="text-sm text-slate-600">
+          <p className="flex items-center gap-2 text-sm text-ink-muted">
+            <ShieldCheck className="size-4 shrink-0 text-success" aria-hidden="true" />
             {run?.status === 'done' || !run ? 'No warnings for this job.' : 'No rule warnings for this job.'}
           </p>
         ) : (
           <>
             {canAct && (open ?? 0) > 0 ? (
-              <p className="text-sm text-amber-950">
+              <p className="text-sm text-warning-ink">
                 Check each warning with a short note before approving, or return the job for rework.
               </p>
             ) : null}
@@ -111,18 +127,24 @@ export function WarningsBox({
           </>
         )}
         {runText ? (
-          <p role="status" className="text-sm text-slate-600">
+          <p role="status" className="flex items-center gap-2 text-sm text-ink-muted">
+            <Sparkles className="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
             {canAct || !runText.includes('Re-check') ? runText : "AI check didn't run."}
           </p>
         ) : null}
-        {recheckError ? <p className="text-sm text-red-700">{recheckError}</p> : null}
+        {recheckError ? (
+          <p className="text-sm text-danger-ink">
+            {recheckError}
+          </p>
+        ) : null}
         {canAct ? (
           <button
             type="button"
             onClick={recheck}
             disabled={rechecking || run?.status === 'pending' || run?.status === 'running'}
-            className={`${BUTTON.secondary} min-h-11`}
+            className={`${BUTTON.secondary} min-h-11 max-sm:w-full`}
           >
+            <RefreshCw aria-hidden="true" />
             Re-check with AI
           </button>
         ) : null}
@@ -132,12 +154,11 @@ export function WarningsBox({
 
   return (
     <section className={CARD} aria-labelledby="order-warnings">
-      <h3 id="order-warnings" className="text-base font-semibold">
+      <h3 id="order-warnings" className="flex flex-wrap items-center gap-2 text-base font-semibold text-ink">
+        <ShieldAlert className={`size-4.5 ${(open ?? 0) > 0 ? 'text-warning' : 'text-brand'}`} aria-hidden="true" />
         Warnings
         {state.status === 'ready' && openWarnings(state) > 0 ? (
-          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
-            {openWarnings(state)} to check
-          </span>
+          <Badge tone="warning">{openWarnings(state)} to check</Badge>
         ) : null}
       </h3>
       <div className="mt-3 space-y-3">{body}</div>
@@ -173,10 +194,14 @@ function WarningItem({ warning: w, canCheck, onChecked }: { warning: OrderWarnin
   }
 
   return (
-    <li className={`rounded-md border px-3 py-2 ${w.status === 'open' ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-slate-50'}`}>
-      <p className="text-sm text-slate-900">
+    <li
+      className={`rounded-lg border px-3 py-2.5 ${w.status === 'open' ? 'border-warning/40 bg-warning-soft' : 'border-line bg-sunken'}`}
+    >
+      <p className="text-sm text-ink">
         <span
-          className={`mr-2 inline-block rounded px-1.5 py-0.5 text-xs font-semibold ${ai ? 'bg-violet-100 text-violet-900' : 'bg-slate-200 text-slate-800'}`}
+          className={`mr-2 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 align-middle text-xs font-semibold ${
+            ai ? 'bg-info-soft text-info-ink ring-1 ring-inset ring-info/30' : 'bg-surface text-ink ring-1 ring-inset ring-line-strong'
+          }`}
           title={ai ? 'Found by the AI from the written job record' : 'Found by a fixed rule'}
         >
           {WARNING_RULE_LABELS[w.rule]}
@@ -184,19 +209,27 @@ function WarningItem({ warning: w, canCheck, onChecked }: { warning: OrderWarnin
         <span className="break-words">{w.message}</span>
       </p>
       {w.status === 'checked' ? (
-        <p className="mt-1 text-xs text-slate-600">
-          Checked by {staffName(w.checked_by_name, w.checked_by) ?? 'a Manager'} · {formatMalaysiaDateTime(w.checked_at)}
-          <span className="block break-words text-slate-800">“{w.check_note}”</span>
+        <p className="mt-1.5 flex gap-1.5 text-xs text-ink-muted">
+          <CircleCheck className="mt-px size-3.5 shrink-0 text-success" aria-hidden="true" />
+          <span className="min-w-0">
+            Checked by {staffName(w.checked_by_name, w.checked_by) ?? 'a Manager'} · {formatMalaysiaDateTime(w.checked_at)}
+            <span className="block break-words text-ink">“{w.check_note}”</span>
+          </span>
         </p>
       ) : null}
       {w.status === 'open' && canCheck && !editing ? (
-        <button type="button" onClick={() => setEditing(true)} className={`${BUTTON.secondary} mt-2 min-h-11`}>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className={`${BUTTON.secondary} mt-2 min-h-11 max-sm:w-full`}
+        >
+          <CircleCheck aria-hidden="true" />
           Mark as checked
         </button>
       ) : null}
       {editing ? (
         <div className="mt-2 space-y-2">
-          <label htmlFor={id} className="block text-sm font-medium text-slate-800">
+          <label htmlFor={id} className="block text-sm font-medium text-ink">
             What did you check?
           </label>
           <textarea
@@ -208,7 +241,7 @@ function WarningItem({ warning: w, canCheck, onChecked }: { warning: OrderWarnin
             aria-invalid={Boolean(error)}
             className={INPUT}
           />
-          {error ? <p className="text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="text-sm text-danger-ink">{error}</p> : null}
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={save} disabled={saving} className={`${BUTTON.primary} min-h-11`}>
               {saving ? 'Saving…' : 'Save check'}

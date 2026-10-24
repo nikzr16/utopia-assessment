@@ -1,6 +1,8 @@
-import { Link, useSearchParams } from 'react-router'
-import { Notice } from '../../components/Notice'
-import { BUTTON, CARD } from '../../components/styles'
+import type React from 'react'
+import { useSearchParams } from 'react-router'
+import { CalendarClock, CircleCheckBig, ClipboardCheck, RotateCw } from 'lucide-react'
+import { BUTTON } from '../../components/styles'
+import { EmptyState, ErrorState, LoadingState, PageHeader, SegmentedTabs } from '../../components/ui'
 import {
   FINISHED_JOB_DAYS,
   JOB_VIEWS,
@@ -23,6 +25,18 @@ const EMPTY: Record<JobView, string> = {
   finished: `No jobs closed or cancelled in the last ${FINISHED_JOB_DAYS} days.`,
 }
 
+const EMPTY_TITLE: Record<JobView, string> = {
+  open: 'You are all caught up',
+  submitted: 'Nothing waiting',
+  finished: 'No finished jobs yet',
+}
+
+const EMPTY_ICON: Record<JobView, React.ReactNode> = {
+  open: <CalendarClock className="size-5" />,
+  submitted: <ClipboardCheck className="size-5" />,
+  finished: <CircleCheckBig className="size-5" />,
+}
+
 /** The tab's jobs, with the newest customer message of each on the Submitted tab (for the "not told" flag). */
 async function loadJobs(view: JobView): Promise<{ jobs: OrderSummary[]; messages: Record<string, CustomerMessage> }> {
   const jobs = await fetchMyJobs(view)
@@ -43,44 +57,38 @@ export function JobListPage() {
   useRefreshOnReturn(reload)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">My jobs</h2>
-        <button type="button" onClick={reload} className={`${BUTTON.secondary} min-h-11`}>
-          Refresh
-        </button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        row
+        title="My jobs"
+        actions={
+          <button type="button" onClick={reload} className={BUTTON.secondary}>
+            <RotateCw aria-hidden="true" />
+            Refresh
+          </button>
+        }
+      />
 
-      <nav aria-label="Job lists" className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">
-        {JOB_VIEWS.map((v) => (
-          <Link
-            key={v}
-            to={v === 'open' ? '/jobs' : `/jobs?tab=${v}`}
-            aria-current={v === view ? 'page' : undefined}
-            className={`flex min-h-11 items-center justify-center rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-300 ${
-              v === view ? 'bg-white text-sky-900 shadow-sm' : 'text-slate-700 hover:bg-white/60'
-            }`}
-          >
-            {JOB_VIEW_LABELS[v]}
-          </Link>
-        ))}
-      </nav>
+      <SegmentedTabs
+        label="Job lists"
+        items={JOB_VIEWS.map((v) => ({
+          key: v,
+          to: v === 'open' ? '/jobs' : `/jobs?tab=${v}`,
+          label: JOB_VIEW_LABELS[v],
+          active: v === view,
+        }))}
+      />
 
       {state.status === 'loading' ? (
-        <p className="text-sm text-slate-600" role="status">
-          Loading your jobs…
-        </p>
+        <LoadingState variant="cards" count={3} label="Loading your jobs…" />
       ) : state.status === 'error' ? (
-        <Notice tone="error" title="Could not load your jobs">
+        <ErrorState title="Could not load your jobs" onRetry={reload}>
           <p>{state.message}</p>
-          <button type="button" onClick={reload} className="mt-3 min-h-11 font-medium underline">
-            Try again
-          </button>
-        </Notice>
+        </ErrorState>
       ) : state.data.jobs.length === 0 ? (
-        <div className={`${CARD} text-center`}>
-          <p className="text-sm text-slate-700">{EMPTY[view]}</p>
-        </div>
+        <EmptyState title={EMPTY_TITLE[view]} icon={EMPTY_ICON[view]}>
+          {EMPTY[view]}
+        </EmptyState>
       ) : view === 'open' ? (
         <OpenJobs jobs={state.data.jobs} />
       ) : (
@@ -101,9 +109,10 @@ function OpenJobs({ jobs }: { jobs: OrderSummary[] }) {
         <section key={group} aria-labelledby={`jobs-${group}`}>
           <h3
             id={`jobs-${group}`}
-            className={`mb-2 text-sm font-semibold uppercase tracking-wide ${group === 'overdue' ? 'text-red-700' : 'text-slate-600'}`}
+            className={`mb-2.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${group === 'overdue' ? 'text-danger' : 'text-ink-faint'}`}
           >
             {OPEN_JOB_GROUP_LABELS[group]} ({inGroup.length})
+            <span className="h-px flex-1 bg-line" aria-hidden="true" />
           </h3>
           <ul className="space-y-3">
             {inGroup.map((job) => (

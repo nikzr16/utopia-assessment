@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BadgeCheck, Banknote, Check, Undo2 } from 'lucide-react'
 import { BUTTON } from '../../components/styles'
 import {
   PAYMENT_METHOD_LABELS,
@@ -56,46 +57,61 @@ export function PaymentList({
         const needsTick = paymentNeedsVerifying(p.method)
         const verified = verifiedLabel({ verified_at: p.verified_at ?? null, verified_by_name: staffName(p.verified_by_name, p.verified_by) })
         return (
-          <li key={p.id}>
-            {formatMYR(p.amount)} · {PAYMENT_METHOD_LABELS[p.method]} · {formatMalaysiaDateTime(p.recorded_at)} ·{' '}
-            {staffName(p.recorded_by_name, p.recorded_by)}
-            {p.receipt ? (
-              <>
-                {' · '}
-                <ReceiptLink path={p.receipt.storage_path} fileName={p.receipt.file_name} />
-              </>
-            ) : null}
-            {p.note ? <span className="block text-slate-600">{p.note}</span> : null}
-            {needsTick ? (
-              <span className="mt-1 flex flex-wrap items-center gap-2">
-                {verified ? (
-                  <span className="text-green-800">✓ {verified}</span>
-                ) : (
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-200">
-                    Not verified yet
-                  </span>
-                )}
-                {verifying ? (
-                  <button
-                    type="button"
-                    onClick={() => void toggle(p)}
-                    disabled={pending !== null}
-                    className={`${verified ? BUTTON.secondary : BUTTON.primary} min-h-11 sm:min-h-0`}
-                  >
-                    {pending === p.id
-                      ? 'Saving…'
-                      : verified
-                        ? `Undo verified (${formatMYR(p.amount)})`
-                        : `Mark verified (${formatMYR(p.amount)})`}
-                  </button>
+          <li key={p.id} className="flex gap-3">
+            <span
+              aria-hidden="true"
+              className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand"
+            >
+              <Banknote className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="break-words text-ink tabular">
+                {formatMYR(p.amount)} · {PAYMENT_METHOD_LABELS[p.method]} · {formatMalaysiaDateTime(p.recorded_at)} ·{' '}
+                {staffName(p.recorded_by_name, p.recorded_by)}
+                {p.receipt ? (
+                  <>
+                    {' · '}
+                    <ReceiptLink path={p.receipt.storage_path} fileName={p.receipt.file_name} />
+                  </>
                 ) : null}
-              </span>
-            ) : null}
-            {error?.id === p.id ? (
-              <span role="alert" className="mt-1 block text-red-800">
-                {error.message}
-              </span>
-            ) : null}
+              </p>
+              {p.note ? <p className="mt-0.5 break-words text-ink-muted">{p.note}</p> : null}
+              {needsTick ? (
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  {verified ? (
+                    <span className="inline-flex items-center gap-1.5 text-success-ink">
+                      <BadgeCheck className="size-4 shrink-0" aria-hidden="true" />
+                      <span>{verified}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning-ink ring-1 ring-inset ring-warning/35">
+                      <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                      Not verified yet
+                    </span>
+                  )}
+                  {verifying ? (
+                    <button
+                      type="button"
+                      onClick={() => void toggle(p)}
+                      disabled={pending !== null}
+                      className={`${verified ? BUTTON.ghost : BUTTON.primary} min-h-11 px-3 sm:min-h-9`}
+                    >
+                      {verified ? <Undo2 aria-hidden="true" /> : <Check aria-hidden="true" />}
+                      {pending === p.id
+                        ? 'Saving…'
+                        : verified
+                          ? `Undo verified (${formatMYR(p.amount)})`
+                          : `Mark verified (${formatMYR(p.amount)})`}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              {error?.id === p.id ? (
+                <p role="alert" className="mt-1 text-danger-ink">
+                  {error.message}
+                </p>
+              ) : null}
+            </div>
           </li>
         )
       })}

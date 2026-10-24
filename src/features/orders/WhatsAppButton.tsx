@@ -1,3 +1,4 @@
+import { MessageCircle } from 'lucide-react'
 import { BUTTON } from '../../components/styles'
 import { isMyMobile, technicianJobMessage, whatsAppUrl, type TechnicianMessageKind } from '../../domain'
 import type { OrderSummary } from './api'
@@ -26,7 +27,7 @@ export function WhatsAppButton({
   if (!order.technician_name) return null
   if (!technicianPhone || !isMyMobile(technicianPhone)) {
     return (
-      <p className="text-sm text-slate-600">
+      <p className="rounded-lg bg-sunken px-3 py-2 text-sm text-ink-muted">
         No WhatsApp number on file for {order.technician_name}. Contact them another way.
       </p>
     )
@@ -54,8 +55,9 @@ export function WhatsAppButton({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className={`${BUTTON.whatsapp} w-full sm:w-auto ${emphasis ? 'ring-2 ring-green-300 ring-offset-2' : ''}`}
+      className={`${BUTTON.whatsapp} min-h-11 w-full sm:w-auto ${emphasis ? 'ring-2 ring-whatsapp/40 ring-offset-2 ring-offset-surface' : ''}`}
     >
+      <MessageCircle aria-hidden="true" />
       Send job to {order.technician_name} on WhatsApp
       <span className="sr-only"> (opens WhatsApp in a new tab)</span>
     </a>

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { X } from 'lucide-react'
 
 /**
  * A modal dialog: focus moves into it on open and returns on close, Escape
@@ -52,7 +53,7 @@ export function Dialog({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-scrim p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -64,20 +65,20 @@ export function Dialog({
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={onKeyDown}
-        className="max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-white p-5 shadow-xl focus:outline-none sm:max-w-lg sm:rounded-xl"
+        className="max-h-[90vh] w-full animate-sheet-in overflow-y-auto rounded-t-2xl border border-line bg-raised p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-pop focus:outline-none sm:max-w-lg sm:rounded-2xl sm:pb-5"
       >
         <div className="flex items-start justify-between gap-4">
-          <h2 id={titleId} className="text-lg font-semibold">
+          <h2 id={titleId} className="text-lg font-semibold tracking-tight">
             {title}
           </h2>
           <button
             type="button"
             data-dialog-close
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
-            aria-label="Close"
+            className="-mr-2 -mt-1 inline-flex size-9 items-center justify-center rounded-lg text-ink-faint hover:bg-sunken hover:text-ink"
           >
-            ✕
+            <X className="size-5" aria-hidden="true" />
+            <span className="sr-only">Close</span>
           </button>
         </div>
         <div className="mt-4">{children}</div>
