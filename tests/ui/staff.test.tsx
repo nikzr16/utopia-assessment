@@ -114,17 +114,6 @@ beforeEach(() => {
 })
 afterEach(() => vi.useRealTimers())
 
-describe('confirmAddress', () => {
-  it('asks for localhost when the tab runs on [::1] or 127.0.0.1 (Supabase rejects those)', () => {
-    const at = (hostname: string, port: string) => ({ protocol: 'http:', hostname, port, origin: `http://${hostname}:${port}` })
-    expect(api.confirmAddress(at('[::1]', '5174'))).toBe('http://localhost:5174/auth/confirm')
-    expect(api.confirmAddress(at('127.0.0.1', '5173'))).toBe('http://localhost:5173/auth/confirm')
-    expect(api.confirmAddress({ protocol: 'https:', hostname: 'app.example.com', port: '', origin: 'https://app.example.com' })).toBe(
-      'https://app.example.com/auth/confirm',
-    )
-  })
-})
-
 describe('toStaffQuery', () => {
   it('reads search, role, branch, status and page; defaults to active', () => {
     expect(toStaffQuery(new URLSearchParams('q=ali&role=technician&branch=b1&status=all&page=2'))).toEqual({

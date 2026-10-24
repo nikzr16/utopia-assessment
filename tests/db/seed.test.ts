@@ -64,20 +64,35 @@ describe('AC1 seed data', () => {
   it('gives every staff member a unique lower-case sign-in email', async () => {
     const rows = await t.q<{ name: string; email: string }>('select name, email from staff order by name')
     expect(Object.fromEntries(rows.map((r) => [r.name, r.email]))).toEqual({
-      'Aisyah Rahman': 'aisyah@sejuk.example.com',
-      'Farid Hakim': 'farid@sejuk.example.com',
-      Ali: 'ali@sejuk.example.com',
-      John: 'john@sejuk.example.com',
-      Bala: 'bala@sejuk.example.com',
-      Yusoff: 'yusoff@sejuk.example.com',
-      'Nurul Huda': 'nurul@sejuk.example.com',
-      'Tan Wei Ming': 'weiming@sejuk.example.com',
-      'Lim Mei Ling': 'meiling@sejuk.example.com',
-      'Hafiz Osman': 'hafiz@sejuk.example.com',
-      'Grace Lojuni': 'grace@sejuk.example.com',
-      'Siti Aminah': 'siti@sejuk.example.com',
+      'Aisyah Rahman': 'aisyah.admin.kl@sejuk.example.com',
+      'Farid Hakim': 'farid.admin.sa@sejuk.example.com',
+      Ali: 'ali.tech.sa@sejuk.example.com',
+      John: 'john.tech.kl@sejuk.example.com',
+      Bala: 'bala.tech.sa@sejuk.example.com',
+      Yusoff: 'yusoff.tech.sa@sejuk.example.com',
+      'Nurul Huda': 'nurul.manager.sa@sejuk.example.com',
+      'Tan Wei Ming': 'weiming.manager.kl@sejuk.example.com',
+      'Lim Mei Ling': 'meiling.manager.pg@sejuk.example.com',
+      'Hafiz Osman': 'hafiz.manager.jb@sejuk.example.com',
+      'Grace Lojuni': 'grace.manager.kk@sejuk.example.com',
+      'Siti Aminah': 'siti.finance.kl@sejuk.example.com',
     })
     for (const r of rows) expect(r.email).toBe(r.email.toLowerCase())
+  })
+
+  it('shapes every email as <name>.<role>.<branch>@sejuk.example.com, matching the role and branch (0010)', async () => {
+    const rows = await t.q<{ email: string; role: string; branch: string }>(
+      'select s.email, s.role::text as role, b.name as branch from staff s join branches b on b.id = s.branch_id',
+    )
+    const role: Record<string, string> = { admin: 'admin', manager: 'manager', technician: 'tech', finance: 'finance' }
+    const branch: Record<string, string> = {
+      'Kuala Lumpur': 'kl',
+      'Shah Alam': 'sa',
+      Penang: 'pg',
+      'Johor Bahru': 'jb',
+      'Kota Kinabalu': 'kk',
+    }
+    for (const r of rows) expect(r.email).toMatch(new RegExp(`^[a-z]+\\.${role[r.role]}\\.${branch[r.branch]}@sejuk\\.example\\.com$`))
   })
 
   it('creates no sign-in accounts itself (the login script does that)', async () => {

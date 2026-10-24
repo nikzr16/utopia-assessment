@@ -1,0 +1,32 @@
+# The robot visit (0010): after Vercel reports a successful production deploy,
+# open the live app in a headless browser and check what a person would see.
+# GitHub runs this only from the default branch (main). Needs the repository
+# variable LIVE_URL (Settings -> Secrets and variables -> Actions -> Variables).
+name: live-check
+
+on:
+  deployment_status:
+  workflow_dispatch:
+
+jobs:
+  visit:
+    name: robot visit
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run live-check
+        env:
+          LIVE_URL: ${{ vars.LIVE_URL }}

@@ -7,7 +7,7 @@
 // project uses the new API keys; the caller's token is checked here instead,
 // and every action runs its staff RPC as the caller first.
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { DEFAULT_APP_ORIGINS, handleStaffAccess, parseStaffAccessRequest, type AuthAdmin } from './handler.ts'
+import { APP_URL_MISSING, confirmAddressFor, handleStaffAccess, parseStaffAccessRequest, type AuthAdmin } from './handler.ts'
 
 /** A key from the new JSON key lists, else the legacy variable. */
 function key(listVar: string, legacyVar: string): string {
@@ -27,12 +27,9 @@ function key(listVar: string, legacyVar: string): string {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const PUBLIC_KEY = key('SUPABASE_PUBLISHABLE_KEYS', 'SUPABASE_ANON_KEY')
 const SECRET_KEY = key('SUPABASE_SECRET_KEYS', 'SUPABASE_SERVICE_ROLE_KEY')
-// The app addresses email links may open: the local ones, plus APP_ORIGINS
-// (comma-separated; 0010 adds the deployed address with `supabase secrets set`).
-const APP_ORIGINS = [
-  ...DEFAULT_APP_ORIGINS,
-  ...(Deno.env.get('APP_ORIGINS') ?? '').split(',').map((o) => o.trim()).filter(Boolean),
-]
+// Every email link opens the live app's /auth/confirm (0010): the APP_URL
+// secret, e.g. https://sejuk-sejuk-utopia.vercel.app. The browser's address is ignored.
+const REDIRECT_TO = confirmAddressFor(Deno.env.get('APP_URL'))
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -51,6 +48,7 @@ Deno.serve(async (req) => {
   if (!SUPABASE_URL || !PUBLIC_KEY || !SECRET_KEY) {
     return json({ ok: false, error: 'The staff-access function is not set up (missing keys).' }, 500)
   }
+  if (!REDIRECT_TO) return json({ ok: false, error: APP_URL_MISSING }, 500)
 
   const authorization = req.headers.get('Authorization') ?? ''
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : ''
@@ -63,7 +61,7 @@ Deno.serve(async (req) => {
   const { data: who, error: whoError } = await caller.auth.getUser(token)
   if (whoError || !who.user) return json({ ok: false, error: 'Your sign-in has expired. Sign in again.' }, 401)
 
-  const parsed = parseStaffAccessRequest(await req.json().catch(() => null), APP_ORIGINS)
+  const parsed = parseStaffAccessRequest(await req.json().catch(() => null), REDIRECT_TO)
   if (typeof parsed === 'string') return json({ ok: false, error: parsed }, 400)
 
   const admin = createClient(SUPABASE_URL, SECRET_KEY, { auth: NO_SESSION })

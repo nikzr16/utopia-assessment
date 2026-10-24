@@ -169,7 +169,7 @@ describe('create_staff', () => {
       create(t, a, { p_email: 'dup@example.com', p_phone: '+60 12-000 0011' }),
       'This phone number is already used by Ali',
     )
-    await expectRejects(create(t, a, { p_email: 'ALI@sejuk.example.com', p_phone: '0127779999' }), 'This email is already used by Ali')
+    await expectRejects(create(t, a, { p_email: 'ALI.TECH.SA@sejuk.example.com', p_phone: '0127779999' }), 'This email is already used by Ali')
   })
 
   it('applies "Manager first": a branch needs a Manager before other staff', async () => {
@@ -196,7 +196,7 @@ describe('update_staff', () => {
     const order = await t.createOrder({ technician: t.people.ali })
     const kl = await t.branchId('Kuala Lumpur')
     const res = await t.rpcAs<Target>(t.people.admin, 'update_staff', await editArgs(t, t.people.ali, { p_branch_id: kl }))
-    expect(res.previous_email).toBe('ali@sejuk.example.com')
+    expect(res.previous_email).toBe('ali.tech.sa@sejuk.example.com')
     expect((await t.summary(order.id as string)).assigned_technician_id).toBe(t.people.ali)
     const last = (await history(t, t.people.ali)).at(-1)!
     expect(last).toMatchObject({ action: 'updated', actor_id: t.people.admin, branch_id: kl })
@@ -216,9 +216,9 @@ describe('update_staff', () => {
     const res = await t.rpcAs<Target>(
       t.people.admin, 'update_staff', await editArgs(t, t.people.bala, { p_email: 'Bala.New@Example.com' }),
     )
-    expect(res).toMatchObject({ email: 'bala.new@example.com', previous_email: 'bala@sejuk.example.com' })
+    expect(res).toMatchObject({ email: 'bala.new@example.com', previous_email: 'bala.tech.sa@sejuk.example.com' })
     expect((await history(t, t.people.bala)).at(-1)!.changes).toEqual({
-      email: { from: 'bala@sejuk.example.com', to: 'bala.new@example.com' },
+      email: { from: 'bala.tech.sa@sejuk.example.com', to: 'bala.new@example.com' },
     })
   })
 
@@ -278,7 +278,7 @@ describe('update_staff', () => {
       'Only an Admin can change an email',
     )
     // Same address in other letter case is no change.
-    await t.rpcAs(t.people.managerSA, 'update_staff', await editArgs(t, t.people.yusoff, { p_email: 'YUSOFF@sejuk.example.com' }))
+    await t.rpcAs(t.people.managerSA, 'update_staff', await editArgs(t, t.people.yusoff, { p_email: 'YUSOFF.TECH.SA@sejuk.example.com' }))
     const ok = await t.rpcAs<Target>(t.people.managerSA, 'update_staff', await editArgs(t, t.people.yusoff, { p_phone: '0127773002' }))
     expect(ok.name).toBe('Yusoff')
   })
@@ -536,7 +536,7 @@ describe('Staff screen reads', () => {
     const t = db()
     const a = t.people.admin
     expect(names(await list(t, a, { search: 'ali' }))).toEqual(['Ali'])
-    expect(names(await list(t, a, { search: 'weiming@' }))).toEqual(['Tan Wei Ming'])
+    expect(names(await list(t, a, { search: 'weiming.manager' }))).toEqual(['Tan Wei Ming'])
     expect(names(await list(t, a, { search: '012-000 0013' }))).toEqual(['Bala'])
     expect(names(await list(t, a, { search: '20000031' }))).toEqual(['Siti Aminah'])
     expect(names(await list(t, a, { role: 'technician' }))).toEqual(['Ali', 'Bala', 'John', 'Yusoff'])
@@ -630,20 +630,20 @@ describe('Staff screen reads', () => {
     expect(await check({ branch: sa, phone: '123' })).toEqual([
       { field: 'phone', message: 'Enter a valid Malaysian phone number, for example 012-345 6789 or 03-1234 5678' },
     ])
-    expect(await check({ branch: sa, phone: '012-000 0011', email: 'ali@sejuk.example.com' })).toEqual([
+    expect(await check({ branch: sa, phone: '012-000 0011', email: 'ali.tech.sa@sejuk.example.com' })).toEqual([
       { field: 'phone', message: 'This phone number is already used by Ali' },
       { field: 'email', message: 'This email is already used by Ali' },
     ])
     // Editing Nurul: moving her leaves Shah Alam without a Manager.
     expect(
-      await check({ id: t.people.managerSA, name: 'Nurul Huda', email: 'nurul@sejuk.example.com', phone: '60120000021',
+      await check({ id: t.people.managerSA, name: 'Nurul Huda', email: 'nurul.manager.sa@sejuk.example.com', phone: '60120000021',
                     role: 'manager', branch: await t.branchId('Penang') }),
     ).toEqual([
       { field: 'branch', message: 'Nurul Huda is the only Manager covering Shah Alam. Give another Manager cover of Shah Alam first.' },
     ])
     // Deactivation preview (the confirm dialog).
     expect(
-      await check({ id: t.people.finance, name: 'Siti Aminah', email: 'siti@sejuk.example.com', phone: '60120000031',
+      await check({ id: t.people.finance, name: 'Siti Aminah', email: 'siti.finance.kl@sejuk.example.com', phone: '60120000031',
                     role: 'finance', branch: await t.branchId('Kuala Lumpur'), active: false }),
     ).toEqual([{ field: 'active', message: 'Siti Aminah is the last active Finance user. Add another Finance user first.' }])
     expect(await check({ role: null, branch: sa })).toEqual([{ field: 'role', message: 'Choose a role' }])

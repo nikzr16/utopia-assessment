@@ -1,0 +1,30 @@
+# Daily wake-up visit (0010): free Supabase projects pause after about a week
+# with no activity, so read once a day from the public feedback function with
+# a made-up link. Needs the repository variables SUPABASE_URL and
+# SUPABASE_ANON_KEY (the public browser key, the same as Vercel's).
+# GitHub runs scheduled workflows only from the default branch (main).
+name: keep-awake
+
+on:
+  schedule:
+    - cron: '0 19 * * *' # 03:00 Malaysia time
+  workflow_dispatch:
+
+jobs:
+  wake:
+    name: visit Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read from the database
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          code=$(curl -sS -o answer.json -w '%{http_code}' \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/feedback_form" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"p_token":"keepAwake0000000000000"}')
+          echo "Supabase answered $code: $(cat answer.json)"
+          test "$code" = 200
