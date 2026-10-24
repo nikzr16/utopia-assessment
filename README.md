@@ -127,6 +127,32 @@ functions. Customers never sign in. Their feedback link carries a random
 token that is valid for 7 days and works once, and it can only open the
 feedback form and submit a rating.
 
+#### How it's deployed (CI/CD)
+
+Every change goes through GitHub Actions and Vercel automatically. I work on
+the dev branch, and each push to dev runs the tests, the type check and a
+build. Vercel then puts that version up as a private preview. When dev is
+ready, it is merged into main, which runs the same checks again, and Vercel
+publishes main as the live app. After each live release, a robot opens the
+live app in a headless browser and checks that the sign-in page loads, that a
+feedback link works (which proves the database is answering), and that search
+engines are told not to index the site. A daily job also visits the database
+so the free Supabase project doesn't go to sleep.
+
+#### Tech stack
+
+The front end is React 19 with TypeScript, built with Vite 7 and styled with
+Tailwind CSS 4, using React Router 7 for pages, Recharts for the dashboard
+charts, Lucide for icons and the Poppins font. The back end is Supabase: a
+Postgres database that holds every business rule in SQL functions with
+row-level security, Supabase Auth for sign-in and staff invites, Storage for
+job files and receipts, Realtime for live notifications, and Edge Functions
+for the server-side code that holds the secrets. The AI features use OpenAI's
+gpt-6-luna, called only from those Edge Functions. Tests run on Vitest, with
+PGlite (a real Postgres running in-process) for the database rules and jsdom
+for the screens, including accessibility checks. The app is hosted on Vercel,
+and GitHub Actions runs the CI/CD.
+
 ### Challenges and assumptions
 
 My biggest challenge was time. I wanted production-ready code, not
