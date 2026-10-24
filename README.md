@@ -53,6 +53,162 @@ a desktop; technicians and Managers get a bottom tab bar on a phone.
 |---|---|---|
 | ![Technician job page with Call, WhatsApp, Maps and the Complete job bar](docs/images/technician-job-phone.png) | ![Technician job list in dark mode](docs/images/technician-jobs-phone-dark.png) | ![Customer feedback page in Bahasa Melayu](docs/images/feedback-bm-phone.png) |
 
+## Write-up
+
+### Self-assessment
+
+**Easiest module:** Staff management. It doesn't depend on any other module,
+so I could build it without anything else being in place first.
+
+**Hardest module:** Technician job portal (Module 2). It was the largest
+change, about 8,000 lines across 76 files. It also had the most moving parts:
+job states, photo, video and PDF uploads from a phone camera, extra charges,
+payments with receipts, saved drafts, and recovery when the connection drops
+at Job Done.
+
+**What I'd improve in production:** Travel charges by distance. The first
+10 km cost RM 10, then RM 1 for each extra km, so a 15 km job would add
+RM 15. A built-in map works out the distance and adds the charge to the final
+amount automatically. Customers who live further away pay more, which is fair
+to the technician.
+
+**How I used AI tools:** I built the whole project with Claude Code and an
+agent harness, one module at a time. For each module, Claude wrote a PRD and
+then a plan, and I had to approve both before any code was written. The
+module was then built in one go and tested, and I checked it on the live app
+before it was committed. Any change from the plan was written down in
+`docs/decisions/`, so the next module started from up-to-date docs.
+
+### Architecture decisions
+
+#### How I built it
+
+I built this project docs first. Before any code, every feature got a PRD
+explaining what it should do, then a plan explaining how to build it. I read
+and approved both before the build started. Once approved, the feature was
+built in one go and tested, and I checked it on the live app before it was
+committed. When the build had to change from the plan, the change was written
+into a decision log rather than rewriting the plan, so there is always a
+record of what changed and why. This is the context engineering side: for
+each feature, the AI was given only the docs for that feature, so it worked
+from written facts instead of memory or guesses. The work ran through Claude
+Code using a reusable agent harness, which sends each request to the right
+agent and workflow.
+
+#### How the system works
+
+The system has two parts. The React app runs on Vercel, and Supabase runs
+everything behind it: the database, sign-in, file storage, live updates and
+server functions.
+
+The database is in charge of every rule. Every action, such as creating an
+order, assigning a technician or approving a job, is a SQL function. That
+function checks who is signed in and refuses anything the person isn't
+allowed to do. The browser only shows the screens and sends requests, so the
+rules can't be bypassed from the front end.
+
+Branch privacy is enforced in the database too. Row-level security on every
+table, file and live update means a Manager only ever receives data for the
+branches they cover, even if someone tries to get around the screens.
+
+Money is calculated, not stored. The final amount is always the quote plus
+any extra charges, and the payment status comes from the payments that were
+recorded. When a technician presses Job Done, the database does the rest
+itself: it records the history, prepares the customer's WhatsApp message and
+starts the AI job check.
+
+Job photos, videos and receipts go to a private storage bucket that only
+staff who can see that job can open. Managers get live notifications of new
+jobs to review without refreshing the page.
+
+Secrets never reach the browser. The app holds only the public key. The
+OpenAI key, and the admin key used to send staff invites, live in server
+functions. Customers never sign in. Their feedback link carries a random
+token that is valid for 7 days and works once, and it can only open the
+feedback form and submit a rating.
+
+### Challenges and assumptions
+
+My biggest challenge was time. I wanted production-ready code, not
+vibe-coded code that only looks finished. That meant reading every PRD and
+plan properly and talking each decision through with the AI before anything
+was built. Most of my time went into that reading and discussion rather than
+into the code itself, but it's why each module came out working the first
+time and holds up when tested.
+
+On the technical side, the hardest part was branch privacy. A Manager should
+only ever see the branches they cover, and that had to be true everywhere:
+the screens, uploaded files, live notifications and AI answers. Hiding things
+on screen wasn't enough, so the database itself enforces it.
+
+Customer feedback was another challenge, because customers don't have
+accounts. I solved it with a private link in the WhatsApp message. The link
+is valid for 7 days, works once, and can only open the feedback form.
+
+Preview and production share one Supabase database because of the free plan,
+so any test data created during checks has to be cleaned up afterwards.
+
+For assumptions, I treated the business as Malaysia-only. Times are Malaysia
+time, weeks run Monday to Sunday, money is in MYR, and phone numbers are
+Malaysian. Quotes range from RM 0 to RM 100,000. A job counts as completed on
+the day a Manager approves it, and every branch has a Manager covering it.
+Each order can hold up to 6 job files, with photos and PDFs up to 10 MB and
+videos up to 50 MB.
+
+### How AI was integrated
+
+The AI never touches the database. It picks from a fixed menu of lookups,
+which run as the signed-in person. It also flags problems on finished jobs,
+reads paper order forms, and writes workload insights. A person always makes
+the final decision.
+
+### Supported AI queries
+
+- **Totals:** "How many jobs were completed today?"
+- **Top technician or one person:** "Which technician completed the most jobs
+  this week?" / "How did Bala do last month?"
+- **A technician's jobs:** "What jobs did Ali complete last week?"
+- **Branches:** "Which branch completed the most jobs last month?"
+- **Trends:** "Is Ali improving over the last 8 weeks?"
+- **Job lists:** "What's scheduled for tomorrow?" / "Jobs for customer Tan"
+- **Money:** "Which jobs are still unpaid?"
+- **Workload:** "Which technician might be overloaded this week?"
+- **Follow-ups:** "and last week?" / "what about Bala?"
+
+Questions can be in English or Malay, and misspelt names work ("Jon"). Each
+answer shows a table of the records it used and a "How I found this" line.
+
+### AI limitations
+
+- Read-only. It can't assign, approve or change anything.
+- It only answers about this company's data, not general questions.
+- It only shows what you're allowed to see. Managers get their own branches,
+  technicians get their own jobs.
+- It only uses the fixed menu of lookups, so it can't answer stock or
+  forecasting questions.
+- It never sees free text like notes and customer comments.
+- It replies only in English.
+- It takes 3–9 seconds and gives up after 20.
+- It needs OpenAI. If OpenAI is down, the app points to the Dashboard instead.
+- The job checker reads text only, not photos. It can miss a problem or raise
+  a false alarm.
+- The form reader skips phone numbers and addresses, and a blurry photo fills
+  in nothing.
+
+### Limitations
+
+- No travel or distance pricing, and Admins see no distance when assigning a
+  technician.
+- Technicians are assigned by hand. Nothing auto-assigns by location or
+  workload.
+- WhatsApp messages are sent by a person with one tap. There's no automatic
+  sending.
+- No offline mode for technicians.
+- Payments are recorded, not taken. There's no invoicing, stock or payroll.
+- Everything runs on free plans (Supabase, Vercel, and Gmail with its sending
+  limits).
+- AI replies are English only and can be slow (3–9 seconds).
+
 ## What was built
 
 Every module of the brief, the bonus module, the AI module and all three
@@ -68,7 +224,7 @@ optional AI challenges, with real sign-in instead of a role switcher.
 | Extra | Customer feedback | The WhatsApp message ends with a private link; the customer rates the job on a public page (no sign-in, 7 days, once); poor ratings alert the Manager |
 | Extra | Staff management | Add staff with an invite email, edit, Manager branch cover, deactivate (signed out at once) and reactivate, full staff history |
 | Bonus module | KPI dashboard | Week / month KPIs per technician and branch (jobs, amount, collected, reschedules, returns, ratings), leaderboard, charts, branch comparison, drill-down, CSV; technicians see "My week" |
-| AI module | Ask (operations query) | Chat bubble in every portal; answers from whitelisted, role-scoped lookups (see [How AI was integrated](#how-ai-was-integrated)) |
+| AI module | Ask (operations query) | Chat bubble in every portal; answers from whitelisted, role-scoped lookups (see [How AI was integrated](#how-ai-was-integrated-1)) |
 | AI challenges | Supervisor, Read from photo, Insights | Warnings on finished jobs, order forms read from a photo, workload insights |
 | Polish | UI/UX redesign | One design system (icy-cyan brand, Poppins, Lucide icons, light and dark mode), sidebar on desktop and bottom tabs on a phone, loading placeholders, pop-up confirmations, a draggable Ask button, and the customer feedback page in English or Malay |
 
