@@ -379,9 +379,11 @@ feature branch ──▶ dev ──(pull request)──▶ main
   `LIVE_URL=https://sejuk-sejuk-utopia.vercel.app npm run live-check`.
 - **`keep-awake`** reads from Supabase once a day so the free project does
   not pause.
-- Vercel needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; GitHub needs
-  the repository variables `LIVE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
-  (all public values).
+- Vercel needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, and
+  **Settings → Git → `repository_dispatch` Events** switched on (it is off
+  by default; that event starts `live-check`); GitHub needs the repository
+  variables `LIVE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` (all public
+  values).
 
 ## Project docs
 

@@ -34,7 +34,10 @@ hold the live address. The live app is
   Production and Preview: one Supabase project), Deployment Protection
   "Standard Protection" (previews need Vercel sign-in; production is
   public). Domains: `sejuk-sejuk-utopia.vercel.app` (and Vercel's own
-  `sejuk-sejuk-theta.vercel.app`), both Production.
+  `sejuk-sejuk-theta.vercel.app`), both Production. Settings → Git:
+  **`repository_dispatch` Events on** (off by default; without it Vercel
+  tells GitHub nothing and `live-check` never starts by itself, decision
+  0019); `deployment_status` Events off.
 - Supabase Auth → URL Configuration: Site URL
   `https://sejuk-sejuk-utopia.vercel.app`; the only Redirect URL is
   `https://sejuk-sejuk-utopia.vercel.app/auth/confirm`.
