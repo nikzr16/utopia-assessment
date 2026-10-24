@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "auth:create-staff-logins": "node --env-file=.env.local scripts/create-staff-logins.ts"
+    "auth:create-staff-logins": "node --env-file=.env.local scripts/create-staff-logins.ts",
+    "live-check": "node scripts/live-check.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
@@ -29,9 +30,11 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "jsdom": "^26.1.0",
+    "playwright": "^1.64.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "yaml": "^2.9.1"
   }
 }

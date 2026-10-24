@@ -178,17 +178,6 @@ export interface StaffAccessResult {
   retry?: RetryAction
 }
 
-/**
- * Where the invite and reset emails send people back to. Supabase's redirect
- * list does not accept `[::1]` / `127.0.0.1`, so a local tab on either asks
- * for `localhost` (the browser reaches the same dev server).
- */
-export function confirmAddress(location: Pick<Location, 'protocol' | 'hostname' | 'port' | 'origin'> = window.location): string {
-  const local = location.hostname === '[::1]' || location.hostname === '127.0.0.1'
-  const origin = local ? `${location.protocol}//localhost${location.port ? `:${location.port}` : ''}` : location.origin
-  return `${origin}/auth/confirm`
-}
-
 export async function staffAccess(
   action: StaffAccessAction,
   opts: { staffId?: string; staff?: StaffFormInput } = {},
@@ -196,7 +185,8 @@ export async function staffAccess(
   let response: { data: unknown; error: unknown }
   try {
     response = await client().functions.invoke('staff-access', {
-      body: { action, staffId: opts.staffId, staff: opts.staff, redirectTo: confirmAddress() },
+      // Email links always open the live app; staff-access sets the address (0010).
+      body: { action, staffId: opts.staffId, staff: opts.staff },
     })
   } catch (e) {
     throw toApiError(e as { message?: string })

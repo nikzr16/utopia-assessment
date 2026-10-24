@@ -279,9 +279,9 @@ describe('Linking sign-in accounts to staff', () => {
   })
 
   it('never re-links a staff member who is already linked', async () => {
-    const [ali] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali@sejuk.example.com'`)
-    await t.createAuthUser('ALI@sejuk.example.com') // a second account for the same email
-    const [after] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali@sejuk.example.com'`)
+    const [ali] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali.tech.sa@sejuk.example.com'`)
+    await t.createAuthUser('ALI.TECH.SA@sejuk.example.com') // a second account for the same email
+    const [after] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali.tech.sa@sejuk.example.com'`)
     expect(after.auth_user_id).toBe(ali.auth_user_id)
   })
 
@@ -316,9 +316,9 @@ describe('Linking sign-in accounts to staff', () => {
   })
 
   it('keeps one account per staff member and one staff member per account', async () => {
-    const [ali] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali@sejuk.example.com'`)
+    const [ali] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali.tech.sa@sejuk.example.com'`)
     await expect(
-      t.q('update staff set auth_user_id = $1 where email = $2', [ali.auth_user_id, 'bala@sejuk.example.com']),
+      t.q('update staff set auth_user_id = $1 where email = $2', [ali.auth_user_id, 'bala.tech.sa@sejuk.example.com']),
     ).rejects.toThrow(/unique|duplicate|already used/i)
   })
 
@@ -329,7 +329,7 @@ describe('Linking sign-in accounts to staff', () => {
          select 'Dup', $1, '60120000050', 'admin', id from branches where name = 'Penang'`,
         [email],
       )
-    await expect(insert('ALI@Sejuk.Example.com')).rejects.toThrow(/unique|duplicate|already used/i)
+    await expect(insert('ALI.TECH.SA@Sejuk.Example.com')).rejects.toThrow(/unique|duplicate|already used/i)
     await expect(insert(null)).rejects.toThrow(/null/i)
     await expect(insert('  ')).rejects.toThrow(/check|violates/i)
   })
@@ -375,7 +375,7 @@ describe('current_staff()', () => {
 
 describe('JWT claims are read like Supabase does', () => {
   it('accepts the subject from request.jwt.claims (JSON) or the legacy request.jwt.claim.sub', async () => {
-    const [ali] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali@sejuk.example.com'`)
+    const [ali] = await t.q<{ auth_user_id: string }>(`select auth_user_id from staff where email = 'ali.tech.sa@sejuk.example.com'`)
     const viaJson = await t.db.transaction(async (tx) => {
       await tx.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: ali.auth_user_id })])
       return (await tx.query<{ uid: string }>('select auth.uid() as uid')).rows[0].uid

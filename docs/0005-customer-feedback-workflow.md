@@ -34,11 +34,12 @@ link line in `src/features/customer-messages/`.
 
 - The hosted database has the 0005 migration
   (`docs/draft/0005-supabase-update.sql`).
-- `app_settings.feedback_link_base` holds the app's public address. Today it
-  is the local app `http://localhost:5173`; 0010 `production-deployment` sets
-  the deployed address (decision 0012).
-- The app serves `/f/:token` (Vite locally; the `vercel.json` SPA rewrite
-  once deployed).
+- `app_settings.feedback_link_base` holds the app's public address: the
+  live app `https://sejuk-sejuk-utopia.vercel.app` on the hosted project
+  since 0010 (the migration's default, for a fresh local database, is
+  `http://localhost:5173`).
+- The app serves `/f/:token` (Vite locally; the `vercel.json` SPA rewrite on
+  Vercel).
 
 ## Stages
 
@@ -117,7 +118,7 @@ link line in `src/features/customer-messages/`.
 
 | Setting | Default |
 |---|---|
-| Link address | `app_settings.feedback_link_base` = `http://localhost:5173` (until 0010) |
+| Link address | `app_settings.feedback_link_base` = `https://sejuk-sejuk-utopia.vercel.app` on the hosted project (0010); `http://localhost:5173` in a fresh database |
 | Link path | `/f/<22 characters>` |
 | Link lifetime | 7 days after Job Done, while it is the latest visit and unused |
 | Poor rating | 1–2 stars, or not working well |
@@ -151,4 +152,5 @@ link line in `src/features/customer-messages/`.
 | `docs/0004-review-and-close-workflow.md` | Workflow | On-behalf message, Manager queue, bell |
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0012-add-production-deployment-feature.md` | Decision log | Local link address until 0010 |
+| `docs/0010-production-deployment-workflow.md` | Workflow | The live address and where it is set |
 | `docs/decisions/0013-customer-feedback-implementation-details.md` | Decision log | Divergences from the 0005 plan |

@@ -1,0 +1,3 @@
+# Internal staff tool (0010): no search engine indexing.
+User-agent: *
+Disallow: /

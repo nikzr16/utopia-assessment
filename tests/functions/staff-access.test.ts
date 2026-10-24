@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   authProblem,
   handleStaffAccess,
-  isConfirmAddress,
+  confirmAddressFor,
   parseStaffAccessRequest,
   type AuthAdmin,
   type StaffAccessRequest,
@@ -13,7 +13,7 @@ import {
 // then the Auth step with the secret key; partial failures say what to retry;
 // answers never carry raw Auth or database text.
 
-const REDIRECT = 'http://localhost:5173/auth/confirm'
+const REDIRECT = 'https://sejuk-sejuk-utopia.vercel.app/auth/confirm'
 const STAFF = { name: 'Ravi', email: 'ravi@example.com', phone: '0127771234', role: 'technician', branchId: 'b1' }
 
 const target = (over: Partial<StaffTarget> = {}): StaffTarget => ({
@@ -86,29 +86,34 @@ const req = (r: Partial<StaffAccessRequest>): StaffAccessRequest => ({ action: '
 
 describe('parseStaffAccessRequest', () => {
   it('accepts a well-formed request and rejects the rest with a reason', () => {
-    expect(parseStaffAccessRequest({ action: 'create', staff: STAFF, redirectTo: REDIRECT })).toMatchObject({ action: 'create' })
-    expect(parseStaffAccessRequest({ action: 'deactivate', staffId: 's1', redirectTo: REDIRECT })).toMatchObject({ staffId: 's1' })
-    expect(parseStaffAccessRequest(null)).toBe('Send a JSON body')
-    expect(parseStaffAccessRequest({ action: 'delete', staffId: 's1', redirectTo: REDIRECT })).toBe('Unknown staff action')
-    expect(parseStaffAccessRequest({ action: 'deactivate', redirectTo: REDIRECT })).toBe('Choose a staff member')
-    expect(parseStaffAccessRequest({ action: 'create', staff: { ...STAFF, phone: 1 }, redirectTo: REDIRECT })).toBe('Fill in the staff details')
+    expect(parseStaffAccessRequest({ action: 'create', staff: STAFF }, REDIRECT)).toMatchObject({ action: 'create' })
+    expect(parseStaffAccessRequest({ action: 'deactivate', staffId: 's1' }, REDIRECT)).toMatchObject({ staffId: 's1' })
+    expect(parseStaffAccessRequest(null, REDIRECT)).toBe('Send a JSON body')
+    expect(parseStaffAccessRequest({ action: 'delete', staffId: 's1' }, REDIRECT)).toBe('Unknown staff action')
+    expect(parseStaffAccessRequest({ action: 'deactivate' }, REDIRECT)).toBe('Choose a staff member')
+    expect(parseStaffAccessRequest({ action: 'create', staff: { ...STAFF, phone: 1 } }, REDIRECT)).toBe('Fill in the staff details')
     expect(
-      parseStaffAccessRequest({ action: 'update', staffId: 's1', staff: { ...STAFF, additionalBranchIds: [1] }, redirectTo: REDIRECT }),
+      parseStaffAccessRequest({ action: 'update', staffId: 's1', staff: { ...STAFF, additionalBranchIds: [1] } }, REDIRECT),
     ).toBe('Choose branches to cover')
-    expect(parseStaffAccessRequest({ action: 'create', staff: STAFF, redirectTo: 'http://evil.example/x' })).toBe('Unknown app address')
-    expect(parseStaffAccessRequest({ action: 'create', staff: STAFF, redirectTo: 'https://evil.example/auth/confirm' })).toBe(
-      'Unknown app address',
-    )
   })
 
-  it("isConfirmAddress: the /auth/confirm page of the app's own addresses only, no query", () => {
-    expect(isConfirmAddress('http://localhost:5174/auth/confirm')).toBe(true)
-    expect(isConfirmAddress('http://[::1]:5174/auth/confirm')).toBe(false)
-    expect(isConfirmAddress('https://app.example.com/auth/confirm')).toBe(false)
-    expect(isConfirmAddress('https://app.example.com/auth/confirm', ['https://app.example.com'])).toBe(true)
-    expect(isConfirmAddress('javascript:alert(1)//auth/confirm')).toBe(false)
-    expect(isConfirmAddress('http://localhost:5173/auth/confirm?next=x')).toBe(false)
-    expect(isConfirmAddress('not a url')).toBe(false)
+  it('email links always open the live app: an address the browser sends is ignored (0010)', () => {
+    for (const sent of ['http://localhost:5173/auth/confirm', 'https://evil.example/auth/confirm', 42, undefined]) {
+      expect(parseStaffAccessRequest({ action: 'deactivate', staffId: 's1', redirectTo: sent }, REDIRECT)).toEqual({
+        action: 'deactivate',
+        staffId: 's1',
+        staff: undefined,
+        redirectTo: REDIRECT,
+      })
+    }
+  })
+
+  it("confirmAddressFor: the live app's /auth/confirm from APP_URL, or null when it is not a plain address", () => {
+    expect(confirmAddressFor('https://sejuk-sejuk-utopia.vercel.app')).toBe(REDIRECT)
+    expect(confirmAddressFor(' https://sejuk-sejuk-utopia.vercel.app/ ')).toBe(REDIRECT)
+    expect(confirmAddressFor('http://localhost:5173')).toBe('http://localhost:5173/auth/confirm')
+    const bad = [undefined, null, '', '  ', 'not a url', 'javascript:alert(1)', 'https://a.example/app', 'https://a.example/?x=1', 'https://u:p@a.example']
+    for (const value of bad) expect(confirmAddressFor(value)).toBeNull()
   })
 })
 
