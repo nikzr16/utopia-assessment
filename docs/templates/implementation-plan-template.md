@@ -1,4 +1,4 @@
-# [Feature Name] Implementation Plan
+# NNNN - [Feature Name] Implementation Plan
 
 > **Type:** Plan | **Must stay current:** No -- record divergences in decision log, rewrite only during re-planning
 
@@ -64,8 +64,8 @@ _Approach to unit, integration, and contract tests. Key fixtures or mocks needed
 | Document | Type | Relationship |
 |---|---|---|
 | `docs/product-roadmap.md` | Roadmap | Phase assignment and sequencing for this plan |
-| `docs/prd/[feature]-prd.md` | Intent | Product goals and constraints this plan implements |
-| `docs/[feature]-workflow.md` | Workflow | Runtime behavior derived from this plan |
+| `docs/prd/NNNN-[feature]-prd.md` | Intent | Product goals and constraints this plan implements |
+| `docs/NNNN-[feature]-workflow.md` | Workflow | Runtime behavior derived from this plan |
 | `docs/reference/folder-structure.md` | Reference | Structural placement of planned components |
 | `docs/decisions/NNNN-*.md` | Decision log | Divergences from this plan |
 

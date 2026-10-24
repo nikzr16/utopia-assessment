@@ -1,4 +1,4 @@
-# [Feature Name] PRD
+# NNNN - [Feature Name] PRD
 
 > **Type:** Intent | **Must stay current:** No -- record divergences in decision log
 
@@ -57,8 +57,8 @@ _One or two sentences describing the problem this feature solves._
 | Document | Type | Relationship |
 |---|---|---|
 | `docs/product-roadmap.md` | Roadmap | Phase assignment and sequencing for this PRD |
-| `docs/plan/[feature]-plan.md` | Plan | Implementation path for this PRD |
-| `docs/[feature]-workflow.md` | Workflow | Runtime behavior derived from this PRD |
+| `docs/plan/NNNN-[feature]-plan.md` | Plan | Implementation path for this PRD |
+| `docs/NNNN-[feature]-workflow.md` | Workflow | Runtime behavior derived from this PRD |
 | `docs/reference/folder-structure.md` | Reference | Structural placement of the feature |
 | `docs/decisions/NNNN-*.md` | Decision log | Divergences from this PRD |
 

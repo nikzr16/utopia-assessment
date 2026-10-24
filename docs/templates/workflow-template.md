@@ -1,4 +1,4 @@
-# [Feature] Workflow
+# NNNN - [Feature] Workflow
 
 > **Type:** Workflow | **Must stay current:** Yes -- update when behavior changes
 
@@ -57,7 +57,7 @@ _Mode restrictions, policy rules, or invariants that apply across stages but don
 
 | Document | Type | Relationship |
 |---|---|---|
-| `docs/prd/[feature]-prd.md` | Intent | Product goals this workflow fulfills |
-| `docs/plan/[feature]-plan.md` | Plan | Architecture this workflow implements |
+| `docs/prd/NNNN-[feature]-prd.md` | Intent | Product goals this workflow fulfills |
+| `docs/plan/NNNN-[feature]-plan.md` | Plan | Architecture this workflow implements |
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/NNNN-*.md` | Decision log | Deviations from original plan captured here |

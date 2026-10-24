@@ -1,0 +1,111 @@
+import { useState } from 'react'
+import { BUTTON } from '../../components/styles'
+import { formatFileSize, type AttachmentKind } from '../../domain'
+import { useLoad } from '../../lib/useLoad'
+import { signedUrls, type Attachment } from './api'
+
+const KIND_LABELS: Record<AttachmentKind, string> = { photo: 'Photo', video: 'Video', pdf: 'PDF' }
+
+/**
+ * Job files as tiles: photos as thumbnails, videos and PDFs as labelled
+ * tiles. Each opens the file in a new tab through a short-lived signed link.
+ * With `onRemove`, each tile gets a Remove button with a confirm step.
+ */
+export function FileGallery({
+  files,
+  label = 'Job files',
+  onRemove,
+  removingId = null,
+}: {
+  files: Attachment[]
+  label?: string
+  onRemove?: (file: Attachment) => void
+  removingId?: string | null
+}) {
+  const paths = files.map((f) => f.storage_path)
+  const [urls] = useLoad(() => signedUrls(paths), paths.join('|'))
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const linkOf = (path: string) => (urls.status === 'ready' ? urls.data[path] : undefined)
+
+  if (files.length === 0) return null
+  return (
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label={label}>
+      {files.map((file, i) => {
+        const name = file.file_name ?? `${KIND_LABELS[file.kind]} ${i + 1}`
+        const href = linkOf(file.storage_path)
+        return (
+          <li key={file.id} className="flex flex-col gap-1">
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Open ${name}`}
+              className="block aspect-square overflow-hidden rounded-md border border-slate-200 bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+            >
+              {file.kind === 'photo' && href ? (
+                <Thumbnail src={href} name={name} />
+              ) : (
+                <Tile kind={file.kind} />
+              )}
+            </a>
+            <p className="truncate text-xs text-slate-700" title={name}>
+              {name}
+              {file.size_bytes ? <span className="text-slate-500"> · {formatFileSize(file.size_bytes)}</span> : null}
+            </p>
+            {onRemove ? (
+              confirmId === file.id ? (
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmId(null)
+                      onRemove(file)
+                    }}
+                    className={`${BUTTON.danger} min-h-11 flex-1 px-2`}
+                  >
+                    Remove
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmId(null)}
+                    className={`${BUTTON.secondary} min-h-11 flex-1 px-2`}
+                  >
+                    Keep
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={removingId === file.id}
+                  onClick={() => setConfirmId(file.id)}
+                  aria-label={`Remove ${name}`}
+                  className={`${BUTTON.secondary} min-h-11 px-2`}
+                >
+                  {removingId === file.id ? 'Removing…' : 'Remove'}
+                </button>
+              )
+            ) : null}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function Thumbnail({ src, name }: { src: string; name: string }) {
+  const [failed, setFailed] = useState(false)
+  // HEIC photos cannot be shown by most browsers: fall back to a tile.
+  if (failed) return <Tile kind="photo" />
+  return <img src={src} alt={name} loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+}
+
+function Tile({ kind }: { kind: AttachmentKind }) {
+  return (
+    <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-600">
+      <span aria-hidden="true" className="text-3xl">
+        {kind === 'video' ? '▶' : kind === 'pdf' ? '📄' : '🖼'}
+      </span>
+      <span className="text-xs font-medium">{KIND_LABELS[kind]}</span>
+    </span>
+  )
+}

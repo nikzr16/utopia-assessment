@@ -1,0 +1,18 @@
+# Supabase CLI settings used when deploying the server function (0006):
+#   npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt
+# The function checks the caller's token itself (see its index.ts).
+project_id = "utopia-assessment"
+
+[functions.staff-access]
+verify_jwt = false
+
+# 0008: the AI operations query (also checks the caller's token itself):
+#   npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api
+[functions.ask]
+verify_jwt = false
+
+# 0009: the AI supervisor check, order form reading and insight wording
+# (checks the caller's token, or the database's shared secret, itself):
+#   npx supabase functions deploy ai-assist --project-ref <ref> --no-verify-jwt --use-api
+[functions.ai-assist]
+verify_jwt = false
