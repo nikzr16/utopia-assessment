@@ -50,7 +50,7 @@ export interface Person {
 
 export type Row = Record<string, unknown>
 
-export type TableKind = 'summary' | 'technicians' | 'branches' | 'trend' | 'events' | 'jobs' | 'payments'
+export type TableKind = 'summary' | 'technicians' | 'branches' | 'trend' | 'events' | 'jobs' | 'payments' | 'insights'
 
 /** One lookup's records for the app's table (full rows, incl. phone / address for jobs). */
 export interface AskTable {
@@ -256,12 +256,15 @@ export const MODEL_COLUMNS = {
     'kind', 'order_no', 'status', 'branch_name', 'technician_name', 'customer_name', 'amount', 'method',
     'recorded_at', 'verified_at', 'job_done_at', 'final_amount', 'amount_paid', 'balance', 'payment_status',
   ],
+  // 0009: insight_facts (value = jobs, waiting jobs, reschedules or average rating by kind).
+  insights: ['kind', 'technician_name', 'technician_active', 'branch_name', 'value', 'previous', 'team_average', 'days'],
 } as const satisfies Record<TableKind, readonly string[]>
 
 // ---------------------------------------------------------------------------
 // Database refusals the person should read as they are (PRD Q10)
 // ---------------------------------------------------------------------------
 const OWN_ONLY = 'You can only ask about your own jobs and numbers.'
+const INSIGHTS_ONLY = 'Workload insights are for Managers and Admins.'
 const PERIOD_ERRORS = [
   'Choose a period of up to a year',
   'The period must end after it starts',
@@ -283,6 +286,9 @@ export function classifyDbError(message: string, person: Person): LookupOutcome 
     message.includes('The branch comparison is not available to technicians')
   ) {
     return { kind: 'stop', reply: { outcome: 'refused', answer: OWN_ONLY } }
+  }
+  if (message.includes('Insights are for Managers and Admins')) {
+    return { kind: 'stop', reply: { outcome: 'refused', answer: INSIGHTS_ONLY } }
   }
   const period = PERIOD_ERRORS.find((p) => message.includes(p))
   if (period) return { kind: 'stop', reply: { outcome: 'refused', answer: `${period}.` } }
@@ -485,6 +491,29 @@ export function lookups(branches: Branch[]): Lookup[] {
           rows, { period: p.label },
           found('branch comparison', [p.label], rows.length, rows.length === 1 ? 'branch' : 'branches'),
           dashboardFor(p, null, null),
+        )
+      },
+    },
+    {
+      name: 'workload_insights',
+      description:
+        'What stands out in a period (Managers and Admins only), from the KPI numbers: busy technicians (completed at least 1.5x the team average and 3 more), quiet technicians (at most half and 3 fewer), branches with jobs waiting more than 2 days for review (now), branches whose reschedules at least doubled (and 3 more) vs the period before, and technicians whose average rating fell by 1.0 or more. Use it for "who might be overloaded", "who is busiest compared with the team", "any problems this week".',
+      parameters: obj({ period: PERIOD_SCHEMA, branch: BRANCH }),
+      async run(ctx, input) {
+        const p = when(ctx, input.period as PeriodInput)
+        if (isOutcome(p)) return p
+        const b = branch(ctx, input.branch as string | null)
+        if (isOutcome(b)) return b
+        ctx.step(`Looking for workload insights for ${p.label}…`)
+        const args = { p_start: p.start, p_end: p.end, p_branch_id: b.id }
+        const rows = await read(ctx, 'insight_facts', args)
+        if (!Array.isArray(rows)) return rows
+        return done(
+          'workload_insights', 'insight_facts', args, 'insights',
+          `Insights — ${p.label}${b.phrase ? `, ${b.phrase}` : ''}`,
+          rows, { period: p.label, branch: b.phrase },
+          found('workload insights', [b.phrase, p.label], rows.length, rows.length === 1 ? 'insight' : 'insights'),
+          dashboardFor(p, b.id, null),
         )
       },
     },

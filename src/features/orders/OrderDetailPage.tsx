@@ -22,6 +22,7 @@ import { COMPLETION_STATUSES, CompletionSection } from './CompletionSection'
 import { RescheduleDialog } from './actions/RescheduleDialog'
 import { OrderHistory } from './OrderHistory'
 import { OrderSummaryCard } from './OrderSummaryCard'
+import { WarningsBox } from '../supervisor'
 import { useInactiveStaff } from '../../lib/staffStatus'
 import { useLoad } from '../../lib/useLoad'
 import { WhatsAppButton } from './WhatsAppButton'
@@ -195,6 +196,9 @@ export function OrderDetailPage() {
       />
 
       <FeedbackCard orderId={order.id} orderStatus={order.status} role="admin" refreshKey={feedbackKey} />
+
+      {/* 0009: supervisor warnings (Admins read; Managers check them). */}
+      <WarningsBox orderId={order.id} orderStatus={order.status} isManager={false} />
 
       <OrderSummaryCard order={order} />
       {COMPLETION_STATUSES.includes(order.status) ? <CompletionSection order={order} /> : null}

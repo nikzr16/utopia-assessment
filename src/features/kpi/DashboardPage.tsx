@@ -26,6 +26,7 @@ import { ReschedulesByReasonChart } from './charts/ReschedulesByReasonChart'
 import { TrendChart } from './charts/TrendChart'
 import { BranchComparison } from './components/BranchComparison'
 import { BranchFilter } from './components/BranchFilter'
+import { InsightsCard } from './components/InsightsCard'
 import { KpiError, KpiLoading } from './components/KpiState'
 import { DEFAULT_SORT, Leaderboard, type LeaderboardSort } from './components/Leaderboard'
 import { PeriodPicker } from './components/PeriodPicker'
@@ -59,6 +60,8 @@ export function DashboardPage({ role }: { role: StaffRole }) {
           onChange={(branch) => setAddress({ branch })}
         />
       </div>
+      {/* 0009: Managers and Admins (PRD Q16). */}
+      {role === 'admin' || role === 'manager' ? <InsightsCard key={addressKey(address)} address={address} /> : null}
       <DashboardBody
         key={addressKey(address)}
         address={address}

@@ -133,7 +133,7 @@ Signing out removes every `sejuk-draft:` entry from the phone before ending the 
 | "This file is already attached" / "This receipt is already attached to a payment" | Path registered by someone else / already used | Rejected |
 | "A payment receipt cannot be removed" | `remove_attachment` on a receipt | Rejected |
 | "File not found" | Unknown id, or a file of another technician's job | Rejected |
-| "An order can have at most 6 completion attachments" | Seventh job file | Rejected by the 0000 trigger |
+| "An order can have at most 6 completion attachments" | Seventh job file (the paper order form of 0009 does not count) | Rejected by the 0000 trigger |
 | "Attach a receipt for bank transfer, card or e-wallet payments" | Non-cash payment without a receipt (any role) | On the form or from `record_payment` |
 | "This payment key has already been used" | Client key reused for another order or by another person | Rejected |
 | "Enter the payment amount" / "Payment amount must be greater than zero" / "Payment amount can have at most 2 decimal places" | Amount rules (screen; the database checks > 0) | On the field |

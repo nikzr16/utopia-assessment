@@ -5,6 +5,7 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { BUTTON, CARD, LINK } from '../../components/styles'
 import {
   approveBlockReason,
+  approveWarningsBlock,
   canConfirmCustomerMessage,
   canRecordPayment,
   closeBlockReason,
@@ -22,6 +23,7 @@ import { FeedbackCard } from '../feedback'
 import { CompletionSection } from '../orders/CompletionSection'
 import { OrderHistory } from '../orders/OrderHistory'
 import { OrderSummaryCard } from '../orders/OrderSummaryCard'
+import { WarningsBox } from '../supervisor'
 import { ApproveDialog, CloseDialog, ReturnDialog } from './actions'
 import {
   fetchOrderHistory,
@@ -66,6 +68,8 @@ export function OrderReviewPage({
   const [params] = useSearchParams()
   const [flash, setFlash] = useState<string | null>(params.get('paid') ? 'Payment recorded.' : null)
   const [feedbackKey, setFeedbackKey] = useState(0)
+  // 0009: open supervisor warnings hold Approve (null while they load).
+  const [openWarnings, setOpenWarnings] = useState<number | null>(null)
 
   if (state.status === 'loading') {
     return (
@@ -110,6 +114,7 @@ export function OrderReviewPage({
 
   const isManager = role === 'manager'
   const approveBlocked = approveBlockReason(order)
+  const warningsBlock = approveWarningsBlock(openWarnings ?? 0)
   const closeBlocked = closeBlockReason(order)
   const onBehalfBody =
     isManager && order.completed_at
@@ -184,11 +189,16 @@ export function OrderReviewPage({
                       {approveBlocked}. Send the message below (or call) first.
                     </p>
                   ) : null}
+                  {warningsBlock ? (
+                    <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                      {warningsBlock}. See Warnings below.
+                    </p>
+                  ) : null}
                   <div className="flex flex-col gap-2">
                     <button
                       type="button"
                       onClick={() => setDialog('approve')}
-                      disabled={approveBlocked !== null}
+                      disabled={approveBlocked !== null || warningsBlock !== null}
                       className={`${BUTTON.primary} min-h-11`}
                     >
                       Approve job
@@ -243,6 +253,13 @@ export function OrderReviewPage({
               ) : null}
             </div>
           </section>
+
+          <WarningsBox
+            orderId={order.id}
+            orderStatus={order.status}
+            isManager={isManager}
+            onOpenCount={setOpenWarnings}
+          />
 
           {returns.length > 0 ? (
             <section className={CARD} aria-labelledby="review-returns">

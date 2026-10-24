@@ -74,7 +74,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 
 | PRD | Module | Status | Notes |
 |---|---|---|---|
-| 0009 `ai-advanced` | — | planned | Optional advanced AI challenges; PRD not written yet |
+| `docs/prd/0009-ai-advanced-prd.md` | `src/features/supervisor/`, `src/features/orders/`, `src/features/kpi/`, `src/features/ask/`, `supabase/functions/`, `supabase/migrations/` | shipped | All three optional AI challenges on the 0008 pattern: Workflow Supervisor (rule + AI warnings at Job Done, started by the database; each checked before Approve), Document Understanding (Read from photo on the New Order form, all or nothing, form file kept), Operational Insight (Dashboard card + Ask `workload_insights`; Managers and Admins); Admin AI log (decision 0017) |
 
 ### Phase 5: Production
 
@@ -92,9 +92,9 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | Authentication and access (Supabase Auth, RLS, actor from `auth.uid()`) | 0000 | 0006 | Real email/password sign-in; public sign-up off; Managers read and act on the branches they cover (home + additional); signed-out visitors may call only the two feedback page functions, keyed by a random link token; staff and sign-ins managed on screen: invite / reset emails (custom SMTP), the `staff-access` Edge Function is the only holder of the secret key, deactivation blocks sign-in and signs the person out at once |
 | Rule parity (`src/domain` mirrors checked against SQL) | 0000 | 0007 | Transitions, enums, phone, price, editable / reschedulable statuses, extra charges, file types / sizes / paths, file and receipt permissions, payment rules, job list tabs, notification events, mobile check, Malaysia time format, customer message rules, branch cover, review / payment tabs, approve / close guards, payment verification, on-behalf message, feedback answers, poor rating, link text and states, phone rating rule, staff name / email, phone by role, open jobs, who may manage whom, staff history actions, KPI week / month starts, tie ranking, needs attention |
 | Deployment (Vercel) | 0001 | 0010 | `vercel.json` SPA rewrite in place; app not deployed yet; 0005 feedback links use a database setting for the public address (local for now); the 0006 `staff-access` Edge Function is deployed to the hosted project, and its email links accept the local addresses until 0010 adds the deployed one (`APP_ORIGINS`) |
-| AI operations query (OpenAI via an Edge Function) | 0008 | 0008 | `gpt-6-luna` behind the `ask` Edge Function (key in its secrets); the AI only chooses from a fixed menu of read functions that run with the asking person's token; no notes, phone numbers or addresses sent to the AI; chats and an Admin Question log kept 7 days (nightly `pg_cron` purge); no app rate limits (OpenAI spend cap) |
-| File storage (Supabase Storage) | 0002 | 0002 | Private `job-files` bucket; policies follow order visibility; files registered by RPC from the stored object's real type and size |
-| Live updates (Supabase Realtime) | 0002 | 0006 | `notifications` streamed to the recipient under RLS; a person's own `staff` row streamed so deactivation signs them out at once (0006); refresh on return as a fallback |
+| AI features (OpenAI via Edge Functions) | 0008 | 0009 | `gpt-6-luna` behind the `ask` and `ai-assist` Edge Functions (key in their secrets); the AI only chooses from a fixed menu of read functions run with the person's token (Ask), or returns strict JSON the server checks (job checks, form reading, insight wording); rules and numbers always come from the database; the database starts the job check itself (`pg_net`, a Vault secret); no phone numbers or addresses sent as text; warnings kept with the order, AI calls in the Admin AI log for 7 days (nightly `pg_cron` purge); no app rate limits (OpenAI spend cap) |
+| File storage (Supabase Storage) | 0002 | 0009 | Private `job-files` bucket; policies follow order visibility; files registered by RPC from the stored object's real type and size; the paper order form at `<order>/form/` (0009) |
+| Live updates (Supabase Realtime) | 0002 | 0009 | `notifications` streamed to the recipient under RLS; a person's own `staff` row streamed so deactivation signs them out at once (0006); an order's warnings and AI checks (0009); refresh on return as a fallback |
 | In-app notifications UI | 0002 | 0005 | Technicians, Managers and Finance (bell and list open the order in each portal); Managers also get poor-rating notices; Admins have none |
 
 ## PRD Registry
@@ -110,6 +110,7 @@ in it is shipped (all acceptance criteria passing, including manual checks).
 | `docs/prd/0006-staff-management-prd.md` | 2 – Core workflow | `src/features/staff/`, `supabase/migrations/`, `supabase/functions/` | shipped |
 | `docs/prd/0007-kpi-dashboard-prd.md` | 3 – Insights | `src/features/kpi/`, `supabase/migrations/` | shipped |
 | `docs/prd/0008-ai-ops-query-prd.md` | 3 – Insights | `src/features/ask/`, `supabase/functions/`, `supabase/migrations/` | shipped |
+| `docs/prd/0009-ai-advanced-prd.md` | 4 – Stretch | `src/features/supervisor/`, `src/features/orders/`, `src/features/kpi/`, `src/features/ask/`, `supabase/functions/`, `supabase/migrations/` | shipped |
 
 ## Prioritization Log
 
@@ -125,6 +126,7 @@ _When a feature moves between phases or priorities shift, record the change and 
 | 2026-10-23 | New Phase 5 Production with feature 0010 `production-deployment` (decision 0012) | 0005 Q10: build and test locally now; deploy to Vercel and test everything, incl. the feedback link on a real phone, once in its own phase |
 | 2026-10-23 | Phase 2 graduated: 0001–0006 shipped (0006 staff management last) | Every graduation criterion met: an order goes from creation to Closed on screen, customers leave feedback, staff are managed on screen; Phase 3 (0007, 0008) can start |
 | 2026-10-24 | Phase 3 graduated: 0007 and 0008 shipped (0008 AI operations query last) | Every graduation criterion met: the KPI dashboard and the AI query window work on the hosted project for every role; Phase 4 (0009) can start |
+| 2026-10-24 | Phase 4 graduated: 0009 shipped with all three optional AI challenges | Every graduation criterion met: Workflow Supervisor, Document Understanding and Operational Insight work on the hosted project with the real model; Phase 5 (0010 production deployment) can start |
 
 ## Related Documents
 

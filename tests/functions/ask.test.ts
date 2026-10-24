@@ -168,7 +168,7 @@ describe('the brief\'s example: "What jobs did technician Ali complete last week
     })
     expect(String(first.input[0].content)).toContain('Nurul Huda, Manager. They cover: Shah Alam.')
     expect(first.tools.map((x) => x.name)).toEqual([
-      'kpi_summary', 'technician_leaderboard', 'branch_comparison', 'trend', 'technician_events', 'job_list',
+      'kpi_summary', 'technician_leaderboard', 'branch_comparison', 'workload_insights', 'trend', 'technician_events', 'job_list',
       'payment_list', 'reply_out_of_scope', 'reply_cannot_change_data', 'reply_clarify',
     ])
     expect(first.tools.every((x) => x.strict)).toBe(true)
@@ -330,6 +330,40 @@ describe('limits end in fixed sentences (PRD Q10)', () => {
     })
     await t.run('Jobs since 2024?')
     expect(t.result()).toMatchObject({ kind: 'refused', answer: 'Choose a period of up to a year.' })
+  })
+})
+
+describe('workload insights (0009)', () => {
+  const BALA_BUSY = {
+    kind: 'busy', technician_id: 's-bala', technician_name: 'Bala', technician_active: true, branch_id: 'b-sa',
+    branch_name: 'Shah Alam', value: 11, previous: null, team_average: 5, days: null,
+  }
+
+  it('answers "Who might be overloaded this week?" from insight_facts, with the rows as a table', async () => {
+    const t = setup({
+      rpcs: { insight_facts: () => ({ data: [BALA_BUSY], error: null }) },
+      script: [
+        [fc('workload_insights', { period: period('this_week'), branch: null })],
+        [say('Bala completed 11 jobs this week (19–25 Oct 2026), well above the team average of 5.')],
+      ],
+    })
+    await t.run('Which technician might be overloaded this week?')
+    expect(t.calls.at(-1)).toEqual({ fn: 'insight_facts', args: { p_start: '2026-10-19', p_end: '2026-10-26', p_branch_id: null } })
+    const r = t.result()!
+    expect(r.answer).toContain('Bala completed 11 jobs')
+    expect(r.tables[0]).toMatchObject({ kind: 'insights', rows: [BALA_BUSY] })
+    expect(r.found).toEqual(['Looked up: workload insights · all your branches · this week (19–25 Oct 2026) · 1 insight'])
+    expect(JSON.stringify(t.requests[1].input)).not.toContain('s-bala')
+  })
+
+  it('tells Finance and technicians that insights are for Managers and Admins', async () => {
+    const t = setup({
+      me: { id: 's-siti', name: 'Siti Aminah', role: 'finance', branch_name: 'Kuala Lumpur', active: true },
+      rpcs: { insight_facts: () => ({ data: null, error: { message: 'Insights are for Managers and Admins' } }) },
+      script: [[fc('workload_insights', { period: period('this_week'), branch: null })]],
+    })
+    await t.run('Who is overloaded?')
+    expect(t.result()).toMatchObject({ kind: 'refused', answer: 'Workload insights are for Managers and Admins.' })
   })
 })
 

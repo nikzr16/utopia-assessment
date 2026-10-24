@@ -152,3 +152,53 @@ export function formatFileSize(bytes: number): string {
   if (bytes < MB) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / MB).toFixed(1)} MB`
 }
+
+// ---------------------------------------------------------------------------
+// The order form (0009): the paper form an Admin read with "Read from photo",
+// kept with the order. Mirrors `_order_form_order` and
+// `_order_form_write_error` in
+// `supabase/migrations/20261024000002_ai_advanced.sql`.
+// ---------------------------------------------------------------------------
+/** Types "Read from photo" accepts: a photo or a PDF (HEIC is not read). */
+export const ORDER_FORM_TYPES: Readonly<Record<string, { kind: AttachmentKind; ext: string }>> = {
+  'image/jpeg': { kind: 'photo', ext: 'jpg' },
+  'image/png': { kind: 'photo', ext: 'png' },
+  'image/webp': { kind: 'photo', ext: 'webp' },
+  'application/pdf': { kind: 'pdf', ext: 'pdf' },
+}
+export const ORDER_FORM_ACCEPT = Object.keys(ORDER_FORM_TYPES).join(',')
+export const ORDER_FORM_MAX_BYTES = 10 * MB
+export const ORDER_FORM_MAX_PAGES = 3
+export const ORDER_FORM_TYPE_MESSAGE = 'Use a photo (JPG, PNG or WebP) or a PDF'
+export const ORDER_FORM_SIZE_MESSAGE = 'The file can be at most 10 MB'
+export const ORDER_FORM_PAGES_MESSAGE = `The PDF can have at most ${ORDER_FORM_MAX_PAGES} pages`
+
+/** Type and size rule for "Read from photo". */
+export function checkOrderFormFile(mime: string, size: number): FileCheck {
+  const type = ORDER_FORM_TYPES[normalizeMimeType(mime)]
+  if (!type) return { ok: false, error: ORDER_FORM_TYPE_MESSAGE }
+  if (!(size > 0)) return { ok: false, error: FILE_EMPTY_MESSAGE }
+  if (size > ORDER_FORM_MAX_BYTES) return { ok: false, error: ORDER_FORM_SIZE_MESSAGE }
+  return { ok: true, kind: type.kind }
+}
+
+const ORDER_FORM_PATH = new RegExp(`^(${UUID})/form/${UUID}\.[a-z0-9]{1,5}$`)
+
+/** Where the order form is stored: `<order id>/form/<file id>.<ext>`. */
+export function orderFormPath(orderId: string, fileId: string, mime: string): string {
+  const ext = ORDER_FORM_TYPES[normalizeMimeType(mime)]?.ext ?? 'bin'
+  return `${orderId}/form/${fileId}.${ext}`
+}
+
+/** The order an order-form path belongs to, or null. Mirrors `_order_form_order`. */
+export function orderFormOrder(path: string): string | null {
+  return ORDER_FORM_PATH.exec(path)?.[1] ?? null
+}
+
+/** Statuses in which an Admin may replace or remove the order form (plan P8). */
+export const ORDER_FORM_STATUSES: readonly OrderStatus[] = ['new', 'assigned', 'acknowledged']
+
+/** Who may change the order form, and when. Mirrors `_order_form_write_error`. */
+export function canChangeOrderForm(status: OrderStatus, role: StaffRole): boolean {
+  return role === 'admin' && ORDER_FORM_STATUSES.includes(status)
+}

@@ -30,6 +30,8 @@ vi.mock('../../src/features/kpi/api', async (importOriginal) => {
     fetchKpiTrend: vi.fn(),
     fetchKpiTechnicianEvents: vi.fn(),
     fetchKpiBranchOptions: vi.fn(),
+    fetchInsightFacts: vi.fn(),
+    fetchInsightWording: vi.fn(),
   }
 })
 vi.mock('../../src/features/kpi/download', () => ({ downloadTextFile: vi.fn() }))
@@ -225,6 +227,8 @@ beforeEach(() => {
   m.fetchKpiTrend.mockReset().mockImplementation(async (unit, _end, count) => trend(count, unit))
   m.fetchKpiTechnicianEvents.mockReset().mockResolvedValue(EVENTS)
   m.fetchKpiBranchOptions.mockReset().mockResolvedValue(BRANCHES)
+  m.fetchInsightFacts.mockReset().mockResolvedValue([])
+  m.fetchInsightWording.mockReset().mockResolvedValue({ sentences: [], tip: null, source: 'fixed' })
   download.mockReset()
   vi.mocked(jobsApi.fetchMyJobs).mockReset().mockResolvedValue([])
   vi.mocked(notificationsApi.fetchUnreadCount).mockReset().mockResolvedValue(0)
@@ -793,5 +797,74 @@ describe('Header links and who may open what (AC1, AC13)', () => {
     expect(await screen.findByRole('heading', { name: 'Review queue' })).toBeTruthy()
     expect(window.location.pathname).toBe('/review')
     expect(m.fetchKpiSummary).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 0009 Operational Insight
+// ---------------------------------------------------------------------------
+describe('Dashboard: insights (0009)', () => {
+  const BUSY = {
+    kind: 'busy' as const,
+    technicianId: 't-bala',
+    technicianName: 'Bala',
+    technicianActive: true,
+    branchId: 'b-sa',
+    branchName: 'Shah Alam',
+    value: 11,
+    previous: null,
+    teamAverage: 5,
+    days: null,
+  }
+  const BACKLOG = { ...BUSY, kind: 'review_backlog' as const, technicianId: null, technicianName: null, technicianActive: null, value: 6, teamAverage: null, days: 4 }
+
+  it('shows the facts at once, then the AI wording and a tip', async () => {
+    m.fetchInsightFacts.mockResolvedValue([BUSY, BACKLOG])
+    let answer: (w: api.InsightWording) => void = () => {}
+    m.fetchInsightWording.mockImplementation(() => new Promise((r) => (answer = r)))
+    renderDashboard('/dashboard', 'manager')
+    const card = await screen.findByRole('region', { name: 'Insights' })
+    expect(
+      await within(card).findByText(/Bala completed 11 jobs this week \(.+\), well above the team average of 5.0\./),
+    ).toBeTruthy()
+    expect(within(card).getByText("6 jobs in Shah Alam have waited more than 2 days for a Manager's review (oldest 4 days).")).toBeTruthy()
+    expect(within(card).getByText('Asking the AI to word these…')).toBeTruthy()
+    expect(m.fetchInsightWording).toHaveBeenCalledWith(expect.any(String), expect.any(String), null, expect.stringMatching(/^this week \(/))
+
+    answer({
+      sentences: [
+        { fact: 0, text: 'Bala has done 11 jobs this week, more than double the team average of 5.0.', ai: true },
+        { fact: 1, text: "6 jobs in Shah Alam have waited more than 2 days for a Manager's review (oldest 4 days).", ai: false },
+      ],
+      tip: 'Consider giving some of Bala’s jobs to Yusoff.',
+      source: 'ai',
+    })
+    expect(await within(card).findByText('Bala has done 11 jobs this week, more than double the team average of 5.0.')).toBeTruthy()
+    expect(within(card).getByText('Consider giving some of Bala’s jobs to Yusoff.')).toBeTruthy()
+    expect(within(card).getByText(/Worded by AI from the numbers above/)).toBeTruthy()
+    expect(within(card).getByRole('link', { name: 'See their numbers' }).getAttribute('href')).toMatch(/^\/dashboard\/technicians\/t-bala\?/)
+  })
+
+  it('keeps the plain facts when the AI wording is not available', async () => {
+    m.fetchInsightFacts.mockResolvedValue([BUSY])
+    m.fetchInsightWording.mockRejectedValue(new Error('The assistant is not set up yet.'))
+    renderDashboard('/dashboard', 'admin')
+    const card = await screen.findByRole('region', { name: 'Insights' })
+    expect(await within(card).findByText('AI wording is not available right now; these are the plain facts.')).toBeTruthy()
+    expect(within(card).getByText(/Bala completed 11 jobs/)).toBeTruthy()
+  })
+
+  it('says when nothing stands out, without asking the AI', async () => {
+    renderDashboard('/dashboard', 'admin')
+    const card = await screen.findByRole('region', { name: 'Insights' })
+    expect(await within(card).findByText('Nothing stands out for this period.')).toBeTruthy()
+    expect(m.fetchInsightWording).not.toHaveBeenCalled()
+  })
+
+  it('is not shown to Finance', async () => {
+    renderDashboard('/dashboard', 'finance')
+    await screen.findByRole('table', { name: 'Technician leaderboard' })
+    expect(screen.queryByRole('region', { name: 'Insights' })).toBeNull()
+    expect(m.fetchInsightFacts).not.toHaveBeenCalled()
   })
 })

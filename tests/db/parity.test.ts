@@ -68,6 +68,21 @@ import {
   weekStartOf,
 } from '../../src/domain'
 import { addTechnician, approvedJob, myt, num, prepareKpiDb, technicians, trend, week } from './kpiHelpers'
+import {
+  INSIGHT_LIMITS,
+  ORDER_FORM_STATUSES,
+  SUPERVISOR_LIMITS,
+  WARNING_RULES,
+  approveWarningsBlock,
+  canChangeOrderForm,
+  isBusy,
+  isOverQuote,
+  isQuiet,
+  orderFormOrder,
+  orderFormPath,
+  ratingDropped,
+  reschedulesUp,
+} from '../../src/domain'
 
 let t: TestDb
 beforeAll(async () => {
@@ -1120,4 +1135,97 @@ describe('Rules parity: leaderboard ranking (src/domain/kpi.ts competitionRanks 
     expect(rows.map((r) => r.rank)).toEqual(competitionRanks(asRows))
     expect(rows.map((r) => r.rank)).toEqual([1, 2, 2, 4, 5, 5])
   })
+})
+
+describe('Rules parity: supervisor limits (src/domain/supervisor.ts = 0009 migration)', () => {
+  it('isOverQuote = _supervisor_over_quote around both limits', async () => {
+    expect(SUPERVISOR_LIMITS).toMatchObject({ overQuoteRatio: 1.5, overQuoteMinimum: 100, returns: 2, reschedules: 3 })
+    const cases: [number, number][] = [
+      [0, 0], [0, 99.99], [0, 100], [100, 150], [100, 199.99], [100, 200], [200, 299.99], [200, 300],
+      [250, 374.99], [250, 375], [350, 980], [500, 650], [500, 750], [1000, 1499.99], [1000, 1500],
+    ]
+    for (const [quote, final] of cases) {
+      const [row] = await t.q<{ v: boolean }>('select _supervisor_over_quote($1, $2) as v', [quote, final])
+      expect({ quote, final, v: row.v }).toEqual({ quote, final, v: isOverQuote(quote, final) })
+    }
+  })
+
+  it('has the same rules and the same approve message', async () => {
+    const [c] = await t.q<{ def: string }>(
+      `select pg_get_constraintdef(oid) as def from pg_constraint where conname = 'order_warnings_rule_check'`,
+    )
+    for (const rule of WARNING_RULES) expect(c.def).toContain(`'${rule}'`)
+    const [g] = await t.q<{ src: string }>(`select prosrc as src from pg_proc where proname = 'orders_open_warnings_guard'`)
+    expect(g.src).toContain(approveWarningsBlock(2)!.replace('(2 open)', '(% open)'))
+  })
+})
+
+describe('Rules parity: insight limits (src/domain/insights.ts = 0009 migration)', () => {
+  it('busy / quiet agree around the team average', async () => {
+    expect(INSIGHT_LIMITS).toMatchObject({ busyRatio: 1.5, quietRatio: 0.5, jobsApart: 3 })
+    for (const average of [0, 1, 2, 2.5, 3.3, 4.2, 6, 6.7, 10]) {
+      for (let jobs = 0; jobs <= 20; jobs++) {
+        const [row] = await t.q<{ busy: boolean; quiet: boolean }>(
+          'select _insight_busy($1, $2) as busy, _insight_quiet($1, $2) as quiet',
+          [jobs, average],
+        )
+        expect({ jobs, average, ...row }).toEqual({ jobs, average, busy: isBusy(jobs, average), quiet: isQuiet(jobs, average) })
+      }
+    }
+  })
+
+  it('rising reschedules and rating drops agree', async () => {
+    for (let before = 0; before <= 6; before++) {
+      for (let now = 0; now <= 14; now++) {
+        const [row] = await t.q<{ v: boolean }>('select _insight_reschedules_up($1, $2) as v', [now, before])
+        expect({ now, before, v: row.v }).toEqual({ now, before, v: reschedulesUp(now, before) })
+      }
+    }
+    for (const [now, nowRated, prev, prevRated] of [
+      [3.6, 3, 4.6, 3], [3.7, 3, 4.6, 3], [2, 5, 5, 2], [2, 2, 5, 5], [1, 10, 5, 10], [4.5, 4, 4.5, 4], [3.2, 3, 4.2, 3],
+    ]) {
+      const [row] = await t.q<{ v: boolean }>('select _insight_rating_drop($1, $2, $3, $4) as v', [now, nowRated, prev, prevRated])
+      expect({ now, prev, v: row.v }).toEqual({ now, prev, v: ratingDropped(now, nowRated, prev, prevRated) })
+    }
+  })
+})
+
+describe('Rules parity: order form file (src/domain/attachments.ts = _order_form_order / _order_form_write_error)', () => {
+  it('reads the same paths', async () => {
+    const order = '0b7f8a1e-6c2d-4e3f-9a8b-1c2d3e4f5a6b'
+    const file = '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f'
+    for (const path of [
+      orderFormPath(order, file, 'image/jpeg'),
+      orderFormPath(order, file, 'application/pdf'),
+      `${order}/${file}.jpg`,
+      `${order}/receipts/${file}.jpg`,
+      `${order}/form/${file}`,
+      `${order}/form/x/${file}.jpg`,
+    ]) {
+      const [row] = await t.q<{ v: string | null }>('select _order_form_order($1)::text as v', [path])
+      expect({ path, v: row.v }).toEqual({ path, v: orderFormOrder(path) })
+    }
+  })
+
+  it('lets the same roles change it in the same statuses', async () => {
+    expect([...ORDER_FORM_STATUSES]).toEqual(['new', 'assigned', 'acknowledged'])
+    const order = await t.createOrder({ technician: t.people.ali })
+    const actors: Array<[string, StaffRole]> = [
+      [t.people.ali, 'technician'],
+      [t.people.admin, 'admin'],
+      [t.people.managerSA, 'manager'],
+      [t.people.finance, 'finance'],
+    ]
+    for (const status of ORDER_STATUSES) {
+      for (const [staffId, role] of actors) {
+        const rows = await t.q<{ allowed: boolean }>(
+          `select _order_form_write_error(s, jsonb_populate_record(o, jsonb_build_object('status', $3::text))) is null as allowed
+             from staff s, orders o where s.id = $1 and o.id = $2`,
+          [staffId, order.id, status],
+        )
+        expect({ status, role, allowed: rows[0].allowed }).toEqual({ status, role, allowed: canChangeOrderForm(status, role) })
+      }
+    }
+  })
+
 })

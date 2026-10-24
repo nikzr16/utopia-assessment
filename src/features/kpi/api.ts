@@ -1,4 +1,5 @@
-import type { StaffRole } from '../../domain'
+import type { InsightFact, InsightKind, StaffRole } from '../../domain'
+import { callAiAssist } from '../../lib/aiAssist'
 import { client, run, toNumber } from '../../lib/api'
 
 export { ApiError } from '../../lib/api'
@@ -217,4 +218,47 @@ export async function fetchKpiBranchOptions(role: StaffRole): Promise<KpiBranchO
   if (role === 'technician') return []
   if (role === 'manager') return ((await run(client().rpc('covered_branches'))) as KpiBranchOption[]) ?? []
   return ((await run(client().from('branches').select('id, name').order('name'))) as KpiBranchOption[]) ?? []
+}
+
+// ---------------------------------------------------------------------------
+// 0009: Operational Insight (Managers and Admins)
+// ---------------------------------------------------------------------------
+/** What stands out in the period (`insight_facts`). */
+export async function fetchInsightFacts(start: string, end: string, branchId: string | null): Promise<InsightFact[]> {
+  const rows = (await run(
+    client().rpc('insight_facts', { p_start: start, p_end: end, p_branch_id: branchId }),
+  )) as Record<string, unknown>[] | null
+  return (rows ?? []).map((r) => ({
+    kind: r.kind as InsightKind,
+    technicianId: (r.technician_id as string | null) ?? null,
+    technicianName: (r.technician_name as string | null) ?? null,
+    technicianActive: (r.technician_active as boolean | null) ?? null,
+    branchId: (r.branch_id as string | null) ?? null,
+    branchName: (r.branch_name as string | null) ?? null,
+    value: toNumber(r.value),
+    previous: nullableNumber(r.previous),
+    teamAverage: nullableNumber(r.team_average),
+    days: nullableNumber(r.days),
+  }))
+}
+
+export interface InsightWording {
+  /** One per fact, in the facts' order; `ai` false = the fixed sentence. */
+  sentences: { fact: number; text: string; ai: boolean }[]
+  tip: string | null
+  source: 'ai' | 'fixed'
+}
+
+/** The AI's wording of the facts (saved and reused until they change); 20-second limit. */
+export async function fetchInsightWording(
+  start: string,
+  end: string,
+  branchId: string | null,
+  periodPhrase: string,
+): Promise<InsightWording> {
+  const reply = await callAiAssist<InsightWording>(
+    { action: 'word_insights', start, end, branch_id: branchId, period_label: periodPhrase },
+    20_000,
+  )
+  return { sentences: reply.sentences ?? [], tip: reply.tip ?? null, source: reply.source ?? 'fixed' }
 }

@@ -31,6 +31,8 @@ const ACTION_LABELS: Record<string, string> = {
   payment_unverified: 'Undid a payment verification',
   file_added: 'Added a file',
   file_removed: 'Removed a file',
+  order_form_added: 'Attached the paper order form',
+  order_form_removed: 'Removed the paper order form',
   customer_message_edited: 'Edited the customer message',
   customer_messaged: 'Sent the customer message on WhatsApp',
   customer_called: 'Told the customer by phone',
@@ -96,7 +98,10 @@ export function historyDetails(entry: HistoryEntry): string[] {
       return [`${formatMYR(Number(d.amount))} by ${PAYMENT_METHOD_LABELS[d.method as PaymentMethod] ?? String(d.method)}`]
     case 'file_added':
     case 'file_removed':
+    case 'order_form_removed':
       return [str(d.file_name) ?? String(d.kind ?? 'file')]
+    case 'order_form_added':
+      return [`${str(d.file_name) ?? String(d.kind ?? 'file')}${d.replaced ? ' (replaced the earlier one)' : ''}`]
     case 'completion_submitted':
       return [`Final amount ${formatMYR(Number(d.final_amount))}`]
     case 'customer_message_edited':

@@ -3,6 +3,7 @@ import { CARD, LINK } from '../../components/styles'
 import { formatMYR, formatMalaysiaDateTime, formatMyPhone } from '../../domain'
 import type { OrderSummary } from './api'
 import { staffName, useInactiveStaff } from '../../lib/staffStatus'
+import { OrderFormLink } from '../attachments/OrderFormLink'
 
 const PAYMENT_LABELS = { unpaid: 'Unpaid', partial: 'Partly paid', paid: 'Paid' } as const
 
@@ -48,6 +49,7 @@ export function OrderSummaryCard({ order }: { order: OrderSummary }) {
           </Item>
           <Item label="Created">{formatMalaysiaDateTime(order.created_at)}</Item>
         </dl>
+        <OrderFormLink orderId={order.id} />
       </section>
 
       <section className={CARD} aria-labelledby="summary-money">

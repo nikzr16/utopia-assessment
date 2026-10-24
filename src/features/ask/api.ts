@@ -39,6 +39,9 @@ export interface QuestionLogEntry {
   duration_ms: number | null
   input_tokens: number | null
   output_tokens: number | null
+  /** 0009: which AI feature (Ask, job check, order form, insights). */
+  feature?: 'ask' | 'supervisor' | 'form' | 'insights'
+  order_no?: string | null
 }
 
 /** Ask a question; `onEvent` gets each step, then the result or an error. */
@@ -129,7 +132,7 @@ export async function deleteChat(chatId: string): Promise<void> {
   await run(client().rpc('ask_delete_chat', { p_chat_id: chatId }))
 }
 
-/** The Admin Question log (last 7 days, newest first). */
+/** The Admin AI log (last 7 days, newest first; was the Question log in 0008). */
 export function fetchQuestionLog(): Promise<QuestionLogEntry[]> {
   return run(
     client().from('ask_log_entries').select('*').order('created_at', { ascending: false }).limit(500),

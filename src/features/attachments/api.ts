@@ -1,4 +1,4 @@
-import { JOB_FILES_BUCKET, type AttachmentKind } from '../../domain'
+import { JOB_FILES_BUCKET, orderFormPath, type AttachmentKind } from '../../domain'
 import { ApiError, client, run, toApiError, toNumber } from '../../lib/api'
 
 export { ApiError } from '../../lib/api'
@@ -20,6 +20,8 @@ export interface Attachment {
   size_bytes: number | null
   uploaded_by: string
   created_at: string
+  /** 0009: the paper order form read with "Read from photo" (not a job file). */
+  is_order_form?: boolean
 }
 
 /** Signed links last an hour; the gallery fetches new ones when it reloads. */
@@ -34,7 +36,7 @@ function toAttachment(row: Record<string, unknown>): Attachment {
   }
 }
 
-/** The job files of an order (not payment receipts), oldest first. */
+/** The job files of an order (not payment receipts or the order form), oldest first. */
 export async function fetchJobFiles(orderId: string): Promise<Attachment[]> {
   const rows = await run(
     client()
@@ -42,6 +44,7 @@ export async function fetchJobFiles(orderId: string): Promise<Attachment[]> {
       .select('*')
       .eq('order_id', orderId)
       .is('payment_id', null)
+      .eq('is_order_form', false)
       .order('created_at')
       .order('id'),
   )
@@ -115,5 +118,35 @@ export async function addAttachment(orderId: string, path: string, fileName: str
 /** Unregister a job file, then delete the stored file. */
 export async function removeAttachment(attachmentId: string): Promise<void> {
   const row = await run(client().rpc('remove_attachment', { p_attachment_id: attachmentId }))
+  await deleteStoredFile((row as { storage_path: string }).storage_path)
+}
+
+// ---------------------------------------------------------------------------
+// The order form (0009): uploaded only when the Admin saves (plan P2), at
+// `<order>/form/<uuid>.<ext>`, then registered with `set_order_form`.
+// ---------------------------------------------------------------------------
+/** The order's paper order form, if it has one. */
+export async function fetchOrderForm(orderId: string): Promise<Attachment | null> {
+  const rows = await run(
+    client().from('attachments').select('*').eq('order_id', orderId).eq('is_order_form', true).limit(1),
+  )
+  const row = (rows as Record<string, unknown>[])[0]
+  return row ? toAttachment(row) : null
+}
+
+/** Upload and register the order form; the one it replaced is deleted from Storage. */
+export async function saveOrderForm(orderId: string, file: Blob, mime: string, fileName: string, replacing: string | null): Promise<Attachment> {
+  const path = orderFormPath(orderId, crypto.randomUUID(), mime)
+  await uploadFile(path, file, mime)
+  const row = await run(
+    client().rpc('set_order_form', { p_order_id: orderId, p_storage_path: path, p_file_name: fileName }),
+  )
+  if (replacing && replacing !== path) await deleteStoredFile(replacing)
+  return toAttachment(row as Record<string, unknown>)
+}
+
+/** Remove the order form, then delete the stored file. */
+export async function removeOrderForm(orderId: string): Promise<void> {
+  const row = await run(client().rpc('remove_order_form', { p_order_id: orderId }))
   await deleteStoredFile((row as { storage_path: string }).storage_path)
 }
