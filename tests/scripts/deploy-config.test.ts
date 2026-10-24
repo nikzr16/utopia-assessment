@@ -6,7 +6,8 @@ import { parse } from 'yaml'
 // links, and tells search engines not to index; GitHub checks every change,
 // visits the live app after each production deploy, and wakes Supabase daily.
 
-const read = (path: string) => readFileSync(path, 'utf8')
+// Line endings normalised: a Windows checkout may turn LF into CRLF.
+const read = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n')
 const workflow = (name: string): any => parse(read(`.github/workflows/${name}.yml`))
 
 describe('vercel.json', () => {
@@ -53,11 +54,12 @@ describe('GitHub Actions', () => {
     ])
   })
 
-  it('live-check: runs after a successful Production deployment (or by hand) with LIVE_URL', () => {
+  it("live-check: runs on Vercel's production deployment success (or by hand) with LIVE_URL", () => {
     const live = workflow('live-check')
-    expect(Object.keys(live.on)).toEqual(['deployment_status', 'workflow_dispatch'])
-    expect(live.jobs.visit.if).toContain("github.event.deployment_status.state == 'success'")
-    expect(live.jobs.visit.if).toContain("github.event.deployment.environment == 'Production'")
+    expect(Object.keys(live.on)).toEqual(['repository_dispatch', 'workflow_dispatch'])
+    expect(live.on.repository_dispatch.types).toEqual(['vercel.deployment.success'])
+    expect(live.jobs.visit.if).toContain("github.event_name == 'workflow_dispatch'")
+    expect(live.jobs.visit.if).toContain("github.event.client_payload.environment == 'production'")
     const run = live.jobs.visit.steps.find((s: { run?: string }) => s.run === 'npm run live-check')
     expect(run.env).toEqual({ LIVE_URL: '${{ vars.LIVE_URL }}' })
     expect(JSON.parse(read('package.json')).scripts['live-check']).toBe('node scripts/live-check.ts')

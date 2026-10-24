@@ -68,8 +68,9 @@ the production domains to it.
 
 ### 3. Robot visit (`live-check`)
 
-**Input:** GitHub `deployment_status` from Vercel with state `success` and
-environment `Production` (or a hand start).
+**Input:** Vercel's `repository_dispatch` event `vercel.deployment.success`
+with `client_payload.environment` = `production` (a preview's success is
+skipped), or a hand start (decision 0019).
 **Actions:** checks out `main`, installs Chromium, runs
 `npm run live-check` with `LIVE_URL`: a headless browser at phone size
 (390 × 844) opens the home page (sign-in form seen, no set-up notice),
@@ -128,9 +129,10 @@ Ask the person who runs the system." and sends nothing.
 
 ## Behavioral Constraints
 
-- GitHub runs `deployment_status` and `schedule` workflows only from the
+- GitHub runs `repository_dispatch` and `schedule` workflows only from the
   default branch (`main`), so `live-check` and `keep-awake` work once they
-  are on `main`.
+  are on `main`. Vercel does not send `deployment_status` events for this
+  project.
 - Preview and production share one Supabase project: test data made on any
   copy is visible on live and is cleaned up after each check.
 - Feedback links always use the live address (`feedback_link_base`), also
@@ -151,3 +153,4 @@ Ask the person who runs the system." and sends nothing.
 | `docs/0006-staff-management-workflow.md` | Workflow | Invite and reset emails |
 | `docs/reference/folder-structure.md` | Reference | File locations of workflow components |
 | `docs/decisions/0018-production-deployment-implementation-details.md` | Decision log | Deviations from original plan captured here |
+| `docs/decisions/0019-live-check-vercel-repository-dispatch.md` | Decision log | The robot visit starts from Vercel's `repository_dispatch` |
