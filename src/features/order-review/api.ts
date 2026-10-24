@@ -36,6 +36,8 @@ export interface OrderReview extends OrderSummary {
   completion_technician_id?: string | null
   reviewed_by_id?: string | null
   closed_by_id?: string | null
+  /** 0009: open supervisor warnings (the Manager's To review list only). */
+  open_warnings?: number
 }
 
 /** Who approved and closed an order, and when (shown to Admins and technicians too). */

@@ -10,3 +10,9 @@ verify_jwt = false
 #   npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api
 [functions.ask]
 verify_jwt = false
+
+# 0009: the AI supervisor check, order form reading and insight wording
+# (checks the caller's token, or the database's shared secret, itself):
+#   npx supabase functions deploy ai-assist --project-ref <ref> --no-verify-jwt --use-api
+[functions.ai-assist]
+verify_jwt = false

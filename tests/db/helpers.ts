@@ -446,19 +446,38 @@ export async function createTestDb(options: CreateTestDbOptions = {}): Promise<T
     return rows[0]
   }
 
-  const transition = (
+  const transition = async (
     actor: string,
     orderId: string,
     to: string,
     note?: string | null,
     technician?: string | null,
-  ): Promise<Row> =>
-    rpcAs(actor, 'transition_order', {
+  ): Promise<Row> => {
+    // 0009: Approve needs every supervisor warning checked; tests that are not
+    // about warnings check them first (tests/db/supervisor.test.ts calls
+    // transition_order directly).
+    if (to === 'reviewed') await checkOpenWarnings(orderId, actor)
+    return rpcAs(actor, 'transition_order', {
       p_order_id: orderId,
       p_to_status: to,
       p_note: note ?? null,
       p_technician_id: technician ?? null,
     })
+  }
+
+  /**
+   * Mark an order's open supervisor warnings checked (as the database owner;
+   * no-op before the 0009 migration).
+   */
+  const checkOpenWarnings = async (orderId: string, checkedBy: string): Promise<void> => {
+    if ((await q<{ v: string | null }>(`select to_regclass('order_warnings')::text as v`))[0].v === null) return
+    await q(
+      `update order_warnings
+          set status = 'checked', checked_by = $2, checked_at = now(), check_note = 'Checked in test'
+        where order_id = $1 and status = 'open'`,
+      [orderId, checkedBy],
+    )
+  }
 
   const filePath = (orderId: string, opts: { receipt?: boolean; ext?: string } = {}) =>
     `${orderId}/${opts.receipt ? 'receipts/' : ''}${randomUUID()}.${opts.ext ?? 'jpg'}`

@@ -41,10 +41,10 @@ export function AdminPortal({ branchName }: { branchName: string | null }) {
           Dashboard
         </NavLink>
         <NavLink
-          to="/question-log"
+          to="/ai-log"
           className={({ isActive }) => `${TAB} ${isActive ? 'bg-sky-100 text-sky-900' : 'text-slate-700 hover:bg-slate-100'}`}
         >
-          Question log
+          AI log
         </NavLink>
       </nav>
       <Routes>
@@ -60,7 +60,9 @@ export function AdminPortal({ branchName }: { branchName: string | null }) {
           path="/dashboard/*"
           element={<DashboardRoutes role="admin" orderPath={(orderNo) => `/orders/${encodeURIComponent(orderNo)}`} />}
         />
-        <Route path="/question-log" element={<QuestionLogPage />} />
+        <Route path="/ai-log" element={<QuestionLogPage />} />
+        {/* 0008's address keeps working. */}
+        <Route path="/question-log" element={<Navigate to="/ai-log" replace />} />
         <Route path="*" element={<Navigate to="/orders" replace />} />
       </Routes>
       <AskAssistant role="admin" orderPath={(orderNo) => `/orders/${encodeURIComponent(orderNo)}`} />

@@ -14,6 +14,8 @@ import { OrderReviewPage, ReviewOutcome } from '../../src/features/order-review'
 import * as api from '../../src/features/order-review/api'
 import type { OrderReview } from '../../src/features/order-review/api'
 import * as ordersApi from '../../src/features/orders/api'
+import * as supervisorApi from '../../src/features/supervisor/api'
+import type { OrderWarning } from '../../src/features/supervisor/api'
 import { OrderHistory } from '../../src/features/orders/OrderHistory'
 import { ReviewQueuePage } from '../../src/features/review/ReviewQueuePage'
 import type { Payment } from '../../src/lib/orderRecords'
@@ -38,6 +40,15 @@ vi.mock('../../src/features/order-review/api', async (importOriginal) => {
     recordPayment: vi.fn(),
   }
 })
+// 0009: the order page's Warnings box and the queue's warning counts.
+vi.mock('../../src/features/supervisor/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/features/supervisor/api')>()),
+  fetchOrderWarnings: vi.fn(async () => ({ warnings: [], run: null })),
+  fetchOpenWarningCounts: vi.fn(async () => ({})),
+  subscribeToWarnings: vi.fn(() => () => {}),
+  checkWarning: vi.fn(),
+  recheckOrder: vi.fn(),
+}))
 vi.mock('../../src/features/orders/api', async (importOriginal) => {
   const actual = await importOriginal<typeof ordersApi>()
   return { ...actual, fetchOrderRecords: vi.fn() }
@@ -68,6 +79,7 @@ vi.mock('../../src/features/notifications/api', async (importOriginal) => {
 
 const m = vi.mocked(api)
 const messages = vi.mocked(messagesApi)
+const sup = vi.mocked(supervisorApi)
 
 function makeReview(overrides: Partial<OrderReview> = {}): OrderReview {
   return {
@@ -298,6 +310,149 @@ describe('Manager review page (AC6–AC9)', () => {
       </MemoryRouter>,
     )
     expect(await screen.findByText('There is no order ORDER9999 in the branches you cover.')).toBeTruthy()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 0009 Workflow Supervisor
+// ---------------------------------------------------------------------------
+function warning(overrides: Partial<OrderWarning> = {}): OrderWarning {
+  return {
+    id: 'w-1',
+    order_id: 'o-1',
+    seq: 1,
+    rule: 'over_quote',
+    source: 'rule',
+    message: 'Final amount RM 980.00 is 180% above the quoted RM 350.00.',
+    status: 'open',
+    opened_at: '2026-10-22T07:15:00Z',
+    checked_by: null,
+    checked_by_name: null,
+    checked_at: null,
+    check_note: null,
+    ...overrides,
+  }
+}
+const AI_WARNING = warning({
+  id: 'w-2',
+  seq: 2,
+  rule: 'ai_text',
+  source: 'ai',
+  message: 'Work done describes a compressor replacement, but the service is Cleaning with no extra charge.',
+})
+
+describe('Supervisor warnings (0009)', () => {
+  beforeEach(() => {
+    m.fetchOrderReview.mockResolvedValue(makeReview({ latest_message_status: 'sent' }))
+    messages.fetchLatestCustomerMessage.mockResolvedValue(
+      makeCustomerMessage({ status: 'sent', confirmed_by_name: 'Ali', confirmed_at: '2026-10-22T07:20:00Z' }),
+    )
+  })
+
+  it('holds Approve until each warning is checked with a note, then lets the Manager approve', async () => {
+    let checked = false
+    sup.fetchOrderWarnings.mockImplementation(async () => ({
+      warnings: [
+        checked
+          ? warning({
+              status: 'checked',
+              checked_by: 's-nurul',
+              checked_by_name: 'Nurul Huda',
+              checked_at: '2026-10-22T08:00:00Z',
+              check_note: 'Customer agreed to the new part',
+            })
+          : warning(),
+      ],
+      run: { id: 'r-1', status: 'done', trigger: 'job_done', created_at: '2026-10-22T07:15:00Z', finished_at: '2026-10-22T07:15:05Z' },
+    }))
+    sup.checkWarning.mockImplementation(async () => {
+      checked = true
+    })
+    const user = userEvent.setup()
+    await renderPage('manager')
+    const box = await screen.findByRole('region', { name: /Warnings/ })
+    expect(within(box).getByText('Final amount RM 980.00 is 180% above the quoted RM 350.00.')).toBeTruthy()
+    expect(within(box).getByText('1 to check')).toBeTruthy()
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Approve job' }) as HTMLButtonElement).disabled).toBe(true))
+    expect(screen.getByText(/Check every warning before approving \(1 open\)/)).toBeTruthy()
+
+    await user.click(within(box).getByRole('button', { name: 'Mark as checked' }))
+    await user.type(within(box).getByLabelText('What did you check?'), 'ok')
+    await user.click(within(box).getByRole('button', { name: 'Save check' }))
+    expect(within(box).getByText('Write a short note (at least 3 characters)')).toBeTruthy()
+    expect(sup.checkWarning).not.toHaveBeenCalled()
+    await user.type(within(box).getByLabelText('What did you check?'), ' - customer agreed to the new part')
+    await user.click(within(box).getByRole('button', { name: 'Save check' }))
+    expect(sup.checkWarning).toHaveBeenCalledWith('w-1', 'ok - customer agreed to the new part')
+    expect(await within(box).findByText(/Checked by Nurul Huda/)).toBeTruthy()
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Approve job' }) as HTMLButtonElement).disabled).toBe(false))
+  })
+
+  it('labels AI warnings, says when the AI check did not run, and re-checks', async () => {
+    sup.fetchOrderWarnings.mockResolvedValue({
+      warnings: [AI_WARNING],
+      run: { id: 'r-1', status: 'failed', trigger: 'job_done', created_at: '2026-10-22T07:15:00Z', finished_at: null },
+    })
+    sup.recheckOrder.mockResolvedValue()
+    const user = userEvent.setup()
+    await renderPage('manager')
+    const box = await screen.findByRole('region', { name: /Warnings/ })
+    expect(within(box).getByText('AI')).toBeTruthy()
+    expect(within(box).getByText("AI check didn't run. Press Re-check to try again.")).toBeTruthy()
+    await user.click(within(box).getByRole('button', { name: 'Re-check with AI' }))
+    expect(sup.recheckOrder).toHaveBeenCalledWith('o-1')
+  })
+
+  it('says the AI check is running and disables Re-check meanwhile', async () => {
+    sup.fetchOrderWarnings.mockResolvedValue({
+      warnings: [],
+      run: { id: 'r-2', status: 'running', trigger: 'recheck', created_at: '2026-10-22T07:16:00Z', finished_at: null },
+    })
+    await renderPage('manager')
+    const box = await screen.findByRole('region', { name: /Warnings/ })
+    expect(await within(box).findByText('AI check running…')).toBeTruthy()
+    expect((within(box).getByRole('button', { name: 'Re-check with AI' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows Finance the warnings and who checked them, without buttons', async () => {
+    m.fetchOrderReview.mockResolvedValue(makeReview({ status: 'reviewed', reviewed_at: '2026-10-22T09:00:00Z' }))
+    sup.fetchOrderWarnings.mockResolvedValue({
+      warnings: [
+        warning({
+          status: 'checked',
+          checked_by: 's-nurul',
+          checked_by_name: 'Nurul Huda',
+          checked_at: '2026-10-22T08:00:00Z',
+          check_note: 'Agreed by phone',
+        }),
+      ],
+      run: null,
+    })
+    await renderPage('finance')
+    const box = await screen.findByRole('region', { name: /Warnings/ })
+    expect(await within(box).findByText(/Agreed by phone/)).toBeTruthy()
+    expect(within(box).queryByRole('button')).toBeNull()
+  })
+
+  it('counts open warnings in the To review list and filters to them', async () => {
+    m.fetchManagerOrders.mockResolvedValue([makeReview(), makeReview({ id: 'o-2', order_no: 'ORDER1002' })])
+    sup.fetchOpenWarningCounts.mockResolvedValue({ 'o-1': 2 })
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/review']}>
+        <Routes>
+          <Route path="/review" element={<ReviewQueuePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const table = await screen.findByRole('table', { name: 'To review' })
+    expect(await within(table).findByText('2 warnings')).toBeTruthy()
+    expect(within(table).getByRole('link', { name: 'ORDER1002' })).toBeTruthy()
+    await user.click(screen.getByRole('link', { name: 'Only jobs with warnings' }))
+    await waitFor(() =>
+      expect(within(screen.getByRole('table', { name: 'To review' })).queryByRole('link', { name: 'ORDER1002' })).toBeNull(),
+    )
+    expect(sup.fetchOpenWarningCounts).toHaveBeenCalledWith(['o-1', 'o-2'])
   })
 })
 

@@ -4,6 +4,7 @@ import { LINK } from '../../components/styles'
 import { STATUS_LABELS, canEditOrder, orderToFormValues } from '../../domain'
 import { fetchOrder, fetchReferenceData, updateOrder } from './api'
 import { OrderForm } from './OrderForm'
+import { OrderFormEditor } from './OrderFormEditor'
 import { useLoad } from '../../lib/useLoad'
 
 async function loadForEdit(orderNo: string) {
@@ -70,7 +71,8 @@ export function EditOrderPage() {
       {order.technician_name ? (
         <p className="mt-1 text-sm text-slate-600">{order.technician_name} will be notified of the changes.</p>
       ) : null}
-      <div className="mt-4">
+      <div className="mt-4 space-y-4">
+        <OrderFormEditor orderId={order.id} />
         <OrderForm
           // A fresh form whenever the order is reloaded (e.g. after a conflict).
           key={order.updated_at}

@@ -17,7 +17,7 @@ import type { AskTable, TableKind } from './types'
  * with no value in any row are left out. Orders link to the person's portal.
  */
 
-type Format = 'order' | 'status' | 'money' | 'datetime' | 'date' | 'text' | 'number' | 'rating' | 'kind' | 'reason' | 'method' | 'person'
+type Format = 'order' | 'status' | 'money' | 'datetime' | 'date' | 'text' | 'number' | 'rating' | 'kind' | 'reason' | 'method' | 'person' | 'insight'
 
 interface Column {
   key: string
@@ -58,6 +58,11 @@ const COLUMNS: Record<Exclude<TableKind, 'summary'>, Column[]> = {
     c('collected', 'Collected', 'money'), c('reschedules', 'Reschedules', 'number'), c('returned', 'Returned', 'number'),
     c('average_rating', 'Rating', 'rating'), c('active_technicians', 'Active technicians', 'number'),
   ],
+  insights: [
+    c('kind', 'Insight', 'kind'), c('technician_name', 'Technician', 'person'), c('branch_name', 'Branch'),
+    c('value', 'Now', 'insight'), c('previous', 'Before', 'insight'), c('team_average', 'Team average', 'insight'),
+    c('days', 'Oldest (days)', 'number'),
+  ],
   trend: [
     c('period_start', 'From', 'date'), c('jobs_completed', 'Jobs', 'number'), c('total_amount', 'Amount', 'money'),
     c('reschedules', 'Reschedules', 'number'), c('average_rating', 'Rating', 'rating'),
@@ -75,6 +80,8 @@ const SUMMARY: Column[] = [
 const KIND_LABELS: Record<string, string> = {
   completed: 'Completed', rescheduled: 'Rescheduled', postponed: 'Postponed', returned: 'Returned for rework',
   recorded: 'Payment', unverified: 'Not verified', unpaid: 'Unpaid', partly_paid: 'Partly paid',
+  busy: 'Busy', quiet: 'Quiet', review_backlog: 'Waiting for review', reschedules_up: 'Rising reschedules',
+  rating_drop: 'Rating drop',
 }
 const METHOD_LABELS: Record<string, string> = { cash: 'Cash', bank_transfer: 'Bank transfer', card: 'Card', ewallet: 'E-wallet' }
 
@@ -100,6 +107,9 @@ function show(row: Record<string, unknown>, col: Column, orderPath: (orderNo: st
       return formatMalaysiaDate(`${String(v)}T00:00:00+08:00`)
     case 'number':
       return String(v)
+    case 'insight':
+      // Averages and ratings with one decimal (6.3, 2.0); counts as they are.
+      return col.key === 'team_average' || row.kind === 'rating_drop' ? Number(v).toFixed(1) : String(v)
     case 'rating':
       return `${Number(v).toFixed(col.key === 'average_rating' ? 1 : 0)} ★`
     case 'kind':

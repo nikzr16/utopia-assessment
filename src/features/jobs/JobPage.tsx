@@ -16,7 +16,7 @@ import {
   formatMyPhone,
   type OrderStatus,
 } from '../../domain'
-import { JobFiles, PaymentList } from '../attachments'
+import { JobFiles, OrderFormLink, PaymentList } from '../attachments'
 import { CustomerMessagePanel } from '../customer-messages'
 import { FeedbackCard } from '../feedback'
 import { ReviewOutcome } from '../order-review'
@@ -198,6 +198,7 @@ export function JobPage() {
           {job.admin_notes ? <Row label="Notes from the office">{job.admin_notes}</Row> : null}
           <Row label="Branch">{job.branch_name}</Row>
         </dl>
+        <OrderFormLink orderId={job.id} />
       </section>
 
       <section className={CARD} aria-label="Money">

@@ -80,6 +80,7 @@ with "Sent in your name, on behalf of the technician." There is no **Edit messag
 
 **Who / when:** a Manager covering the branch; order Job Done; the latest customer message sent or told by phone.
 **Screen:** **Approve job** is disabled with "Tell the customer the job is done before approving. Send the message below (or call) first." until then. The dialog has an optional **Note for Finance**.
+**Since 0009:** Approve also needs every supervisor warning checked with a note ("Check every warning before approving (N open)"; database trigger `orders_open_warnings_guard_trg`); see `docs/0009-ai-advanced-workflow.md`. Return for rework never needs checks.
 **Output:** Reviewed; audit `reviewed` with the note; every active Finance user gets `reviewed`; the technician gets `job_approved` ("ORDER1003 was approved by Nurul Huda"). The page shows "Approved. Finance and the technician have been told." and "Approved by X at T" with the note.
 
 ### 6. Return for rework — `transition_order(…, 'in_progress', note)`

@@ -123,7 +123,7 @@ describe('Validation (AC3)', () => {
 
 describe('Saving (AC5, AC13)', () => {
   it('sends clean values once, even on a double click, then opens the summary', async () => {
-    let resolve: (orderNo: string) => void = () => {}
+    let resolve: (order: { id: string; orderNo: string }) => void = () => {}
     createOrder.mockImplementation(() => new Promise((r) => (resolve = r)))
     const user = userEvent.setup()
     await renderForm()
@@ -148,7 +148,7 @@ describe('Saving (AC5, AC13)', () => {
     })
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeTruthy()
 
-    resolve('ORDER1007')
+    resolve({ id: 'o-1007', orderNo: 'ORDER1007' })
     await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/orders/ORDER1007?created=1'))
   })
 

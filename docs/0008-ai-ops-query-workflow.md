@@ -19,7 +19,8 @@ did technician Ali complete last week?") and gets a short answer with the
 records behind it. The AI (OpenAI `gpt-6-luna`) never reads the database: it
 picks lookups from a fixed menu, the server checks them and runs them in the
 database as the person asking, and the AI writes one or two sentences from
-the rows. Saved chats and the Admin Question log are kept for 7 days.
+the rows. Saved chats and the Admin AI log (the Question log until 0009) are
+kept for 7 days.
 Server: `supabase/functions/ask/`; database:
 `supabase/migrations/20261024000001_ai_ops_query.sql`; screens:
 `src/features/ask/`.
@@ -29,7 +30,7 @@ Server: `supabase/functions/ask/`; database:
 - An active Admin, Manager, Finance or Technician user clicks the **Ask**
   bubble (bottom right of every portal page) and sends a question, clicks an
   example question, or clicks a "Did you mean…?" / clarify button.
-- An Admin opens **Question log** (`/question-log`).
+- An Admin opens **AI log** (`/ai-log`; `/question-log` redirects; 0009).
 
 ## Preconditions
 
@@ -81,6 +82,7 @@ question, and the menu as strict function tools.
 | `technician_events` | `kpi_technician_events` (0007) | "What jobs did Ali complete last week?" |
 | `job_list` | `ask_jobs` | "What is scheduled for tomorrow?", "Jobs waiting for review", "Jobs for customer Tan" |
 | `payment_list` | `ask_payments` | "Which jobs are unpaid?", "Which receipts still need verifying?", "How much was collected this week?" |
+| `workload_insights` (0009) | `insight_facts` | "Which technician might be overloaded this week?" (Managers and Admins; others: "Workload insights are for Managers and Admins.") |
 
 Instead of a lookup the AI may call a **reply tool**, which the server words:
 `reply_out_of_scope`, `reply_cannot_change_data(order_no)`,
@@ -140,7 +142,7 @@ found this** in plain words ("Looked up: completed jobs · Ali · Shah Alam ·
 last week (12–18 Oct 2026) · 2 found"). No function names, ids or JSON are
 shown (decision 0016).
 
-### 8. Saving and the Question log
+### 8. Saving and the AI log
 
 `ask_record` (secret key, `service_role` only) saves every answered turn
 (including clarify / out-of-scope / refused replies) in the person's chat
@@ -153,9 +155,11 @@ question goes back into the box.
 **Chats:** **Chats** lists the person's chats of the last 7 days (open,
 **Rename**, **Delete** with a confirmation). Deleting a chat keeps its log
 entries until they expire.
-**Question log** (Admins): table of the last 7 days (cards below 768 px),
-filter by person and result, totals of questions and tokens; lookups shown in
-plain words ("a technician's jobs", "totals", "job list", …).
+**AI log** (Admins; the Question log until 0009): table of the last 7 days
+(cards below 768 px), filter by type (Ask, Job check, Order form, Insights),
+person and result, totals of entries and tokens; lookups shown in plain words
+("a technician's jobs", "totals", "job list", "workload insights", …). The
+0009 entries are written by `ai_log_record` (`docs/0009-ai-advanced-workflow.md`).
 **7 days:** reads hide anything older; `ask_purge_old()` deletes it nightly
 at 03:00 Malaysia time (`pg_cron` job `ask-purge-old`).
 

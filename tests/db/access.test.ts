@@ -13,11 +13,14 @@ const TABLES = [
   'customer_messages', 'customer_feedback',
   // 0008: saved chats and the Question log (written only by the ask Edge Function).
   'ask_chats', 'ask_messages', 'ask_log',
+  // 0009: supervisor warnings and AI check runs (written only by functions).
+  'order_warnings', 'supervisor_runs',
 ]
 const VIEWS = ['order_summary', 'latest_customer_messages', 'order_review_summary', 'order_feedback', 'ask_log_entries']
 // 0005: settings only the definer functions read; 0006: staff history (read
-// through staff_detail). RLS on, no policy, no grants.
-const PRIVATE_TABLES = ['app_settings', 'staff_history']
+// through staff_detail); 0009: AI insight wordings (the Edge Function only).
+// RLS on, no policy, no grants.
+const PRIVATE_TABLES = ['app_settings', 'staff_history', 'insight_wordings']
 // 0005: the only functions signed-out visitors may call (the customer feedback page).
 const ANON_FUNCTIONS = ['feedback_form', 'submit_feedback']
 const ORDER_CHILDREN = ['order_completions', 'attachments', 'payments', 'order_reschedules', 'audit_log']
@@ -126,11 +129,13 @@ describe('Access migration: row-level security and grants', () => {
         'kpi_summary', 'kpi_technicians', 'kpi_branches', 'kpi_trend', 'kpi_technician_events',
         '_ask_scope', '_ask_contains_pattern', 'ask_jobs', 'ask_payments', 'ask_find_people',
         'ask_rename_chat', 'ask_delete_chat',
+        'check_order_warning', 'request_supervisor_recheck', 'set_order_form', 'remove_order_form',
+        'insight_facts',
       ].sort(),
     )
   })
 
-  it('gives service_role only: read staff, run link_staff_accounts / link_invited_staff, and record / purge Ask', async () => {
+  it('gives service_role only: read staff, run link_staff_accounts / link_invited_staff, record / purge Ask, and the ai-assist steps', async () => {
     const tables = await t.q<{ rel: string; priv: string }>(
       `select r.rel, p.priv
          from unnest($1::text[]) as r(rel),
@@ -146,7 +151,11 @@ describe('Access migration: row-level security and grants', () => {
           and has_function_privilege('service_role', p.oid, 'execute')`,
     )
     expect(fns.map((f) => f.proname).sort()).toEqual(
-      ['ask_purge_old', 'ask_record', 'link_invited_staff', 'link_staff_accounts'],
+      [
+        'ask_purge_old', 'ask_record', 'link_invited_staff', 'link_staff_accounts',
+        'ai_log_record', 'supervisor_ai_input', 'supervisor_save_ai', 'supervisor_retry_pending',
+        'insight_wording_get', 'insight_wording_put',
+      ].sort(),
     )
 
     expect((await t.qAs(SERVICE_ROLE, 'select count(*)::int as n from staff'))[0].n).toBe(12)

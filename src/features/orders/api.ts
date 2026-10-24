@@ -1,4 +1,5 @@
 import type { OrderInput, OrderStatus, RescheduleParty, RescheduleReason, StaffRole } from '../../domain'
+import { callAiAssist } from '../../lib/aiAssist'
 import { client, run, toNumber, toOrderSummary, type OrderSummary } from '../../lib/api'
 
 export { ApiError, toApiError, type OrderSummary } from '../../lib/api'
@@ -166,7 +167,8 @@ export async function fetchOrderHistory(orderId: string): Promise<HistoryEntry[]
 // ---------------------------------------------------------------------------
 
 /** Creates the order; returns its order number. */
-export async function createOrder(input: OrderInput): Promise<string> {
+/** Saves a new order; returns its id and number. */
+export async function createOrder(input: OrderInput): Promise<{ id: string; orderNo: string }> {
   const row = await run(
     client().rpc('create_order', {
       p_branch_id: input.branchId,
@@ -181,7 +183,8 @@ export async function createOrder(input: OrderInput): Promise<string> {
       p_technician_id: input.technicianId,
     }),
   )
-  return (row as { order_no: string }).order_no
+  const created = row as { id: string; order_no: string }
+  return { id: created.id, orderNo: created.order_no }
 }
 
 export async function updateOrder(orderId: string, expectedUpdatedAt: string, input: OrderInput): Promise<void> {
@@ -240,4 +243,39 @@ export async function rescheduleOrder(
       p_note: note,
     }),
   )
+}
+
+// ---------------------------------------------------------------------------
+// Read from photo (0009): the ai-assist Edge Function reads the five fields.
+// ---------------------------------------------------------------------------
+/** The fields read from a paper order form (null = not on the form). */
+export interface ReadFormFields {
+  customerName: string | null
+  serviceTypeId: string | null
+  serviceTypeName: string | null
+  problemDescription: string | null
+  quotedPrice: string | null
+  scheduledDate: string | null
+  scheduledTime: string | null
+}
+
+export type ReadFormResult = { ok: true; fields: ReadFormFields } | { ok: false; message: string }
+
+/** The browser gives up after 40 seconds (the server after 35). */
+export const READ_FORM_TIMEOUT_MS = 40_000
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(binary)
+}
+
+export async function readOrderFormPhoto(file: Blob, mime: string, name: string): Promise<ReadFormResult> {
+  const data = toBase64(new Uint8Array(await file.arrayBuffer()))
+  const reply = await callAiAssist<{ fields?: ReadFormFields; error?: { message: string } }>(
+    { action: 'read_form', file: { name, type: mime, data } },
+    READ_FORM_TIMEOUT_MS,
+  )
+  if (reply.fields) return { ok: true, fields: reply.fields }
+  return { ok: false, message: reply.error?.message ?? "Couldn't read this form. Fill the form by hand." }
 }

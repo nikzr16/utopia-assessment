@@ -20,7 +20,9 @@ company with 5 branches and 40+ field technician teams. It digitises the
 service workflow: Order → Assignment → Service Completion → Manager / Finance
 Review. Admins use desktop, technicians use mobile, and every staff role gets
 an AI assistant (Ask) that answers operational questions from controlled
-queries (technicians about their own work).
+queries (technicians about their own work). Since 0009 the AI also checks
+finished jobs for problems, reads paper order forms for Admins, and points out
+workload insights for Managers and Admins.
 
 Source brief: `docs/prd/0000-programmer-assessment-brief.docx`. Feature
 numbers follow the build order: 0000 foundation, 0001–0003 brief Modules 1–3,
@@ -50,12 +52,13 @@ when structure, routes, schemas, or config change).
   page and queues), `review` (Manager), `finance` (Finance) (0004),
   `feedback` (public feedback page and staff feedback card, 0005),
   `staff` (staff screens, 0006), `kpi` (KPI dashboard and My week, 0007),
-  `ask` (Ask chat bubble, saved chats, Admin Question log, 0008)),
+  `ask` (Ask chat bubble, saved chats, Admin AI log, 0008),
+  `supervisor` (Warnings box and queue counts, 0009)),
   `components/` (shared UI),
   `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
 - **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning for a fresh project)
-- **`supabase/functions/`** — Edge Functions (`staff-access`, 0006; `ask`, 0008); logic in plain TS tested from `tests/functions/`
+- **`supabase/functions/`** — Edge Functions (`staff-access`, 0006; `ask`, 0008; `ai-assist`, 0009; `_shared/`); logic in plain TS tested from `tests/functions/`
 - **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `functions/` Edge Function logic; `db/` PGlite database tests;
   `ui/` component tests (jsdom; `src/features/*/api.ts` replaced by test doubles)
 - **`docs/`** — docs-first source of truth: `docs/product-roadmap.md`,
@@ -73,7 +76,8 @@ when structure, routes, schemas, or config change).
 | Test | `npm test` | Vitest; DB tests run on PGlite, UI tests on jsdom; no Docker or Supabase needed |
 | Create staff logins | `npm run auth:create-staff-logins` | Fresh-project set-up only (staff are added on screen since 0006). Needs `SUPABASE_SECRET_KEY` + `STAFF_DEMO_PASSWORD` in `.env.local`; `-- --reset-passwords` to update |
 | Deploy the staff function | `npx supabase functions deploy staff-access --project-ref <ref> --no-verify-jwt --use-api` | After `npx supabase login` (the user signs in); redeploy when `supabase/functions/staff-access/` changes |
-| Deploy the AI function | `npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api` | Redeploy when `supabase/functions/ask/` changes; needs the `OPENAI_API_KEY` function secret |
+| Deploy the AI function | `npx supabase functions deploy ask --project-ref <ref> --no-verify-jwt --use-api` | Redeploy when `supabase/functions/ask/` or `_shared/` changes; needs the `OPENAI_API_KEY` function secret |
+| Deploy the AI assist function | `npx supabase functions deploy ai-assist --project-ref <ref> --no-verify-jwt --use-api` | Redeploy when `supabase/functions/ai-assist/` or `_shared/` changes; needs `OPENAI_API_KEY` and `AI_TRIGGER_SECRET` |
 
 ## Code Conventions
 
@@ -162,9 +166,29 @@ when structure, routes, schemas, or config change).
    the asking person's token, so RLS and role scope apply. The AI never sees
    ids, phone numbers, addresses, notes or comments; limits end in fixed
    sentences; staff see a plain "How I found this" line, never function
-   names or JSON (decision 0016). Chats and the Admin Question log are
-   written only by `ask_record` (secret key) and kept 7 days (nightly
+   names or JSON (decision 0016). Chats and the Admin AI log (Question log
+   until 0009) are written only by `ask_record` / `ai_log_record` (secret key) and kept 7 days (nightly
    `pg_cron` purge). Test cleanup deletes `ask_chats` and `ask_log`.
+13. AI advanced challenges: `docs/0009-ai-advanced-workflow.md`. The
+   `ai-assist` Edge Function does the AI part of three features; the
+   database does every rule and number. **Supervisor:** at Job Done the
+   database writes rule warnings (final ≥ quote × 1.5 and ≥ RM 100 over, no
+   photo, ≥ 2 returns, ≥ 3 reschedules, 1–2 star / not working rating) and
+   posts an AI text check to `ai-assist` itself (`pg_net`, Vault secret
+   `ai_trigger_secret` = function secret `AI_TRIGGER_SECRET`); the AI only adds
+   "AI" warnings from the job text (no customer details). A covering Manager
+   checks each open warning with a note before Approve (database guard);
+   a failed AI check never blocks; Return for rework never needs checks;
+   technicians never see warnings. Warnings are kept with the order.
+   **Read from photo:** Admins only, photo / PDF ≤ 3 pages, 10 MB; five
+   fields, all or nothing; no phone or address; the file is uploaded after
+   Save as the order's form (`attachments.is_order_form`, not one of the 6
+   job files; changed only while New / Assigned / Acknowledged).
+   **Insights:** `insight_facts` (Managers and Admins) from the `kpi_*`
+   numbers; the AI only rewords them (number-checked). Every AI call is in
+   the Admin AI log (`ask_log.feature`) for 7 days. Test cleanup deletes
+   test orders (warnings and runs follow), `ask_log`, `insight_wordings`,
+   and the order form files in Storage by hand.
 
 ## Environment And Secrets
 
@@ -174,9 +198,11 @@ when structure, routes, schemas, or config change).
   - Script only: `SUPABASE_SECRET_KEY` (`sb_secret_…`) and `STAFF_DEMO_PASSWORD`.
     Never prefix these with `VITE_`; never read or print them in agent output.
 - Edge Function secrets (Supabase dashboard → Edge Functions → Secrets; set by
-  the user, never seen by the agent): `OPENAI_API_KEY` for `ask` (optional
-  `OPENAI_MODEL`, default `gpt-6-luna`; `OPENAI_EFFORT`, default `medium`),
-  `APP_ORIGINS` for `staff-access`.
+  the user, never seen by the agent): `OPENAI_API_KEY` for `ask` and
+  `ai-assist` (optional `OPENAI_MODEL`, default `gpt-6-luna`; `OPENAI_EFFORT`,
+  default `medium`), `AI_TRIGGER_SECRET` for `ai-assist` (the same value as
+  the Supabase Vault secret `ai_trigger_secret`), `APP_ORIGINS` for
+  `staff-access`.
 
 ## Testing And Definition Of Done
 

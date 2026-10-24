@@ -129,7 +129,7 @@ describe('The chat bubble on every portal (PRD Q1, Q18)', () => {
     expect(await screen.findByRole('button', { name: 'Ask the assistant' })).toBeTruthy()
     expect(m.fetchChats).not.toHaveBeenCalled()
     expect(m.askQuestion).not.toHaveBeenCalled()
-    const log = screen.queryByRole('link', { name: 'Question log' })
+    const log = screen.queryByRole('link', { name: 'AI log' })
     expect(Boolean(log)).toBe(role === 'admin')
   })
 })
@@ -303,7 +303,7 @@ describe('Saved chats (PRD Q12, Q13)', () => {
   })
 })
 
-describe('The Admin Question log (PRD Q13, P8)', () => {
+describe('The Admin AI log (0008 PRD Q13, P8; 0009 plan P6)', () => {
   it('lists every question of the last 7 days with who asked, what was looked up and how it ended', async () => {
     m.fetchQuestionLog.mockResolvedValue([
       {
@@ -331,10 +331,33 @@ describe('The Admin Question log (PRD Q13, P8)', () => {
     expect(within(table).getByText('4.2 s')).toBeTruthy()
     expect(within(table).getByText('Asked to change data')).toBeTruthy()
     expect(within(table).getByText(/Ali \(inactive\)/)).toBeTruthy()
-    expect(screen.getByText('2 questions · 3,020 tokens')).toBeTruthy()
+    expect(screen.getByText('2 entries · 3,020 tokens')).toBeTruthy()
 
     await user.selectOptions(screen.getByLabelText('Person'), 's-ali')
-    expect(screen.getByText('1 question · 920 tokens')).toBeTruthy()
+    expect(screen.getByText('1 entry · 920 tokens')).toBeTruthy()
     expect(within(screen.getByRole('table')).queryByText('What jobs did Ali complete last week?')).toBeNull()
+  })
+
+  it('also lists job checks, order forms and insights, filtered by Type (0009)', async () => {
+    const base = { staff_active: true, chat_id: null, lookups: [], row_count: null, duration_ms: 3000, input_tokens: 500, output_tokens: 40 }
+    m.fetchQuestionLog.mockResolvedValue([
+      { ...base, id: 3, created_at: '2026-10-24T03:00:00Z', staff_id: 's-ali', staff_name: 'Ali', staff_role: 'technician', branch_name: 'Shah Alam', question: 'Job check ORDER1042', outcome: 'warnings', feature: 'supervisor', order_no: 'ORDER1042' },
+      { ...base, id: 4, created_at: '2026-10-24T04:00:00Z', staff_id: 's-farid', staff_name: 'Farid Hakim', staff_role: 'admin', branch_name: 'Shah Alam', question: 'Read order form (photo, 1.2 MB)', outcome: 'unclear', feature: 'form', order_no: null },
+      { ...base, id: 5, created_at: '2026-10-24T05:00:00Z', staff_id: 's-nurul', staff_name: 'Nurul Huda', staff_role: 'manager', branch_name: 'Shah Alam', question: 'Insights · this week · all your branches', outcome: 'worded', feature: 'insights', order_no: null },
+    ])
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <QuestionLogPage />
+      </MemoryRouter>,
+    )
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Job check')).toBeTruthy()
+    expect(within(table).getByText('Found warnings')).toBeTruthy()
+    expect(within(table).getByText('Form unclear')).toBeTruthy()
+    expect(within(table).getByText('Worded')).toBeTruthy()
+    await user.selectOptions(screen.getByLabelText('Type'), 'form')
+    expect(screen.getByText('1 entry · 540 tokens')).toBeTruthy()
+    expect(within(screen.getByRole('table')).queryByText('Job check ORDER1042')).toBeNull()
   })
 })

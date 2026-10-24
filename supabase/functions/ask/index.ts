@@ -21,21 +21,9 @@ import {
   type AskEvent,
   type Turn,
 } from './handler.ts'
+import { supabaseKey } from '../_shared/keys.ts'
 
-/** A key from the new JSON key lists, else the legacy variable (as in staff-access). */
-function key(listVar: string, legacyVar: string): string {
-  const list = Deno.env.get(listVar)
-  if (list) {
-    try {
-      const parsed = JSON.parse(list) as Record<string, string>
-      const first = parsed.default ?? Object.values(parsed)[0]
-      if (first) return first
-    } catch {
-      // fall through to the legacy variable
-    }
-  }
-  return Deno.env.get(legacyVar) ?? ''
-}
+const key = (listVar: string, legacyVar: string) => supabaseKey(listVar, legacyVar, (n) => Deno.env.get(n))
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const PUBLIC_KEY = key('SUPABASE_PUBLISHABLE_KEYS', 'SUPABASE_ANON_KEY')

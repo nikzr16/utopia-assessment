@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Field, ReadOnlyField } from '../../components/Field'
 import { Notice } from '../../components/Notice'
@@ -34,6 +34,8 @@ export interface OrderFormProps {
   /** Saves the order; resolves to an error message, or null on success. */
   onSubmit: (input: OrderInput) => Promise<string | null>
   onCancel: () => void
+  /** 0009: values read from a paper form; applied each time `key` changes. */
+  fill?: { values: Partial<OrderFormValues>; key: number }
 }
 
 /** The Admin's order form, shared by New order and Edit order. */
@@ -48,8 +50,14 @@ export function OrderForm({
   submitLabel,
   onSubmit,
   onCancel,
+  fill,
 }: OrderFormProps) {
   const [values, setValues] = useState<OrderFormValues>(initial)
+  const fillKey = fill?.key ?? 0
+  useEffect(() => {
+    if (fill && fillKey > 0) setValues((v) => ({ ...v, ...fill.values }))
+    // Only a new reading (a new key) fills the form again.
+  }, [fillKey])
   const [touched, setTouched] = useState<Partial<Record<OrderFormField, boolean>>>({})
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
