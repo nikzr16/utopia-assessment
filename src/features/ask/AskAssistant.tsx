@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
+import { History, SendHorizontal, Sparkles, SquarePen, X } from 'lucide-react'
 import { formatMalaysiaDateTime, type StaffRole } from '../../domain'
 import { Dialog } from '../../components/Dialog'
 import { BUTTON, INPUT, LINK } from '../../components/styles'
 import { AnswerCard } from './AnswerCard'
+import { AskLauncher } from './AskLauncher'
 import { askQuestion, deleteChat, fetchChatMessages, fetchChats, renameChat, type ChatSummary } from './api'
 import { EXAMPLE_QUESTIONS } from './examples'
 import type { AskErrorCode, AskResult } from './types'
@@ -33,7 +35,7 @@ interface Failure {
 }
 
 const ICON_BASE =
-  'min-h-9 items-center rounded-md px-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300'
+  'min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-ink-muted hover:bg-sunken hover:text-ink aria-pressed:bg-brand-soft aria-pressed:text-brand-ink'
 const ICON_BUTTON = `inline-flex ${ICON_BASE}`
 
 let keyCounter = 0
@@ -44,17 +46,7 @@ export function AskAssistant({ role, orderPath }: { role: StaffRole; orderPath: 
   return open ? (
     <AskPanel role={role} orderPath={orderPath} onClose={() => setOpen(false)} />
   ) : (
-    <button
-      type="button"
-      onClick={() => setOpen(true)}
-      aria-label="Ask the assistant"
-      className="fixed bottom-24 right-4 z-40 inline-flex h-14 items-center gap-2 rounded-full bg-sky-700 px-5 text-sm font-semibold text-white shadow-lg hover:bg-sky-800 focus:outline-none focus:ring-4 focus:ring-sky-300 sm:bottom-6 sm:right-6"
-    >
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5m-9 6 3-3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v13Z" />
-      </svg>
-      Ask
-    </button>
+    <AskLauncher onOpen={() => setOpen(true)} />
   )
 }
 
@@ -211,16 +203,24 @@ function AskPanel({
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose()
       }}
-      className={`fixed inset-0 z-50 flex flex-col bg-white sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(680px,calc(100vh-3rem))] sm:rounded-xl sm:border sm:border-slate-200 sm:shadow-2xl ${
+      className={`fixed inset-0 z-[55] flex animate-sheet-in flex-col bg-raised sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(680px,calc(100dvh-3rem))] sm:rounded-2xl sm:border sm:border-line sm:shadow-pop ${
         expanded ? 'sm:w-[min(820px,calc(100vw-3rem))]' : 'sm:w-[420px]'
       }`}
     >
-      <header className="flex items-center gap-1 border-b border-slate-200 px-3 py-2">
-        <h2 className="mr-auto text-base font-semibold text-slate-900">Ask</h2>
+      <header className="flex items-center gap-1 border-b border-line px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
+        <span className="mr-2 inline-flex size-8 items-center justify-center rounded-lg bg-brand-soft text-brand" aria-hidden="true">
+          <Sparkles className="size-4.5" />
+        </span>
+        <div className="mr-auto min-w-0">
+          <h2 className="text-base font-semibold leading-tight text-ink">Ask</h2>
+          <p className="text-xs text-ink-faint max-[380px]:hidden">Answers from Sejuk Sejuk data</p>
+        </div>
         <button type="button" className={ICON_BUTTON} onClick={() => setShowChats((s) => !s)} aria-pressed={showChats}>
+          <History className="size-4" aria-hidden="true" />
           Chats
         </button>
         <button type="button" className={ICON_BUTTON} onClick={newChat}>
+          <SquarePen className="size-4" aria-hidden="true" />
           New chat
         </button>
         <button
@@ -231,8 +231,8 @@ function AskPanel({
         >
           {expanded ? 'Narrow' : 'Wider'}
         </button>
-        <button type="button" className={ICON_BUTTON} onClick={onClose} aria-label="Close the assistant">
-          ✕
+        <button type="button" className={`${ICON_BUTTON} size-9 justify-center`} onClick={onClose} aria-label="Close the assistant">
+          <X className="size-5" aria-hidden="true" />
         </button>
       </header>
 
@@ -254,35 +254,36 @@ function AskPanel({
         )}
         <div className={`min-w-0 flex-1 flex-col ${showChats && !expanded ? 'hidden' : 'flex'}`}>
           <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3" aria-live="polite">
-            {loadingChat && <p className="text-sm text-slate-600">Opening the chat…</p>}
+            {loadingChat && <p className="text-sm text-ink-muted">Opening the chat…</p>}
             {!loadingChat && messages.length === 0 && (
               <div>
-                <p className="text-sm text-slate-700">
+                <p className="text-sm text-ink-muted">
                   Ask about jobs, technicians, payments, reschedules, ratings and returns. In English or Malay.
                 </p>
-                <div className="mt-3 flex flex-col items-start gap-2" role="group" aria-label="Example questions">
+                <p className="mt-4 text-xs font-medium uppercase tracking-wide text-ink-faint">Try asking</p>
+                <div className="mt-2 flex flex-col items-stretch gap-2" role="group" aria-label="Example questions">
                   {EXAMPLE_QUESTIONS[role].map((q) => (
                     <button
                       key={q}
                       type="button"
                       onClick={() => void ask(q)}
                       disabled={busy}
-                      className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-left text-sm text-sky-900 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                      className="rounded-xl border border-line bg-surface px-3 py-2.5 text-left text-sm text-ink shadow-card hover:border-brand/40 hover:bg-brand-soft disabled:opacity-60"
                     >
                       {q}
                     </button>
                   ))}
                 </div>
-                <p className="mt-3 text-xs text-slate-500">Chats are kept for 7 days.</p>
+                <p className="mt-3 text-xs text-ink-faint">Chats are kept for 7 days.</p>
               </div>
             )}
             {messages.map((m) =>
               m.role === 'user' ? (
-                <div key={m.key} className="ml-auto max-w-[85%] rounded-lg bg-sky-700 px-3 py-2 text-sm text-white">
+                <div key={m.key} className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-brand px-3.5 py-2 text-sm text-on-brand">
                   {m.body}
                 </div>
               ) : (
-                <div key={m.key} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <div key={m.key} className="rounded-2xl rounded-bl-md border border-line bg-surface px-3.5 py-2.5 shadow-card">
                   {m.result ? (
                     <AnswerCard result={m.result} role={role} orderPath={orderPath} onAsk={(q) => void ask(q)} busy={busy} />
                   ) : (
@@ -292,13 +293,13 @@ function AskPanel({
               ),
             )}
             {step && (
-              <p role="status" className="flex items-center gap-2 text-sm text-slate-600">
-                <span aria-hidden="true" className="h-3 w-3 animate-spin rounded-full border-2 border-sky-600 border-t-transparent" />
+              <p role="status" className="flex items-center gap-2 text-sm text-ink-muted">
+                <span aria-hidden="true" className="h-3 w-3 animate-spin rounded-full border-2 border-brand border-t-transparent" />
                 {step}
               </p>
             )}
             {failure && (
-              <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <div role="alert" className="rounded-xl border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning-ink">
                 <p>{failure.message}</p>
                 <div className="mt-2 flex flex-wrap gap-3">
                   {failure.question && failure.code !== 'bad_request' && failure.code !== 'not_set_up' && (
@@ -322,7 +323,7 @@ function AskPanel({
             <div ref={end} />
           </div>
 
-          <form onSubmit={onSubmit} className="border-t border-slate-200 p-3">
+          <form onSubmit={onSubmit} className="border-t border-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <label htmlFor="ask-question" className="sr-only">
               Your question
             </label>
@@ -338,7 +339,8 @@ function AskPanel({
                 placeholder="e.g. What jobs did Ali complete last week?"
                 className={`${INPUT} resize-none`}
               />
-              <button type="submit" className={BUTTON.primary} disabled={busy || !draft.trim()}>
+              <button type="submit" className={`${BUTTON.primary} min-h-11`} disabled={busy || !draft.trim()}>
+                <SendHorizontal aria-hidden="true" />
                 Send
               </button>
             </div>
@@ -399,10 +401,10 @@ function ChatList({
   }
 
   return (
-    <nav aria-label="Saved chats" className={`overflow-y-auto border-slate-200 p-2 ${className}`}>
-      <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">Chats (last 7 days)</h3>
+    <nav aria-label="Saved chats" className={`overflow-y-auto border-line p-2 ${className}`}>
+      <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">Chats (last 7 days)</h3>
       {error && (
-        <p role="alert" className="mt-2 px-1 text-sm text-red-700">
+        <p role="alert" className="mt-2 px-1 text-sm text-danger">
           {error}{' '}
           <button type="button" className={LINK} onClick={onReload}>
             Try again
@@ -410,15 +412,15 @@ function ChatList({
         </p>
       )}
       {problem && (
-        <p role="alert" className="mt-2 px-1 text-sm text-red-700">
+        <p role="alert" className="mt-2 px-1 text-sm text-danger">
           {problem}
         </p>
       )}
-      {chats === null && !error && <p className="mt-2 px-1 text-sm text-slate-600">Loading…</p>}
-      {chats?.length === 0 && <p className="mt-2 px-1 text-sm text-slate-600">No chats yet.</p>}
+      {chats === null && !error && <p className="mt-2 px-1 text-sm text-ink-muted">Loading…</p>}
+      {chats?.length === 0 && <p className="mt-2 px-1 text-sm text-ink-muted">No chats yet.</p>}
       <ul className="mt-1 space-y-1">
         {chats?.map((chat) => (
-          <li key={chat.id} className={`rounded-md ${chat.id === currentId ? 'bg-sky-50' : ''}`}>
+          <li key={chat.id} className={`rounded-md ${chat.id === currentId ? 'bg-brand-soft' : ''}`}>
             {renaming === chat.id ? (
               <form onSubmit={saveTitle} className="flex gap-1 p-1">
                 <label htmlFor={`rename-${chat.id}`} className="sr-only">
@@ -440,16 +442,16 @@ function ChatList({
               <div className="flex items-start gap-1 p-1">
                 <button
                   type="button"
-                  className="min-w-0 flex-1 rounded px-1 text-left hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                  className="min-w-0 flex-1 rounded px-1 text-left hover:bg-sunken focus:outline-none focus:ring-2 focus:ring-brand/40"
                   onClick={() => onOpen(chat.id)}
                   aria-current={chat.id === currentId ? 'true' : undefined}
                 >
-                  <span className="block truncate text-sm text-slate-900">{chat.title}</span>
-                  <span className="block text-xs text-slate-500">{formatMalaysiaDateTime(chat.updated_at)}</span>
+                  <span className="block truncate text-sm text-ink">{chat.title}</span>
+                  <span className="block text-xs text-ink-faint">{formatMalaysiaDateTime(chat.updated_at)}</span>
                 </button>
                 <button
                   type="button"
-                  className="rounded px-1 text-xs text-slate-600 hover:bg-slate-100"
+                  className="rounded px-1 text-xs text-ink-muted hover:bg-sunken"
                   onClick={() => {
                     setRenaming(chat.id)
                     setTitle(chat.title)
@@ -460,7 +462,7 @@ function ChatList({
                 </button>
                 <button
                   type="button"
-                  className="rounded px-1 text-xs text-red-700 hover:bg-red-50"
+                  className="rounded px-1 text-xs text-danger hover:bg-danger-soft"
                   onClick={() => setDeleting(chat)}
                   aria-label={`Delete ${chat.title}`}
                 >
@@ -473,7 +475,7 @@ function ChatList({
       </ul>
       {deleting && (
         <Dialog title="Delete this chat?" onClose={() => setDeleting(null)}>
-          <p className="text-sm text-slate-700">“{deleting.title}” will be removed from your chats.</p>
+          <p className="text-sm text-ink-muted">“{deleting.title}” will be removed from your chats.</p>
           <div className="mt-4 flex justify-end gap-2">
             <button type="button" className={BUTTON.secondary} onClick={() => setDeleting(null)}>
               Keep it

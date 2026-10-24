@@ -1,5 +1,8 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router'
+import { Navigate, Route, Routes } from 'react-router'
+import { ClipboardList, LayoutDashboard, Plus, Sparkles, Users } from 'lucide-react'
+import { AppShell, type NavItem } from '../../components/shell/AppShell'
 import { AskAssistant, QuestionLogPage } from '../ask'
+import { ChangePasswordPage } from '../auth/ChangePasswordPage'
 import { DashboardRoutes } from '../kpi'
 import { StaffRoutes } from '../staff'
 import { EditOrderPage } from './EditOrderPage'
@@ -7,46 +10,18 @@ import { NewOrderPage } from './NewOrderPage'
 import { OrderDetailPage } from './OrderDetailPage'
 import { OrderListPage } from './OrderListPage'
 
-const TAB =
-  'rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-300'
+const NAV: NavItem[] = [
+  { to: '/orders', label: 'Orders', icon: ClipboardList, exclude: ['/orders/new'] },
+  { to: '/orders/new', label: 'New order', icon: Plus, phone: 'more' },
+  { to: '/staff', label: 'Staff', icon: Users },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/ai-log', label: 'AI log', icon: Sparkles, phone: 'more' },
+]
 
-/** The Admin's screens (PRD 0001). Other roles never render this. */
+/** The Admin's screens (PRD 0001), desktop first. Other roles never render this. */
 export function AdminPortal({ branchName }: { branchName: string | null }) {
   return (
-    <div>
-      <nav aria-label="Admin" className="mb-5 flex gap-2 border-b border-slate-200 pb-3">
-        <NavLink
-          to="/orders"
-          end
-          className={({ isActive }) => `${TAB} ${isActive ? 'bg-sky-100 text-sky-900' : 'text-slate-700 hover:bg-slate-100'}`}
-        >
-          Orders
-        </NavLink>
-        <NavLink
-          to="/orders/new"
-          className={({ isActive }) => `${TAB} ${isActive ? 'bg-sky-100 text-sky-900' : 'text-slate-700 hover:bg-slate-100'}`}
-        >
-          New order
-        </NavLink>
-        <NavLink
-          to="/staff"
-          className={({ isActive }) => `${TAB} ${isActive ? 'bg-sky-100 text-sky-900' : 'text-slate-700 hover:bg-slate-100'}`}
-        >
-          Staff
-        </NavLink>
-        <NavLink
-          to="/dashboard"
-          className={({ isActive }) => `${TAB} ${isActive ? 'bg-sky-100 text-sky-900' : 'text-slate-700 hover:bg-slate-100'}`}
-        >
-          Dashboard
-        </NavLink>
-        <NavLink
-          to="/ai-log"
-          className={({ isActive }) => `${TAB} ${isActive ? 'bg-sky-100 text-sky-900' : 'text-slate-700 hover:bg-slate-100'}`}
-        >
-          AI log
-        </NavLink>
-      </nav>
+    <AppShell navLabel="Admin" items={NAV}>
       <Routes>
         <Route path="/orders" element={<OrderListPage />} />
         <Route path="/orders/new" element={<NewOrderPage adminBranchName={branchName} />} />
@@ -63,9 +38,10 @@ export function AdminPortal({ branchName }: { branchName: string | null }) {
         <Route path="/ai-log" element={<QuestionLogPage />} />
         {/* 0008's address keeps working. */}
         <Route path="/question-log" element={<Navigate to="/ai-log" replace />} />
+        <Route path="/account/password" element={<ChangePasswordPage />} />
         <Route path="*" element={<Navigate to="/orders" replace />} />
       </Routes>
       <AskAssistant role="admin" orderPath={(orderNo) => `/orders/${encodeURIComponent(orderNo)}`} />
-    </div>
+    </AppShell>
   )
 }

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Notice } from '../../components/Notice'
+import { RotateCw, TriangleAlert } from 'lucide-react'
 import { BUTTON } from '../../components/styles'
+import { BackLink, ErrorState, LoadingState, PageHeader } from '../../components/ui'
 import { EMPTY_ORDER_FORM, type OrderFormValues } from '../../domain'
 import { saveOrderForm } from '../attachments/api'
 import { createOrder, fetchReferenceData } from './api'
@@ -23,20 +24,13 @@ export function NewOrderPage({ adminBranchName }: { adminBranchName: string | nu
   const [unattached, setUnattached] = useState<{ id: string; orderNo: string; message: string } | null>(null)
 
   if (reference.status === 'loading') {
-    return (
-      <Notice title="Loading…">
-        <p>Getting service types and technicians.</p>
-      </Notice>
-    )
+    return <LoadingState variant="page" label="Loading… Getting service types and technicians." />
   }
   if (reference.status === 'error') {
     return (
-      <Notice tone="error" title="Could not load the form">
+      <ErrorState title="Could not load the form" onRetry={reload}>
         <p>{reference.message}</p>
-        <button type="button" onClick={reload} className="mt-3 font-medium underline">
-          Try again
-        </button>
-      </Notice>
+      </ErrorState>
     )
   }
 
@@ -52,51 +46,58 @@ export function NewOrderPage({ adminBranchName }: { adminBranchName: string | nu
 
   if (unattached && kept) {
     return (
-      <Notice tone="error" title={`Order ${unattached.orderNo} is saved, but the form photo was not attached`}>
-        <p>{unattached.message}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={() => void attach(unattached, kept)} className={`${BUTTON.primary} min-h-11`}>
-            Try again
-          </button>
-          <Link to={`/orders/${encodeURIComponent(unattached.orderNo)}?created=1`} className={`${BUTTON.secondary} min-h-11`}>
-            Open the order without it
-          </Link>
+      <section role="alert" className="rounded-xl border border-danger/35 bg-danger-soft p-4 text-danger-ink sm:p-5">
+        <div className="flex gap-3">
+          <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          <div className="min-w-0">
+            <h2 className="font-semibold">Order {unattached.orderNo} is saved, but the form photo was not attached</h2>
+            <p className="mt-1 text-sm">{unattached.message}</p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <button type="button" onClick={() => void attach(unattached, kept)} className={`${BUTTON.primary} min-h-11`}>
+                <RotateCw aria-hidden="true" />
+                Try again
+              </button>
+              <Link to={`/orders/${encodeURIComponent(unattached.orderNo)}?created=1`} className={`${BUTTON.secondary} min-h-11`}>
+                Open the order without it
+              </Link>
+            </div>
+          </div>
         </div>
-      </Notice>
+      </section>
     )
   }
 
   const ownBranch = reference.data.branches.find((b) => b.name === adminBranchName)
   return (
-    <div>
-      <h2 className="text-xl font-semibold">New order</h2>
-      <p className="mt-1 text-sm text-slate-600">The order number is created when you save.</p>
-      <div className="mt-4 space-y-4">
-        <ReadFromPhoto
-          kept={kept}
-          onKeep={setKept}
-          onFilled={(values) => setFill((f) => ({ values, key: f.key + 1 }))}
-        />
-        <OrderForm
-          mode="create"
-          initial={{ ...EMPTY_ORDER_FORM, branchId: ownBranch?.id ?? '' }}
-          reference={reference.data}
-          submitLabel="Save order"
-          fill={fill}
-          onCancel={() => navigate('/orders')}
-          onSubmit={async (input) => {
-            let order: { id: string; orderNo: string }
-            try {
-              order = await createOrder(input)
-            } catch (e) {
-              return (e as Error).message
-            }
-            if (kept) await attach(order, kept)
-            else openOrder(order.orderNo)
-            return null
-          }}
-        />
+    <div className="mx-auto max-w-4xl space-y-5">
+      <div className="space-y-2">
+        <BackLink to="/orders">All orders</BackLink>
+        <PageHeader title="New order" description="The order number is created when you save." />
       </div>
+      <ReadFromPhoto
+        kept={kept}
+        onKeep={setKept}
+        onFilled={(values) => setFill((f) => ({ values, key: f.key + 1 }))}
+      />
+      <OrderForm
+        mode="create"
+        initial={{ ...EMPTY_ORDER_FORM, branchId: ownBranch?.id ?? '' }}
+        reference={reference.data}
+        submitLabel="Save order"
+        fill={fill}
+        onCancel={() => navigate('/orders')}
+        onSubmit={async (input) => {
+          let order: { id: string; orderNo: string }
+          try {
+            order = await createOrder(input)
+          } catch (e) {
+            return (e as Error).message
+          }
+          if (kept) await attach(order, kept)
+          else openOrder(order.orderNo)
+          return null
+        }}
+      />
     </div>
   )
 }

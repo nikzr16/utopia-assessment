@@ -1,3 +1,4 @@
+import { History } from 'lucide-react'
 import { CARD } from '../../components/styles'
 import {
   PAYMENT_METHOD_LABELS,
@@ -123,44 +124,67 @@ export function historyDetails(entry: HistoryEntry): string[] {
   }
 }
 
-/** Who did what to the order, newest first (PRD AC9). */
+/** Dot colour for an entry: problems stand out, finished steps are green. */
+function dotTone(action: string): string {
+  if (action === 'cancelled') return 'bg-danger'
+  if (action === 'returned_for_rework' || action === 'payment_unverified') return 'bg-warning'
+  if (action === 'reviewed' || action === 'closed' || action === 'payment_verified') return 'bg-success'
+  if (action === 'created' || action === 'assigned' || action === 'reassigned') return 'bg-brand'
+  return 'bg-line-strong'
+}
+
+/** Who did what to the order, newest first (PRD AC9): a timeline of dots and lines. */
 export function OrderHistory({ entries }: { entries: HistoryEntry[] }) {
   useInactiveStaff() // re-render with "(inactive)" tags once known
   return (
     <section className={CARD} aria-labelledby="order-history">
-      <h3 id="order-history" className="text-base font-semibold">
-        History
-      </h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 id="order-history" className="flex items-center gap-2 text-base font-semibold text-ink">
+          <History className="size-4.5 text-ink-faint" aria-hidden="true" />
+          History
+        </h3>
+        {entries.length > 0 ? (
+          <span className="text-xs text-ink-faint tabular">
+            {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
+          </span>
+        ) : null}
+      </div>
       {entries.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-600">No history yet.</p>
+        <p className="mt-3 text-sm text-ink-muted">No history yet.</p>
       ) : (
-        <ol className="mt-3 space-y-4">
-          {entries.map((entry) => {
+        <ol className="mt-4">
+          {entries.map((entry, i) => {
             const details = historyDetails(entry)
+            const last = i === entries.length - 1
             return (
-              <li key={entry.id} className="border-l-2 border-slate-200 pl-3">
-                <p className="text-sm font-medium text-slate-900">
+              <li key={entry.id} className={`relative pl-7 ${last ? '' : 'pb-5'}`}>
+                {last ? null : <span aria-hidden="true" className="absolute left-[5px] top-4 bottom-0 w-0.5 rounded-full bg-line" />}
+                <span
+                  aria-hidden="true"
+                  className={`absolute left-0 top-1 size-3 rounded-full ring-4 ring-surface ${dotTone(entry.action)}`}
+                />
+                <p className="text-sm font-medium text-ink">
                   {ACTION_LABELS[entry.action] ?? entry.action}
                   {entry.from_status && entry.to_status && entry.from_status !== entry.to_status ? (
-                    <span className="font-normal text-slate-600">
+                    <span className="font-normal text-ink-muted">
                       {' '}
                       · {STATUS_LABELS[entry.from_status]} → {STATUS_LABELS[entry.to_status]}
                     </span>
                   ) : !entry.from_status && entry.to_status ? (
-                    <span className="font-normal text-slate-600"> · {STATUS_LABELS[entry.to_status]}</span>
+                    <span className="font-normal text-ink-muted"> · {STATUS_LABELS[entry.to_status]}</span>
                   ) : null}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="mt-0.5 text-xs text-ink-faint">
                   {staffName(entry.actor_name, entry.actor_id)} ({ROLE_LABELS[entry.actor_role]}) · {formatMalaysiaDateTime(entry.created_at)}
                 </p>
                 {details.length > 0 || entry.note ? (
-                  <ul className="mt-1 space-y-0.5 text-sm text-slate-700">
+                  <ul className="mt-2 space-y-1 rounded-lg bg-sunken px-3 py-2 text-sm text-ink-muted">
                     {details.map((line) => (
-                      <li key={line} className="break-words">
+                      <li key={line} className="whitespace-pre-line break-words">
                         {line}
                       </li>
                     ))}
-                    {entry.note ? <li className="break-words">Note: {entry.note}</li> : null}
+                    {entry.note ? <li className="whitespace-pre-line break-words">Note: {entry.note}</li> : null}
                   </ul>
                 ) : null}
               </li>

@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Notice } from '../../components/Notice'
+import { Building2, ChevronRight, Inbox } from 'lucide-react'
 import { StatusBadge } from '../../components/StatusBadge'
-import { CARD, INPUT, LINK } from '../../components/styles'
+import { INPUT, LINK, TABLE } from '../../components/styles'
+import { Badge, EmptyState, ErrorState, LoadingState, SegmentedTabs } from '../../components/ui'
 import { NEEDS_ATTENTION_RETURNS, needsAttention } from '../../domain'
 import type { LoadState } from '../../lib/useLoad'
 import { useInactiveStaff } from '../../lib/staffStatus'
@@ -10,10 +11,12 @@ import type { BranchOption, OrderReview } from './api'
 
 export interface QueueColumn {
   header: string
+  /** Dates and notes may wrap (two lines at most for a date); everything else stays on one line. */
+  wrap?: boolean
   cell: (order: OrderReview) => ReactNode
+  /** Leave this fact out of the compact phone card (the table still shows it). */
+  hideOnPhone?: boolean
 }
-
-const TAB = 'inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-300'
 
 /** Tabs kept in `?tab=` so a reload or the Back button keeps the place. */
 export function QueueTabs<V extends string>({
@@ -34,18 +37,10 @@ export function QueueTabs<V extends string>({
     return `?${next.toString()}`
   }
   return (
-    <nav aria-label={label} className="flex flex-wrap gap-2">
-      {views.map((view) => (
-        <Link
-          key={view}
-          to={to(view)}
-          aria-current={view === current ? 'page' : undefined}
-          className={`${TAB} ${view === current ? 'bg-sky-100 text-sky-900' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
-        >
-          {labels[view]}
-        </Link>
-      ))}
-    </nav>
+    <SegmentedTabs
+      label={label}
+      items={views.map((view) => ({ key: view, to: to(view), label: labels[view], active: view === current }))}
+    />
   )
 }
 
@@ -55,7 +50,7 @@ export function BranchFilter({ branches, allLabel }: { branches: BranchOption[];
   if (branches.length < 2) return null
   return (
     <div className="w-full sm:w-64">
-      <label htmlFor="queue-branch" className="block text-xs font-medium text-slate-600">
+      <label htmlFor="queue-branch" className="block text-xs font-medium text-ink-muted">
         Branch
       </label>
       <select
@@ -86,23 +81,18 @@ export function ReturnFlags({ order }: { order: OrderReview }) {
   return (
     <span className="inline-flex flex-wrap gap-1">
       {needsAttention(order.return_count) ? (
-        <span
-          className="inline-flex items-center whitespace-nowrap rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-800 ring-1 ring-inset ring-red-200"
-          title={`Returned ${NEEDS_ATTENTION_RETURNS} or more times`}
-        >
-          Needs attention
+        <span title={`Returned ${NEEDS_ATTENTION_RETURNS} or more times`}>
+          <Badge tone="danger">Needs attention</Badge>
         </span>
       ) : null}
-      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300">
-        Returned {order.return_count}×
-      </span>
+      <Badge>Returned {order.return_count}×</Badge>
     </span>
   )
 }
 
 /**
- * One tab of a queue: a table on desktop, cards on a phone (0004 PRD Q10).
- * Each row links to the order page.
+ * One tab of a queue: a table on desktop, compact cards on a phone (0004 PRD
+ * Q10; 0011 Q11). Each row links to the order page.
  */
 export function QueueList({
   state,
@@ -111,6 +101,7 @@ export function QueueList({
   link,
   label,
   empty,
+  emptyIcon,
 }: {
   state: LoadState<OrderReview[]>
   reload: () => void
@@ -118,105 +109,121 @@ export function QueueList({
   link: (order: OrderReview) => string
   label: string
   empty: string
+  emptyIcon?: ReactNode
 }) {
   useInactiveStaff() // re-render with "(inactive)" tags once known
   if (state.status === 'loading') {
-    return (
-      <p className="text-sm text-slate-600" role="status">
-        Loading…
-      </p>
-    )
+    return <LoadingState variant="rows" count={5} label="Loading…" />
   }
   if (state.status === 'error') {
     return (
-      <Notice tone="error" title="Could not load the list">
+      <ErrorState title="Could not load the list" onRetry={reload}>
         <p>{state.message}</p>
-        <button type="button" onClick={reload} className="mt-3 min-h-11 font-medium underline">
-          Try again
-        </button>
-      </Notice>
+      </ErrorState>
     )
   }
   if (state.data.length === 0) {
-    return (
-      <div className={`${CARD} text-center`}>
-        <p className="text-sm text-slate-700">{empty}</p>
-      </div>
-    )
+    return <EmptyState title={empty} icon={emptyIcon ?? <Inbox className="size-5" />} />
   }
   const rows = state.data
+  const phoneColumns = columns.filter((c) => !c.hideOnPhone)
   return (
     <>
-      {/* Phone widths: cards. */}
-      <ul className="space-y-3 md:hidden" aria-label={label}>
+      {/* Phone widths: compact cards, the whole card opens the order. */}
+      <ul className="grid gap-3 md:grid-cols-2 xl:hidden" aria-label={label}>
         {rows.map((order) => (
-          <li key={order.id} className={CARD}>
-            <div className="flex items-start justify-between gap-3">
-              <Link to={link(order)} className={`${LINK} inline-flex min-h-11 items-center text-base`}>
-                {order.order_no}
-              </Link>
-              <StatusBadge status={order.status} />
-            </div>
-            <p className="text-sm font-medium">{order.customer_name}</p>
-            <ReturnFlags order={order} />
-            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-              {columns.map((c) => (
-                <div key={c.header}>
-                  <dt className="text-xs text-slate-500">{c.header}</dt>
-                  <dd className="break-words">{c.cell(order)}</dd>
+          <li key={order.id}>
+            <Link
+              to={link(order)}
+              className="group block rounded-xl border border-line bg-surface p-4 shadow-card transition-colors hover:border-brand/40 active:bg-sunken"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-xs font-medium tracking-wide text-ink-faint">{order.order_no}</span>
+                <StatusBadge status={order.status} />
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <p className="min-w-0 break-words text-base font-semibold text-ink">{order.customer_name}</p>
+                <ChevronRight
+                  className="size-5 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </div>
+              <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-muted">
+                <Building2 className="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+                {order.branch_name}
+              </p>
+              {order.return_count > 0 ? (
+                <div className="mt-2">
+                  <ReturnFlags order={order} />
                 </div>
-              ))}
-            </dl>
+              ) : null}
+              {phoneColumns.length > 0 ? (
+                <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-line pt-3 text-sm">
+                  {phoneColumns.map((c) => (
+                    <div key={c.header} className="min-w-0">
+                      <dt className="text-xs text-ink-faint">{c.header}</dt>
+                      <dd className="break-words text-ink tabular">{c.cell(order)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+            </Link>
           </li>
         ))}
       </ul>
 
       {/* Wider screens: a table. */}
-      <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm md:block">
-        <table className="min-w-full divide-y divide-slate-200 text-sm" aria-label={label}>
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-600">
-            <tr>
-              <th scope="col" className="px-4 py-3">
-                Order
-              </th>
-              <th scope="col" className="px-4 py-3">
-                Customer
-              </th>
-              {columns.map((c) => (
-                <th key={c.header} scope="col" className="px-4 py-3">
-                  {c.header}
+      <div className={`${TABLE.wrap} hidden xl:block`}>
+        <div className="overflow-x-auto">
+          <table className={TABLE.table} aria-label={label}>
+            <thead className={TABLE.head}>
+              <tr>
+                <th scope="col" className={TABLE.th}>
+                  Order
                 </th>
-              ))}
-              <th scope="col" className="px-4 py-3">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((order) => (
-              <tr key={order.id} className="hover:bg-slate-50">
-                <td className="whitespace-nowrap px-4 py-3">
-                  <Link to={link(order)} className={LINK}>
-                    {order.order_no}
-                  </Link>
-                  <div className="text-xs text-slate-500">{order.branch_name}</div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="font-medium">{order.customer_name}</div>
-                  <ReturnFlags order={order} />
-                </td>
+                <th scope="col" className={TABLE.th}>
+                  Customer
+                </th>
                 {columns.map((c) => (
-                  <td key={c.header} className="px-4 py-3">
-                    {c.cell(order)}
-                  </td>
+                  <th key={c.header} scope="col" className={TABLE.th}>
+                    {c.header}
+                  </th>
                 ))}
-                <td className="px-4 py-3">
-                  <StatusBadge status={order.status} />
-                </td>
+                <th scope="col" className={TABLE.th}>
+                  Status
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((order) => (
+                <tr key={order.id} className={TABLE.row}>
+                  <td className={`${TABLE.td} whitespace-nowrap`}>
+                    <Link to={link(order)} className={LINK}>
+                      {order.order_no}
+                    </Link>
+                    <div className="mt-0.5 text-xs text-ink-faint">{order.branch_name}</div>
+                  </td>
+                  <td className={TABLE.td}>
+                    <div className="font-medium">{order.customer_name}</div>
+                    {order.return_count > 0 ? (
+                      <div className="mt-1">
+                        <ReturnFlags order={order} />
+                      </div>
+                    ) : null}
+                  </td>
+                  {columns.map((c) => (
+                    <td key={c.header} className={`${TABLE.td} tabular ${c.wrap ? 'min-w-32' : 'whitespace-nowrap'}`}>
+                      {c.cell(order)}
+                    </td>
+                  ))}
+                  <td className={`${TABLE.td} min-w-36 [&>span]:whitespace-normal`}>
+                    <StatusBadge status={order.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   )

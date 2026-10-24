@@ -28,12 +28,13 @@ Source brief: `docs/prd/0000-programmer-assessment-brief.docx`. Feature
 numbers follow the build order: 0000 foundation, 0001–0003 brief Modules 1–3,
 0004 review and close screens, 0005 customer feedback, 0006 staff
 management, 0007 KPI dashboard, 0008 AI operations query, 0009 optional AI
-challenges, 0010 production deployment (see `docs/product-roadmap.md`;
-renumbered in decisions 0009 and 0010; 0010 added in decision 0012).
+challenges, 0010 production deployment, 0011 UI/UX enhancement (see
+`docs/product-roadmap.md`; renumbered in decisions 0009 and 0010; 0010 added
+in decision 0012; 0011 in decision 0020).
 
 ## Tech Stack
 
-- **Frontend:** React 19 + TypeScript, Vite 7, Tailwind CSS 4, React Router 7 (library mode)
+- **Frontend:** React 19 + TypeScript, Vite 7, Tailwind CSS 4 (design tokens in `src/index.css`), React Router 7 (library mode), Lucide icons, Poppins (bundled via `@fontsource/poppins`)
 - **Backend:** Supabase Postgres; business rules live in SQL functions (RPCs); Supabase Auth (email + password) with row-level security; Supabase Realtime for in-app notifications
 - **Charts:** Recharts (KPI dashboard only; loaded on demand with the dashboard pages)
 - **Storage:** Supabase Postgres and Supabase Storage (private `job-files` bucket for job photos / videos / PDFs and payment receipts)
@@ -55,13 +56,13 @@ when structure, routes, schemas, or config change).
   `staff` (staff screens, 0006), `kpi` (KPI dashboard and My week, 0007),
   `ask` (Ask chat bubble, saved chats, Admin AI log, 0008),
   `supervisor` (Warnings box and queue counts, 0009)),
-  `components/` (shared UI),
+  `components/` (shared UI kit and the app frame `shell/`, 0011),
   `lib/` (Supabase client, shared API plumbing, hooks, drafts)
 - **`supabase/`** — `migrations/` (ordered SQL) and `seed.sql`
 - **`scripts/`** — Node scripts run locally with the secret key (staff login provisioning for a fresh project)
 - **`supabase/functions/`** — Edge Functions (`staff-access`, 0006; `ask`, 0008; `ai-assist`, 0009; `_shared/`); logic in plain TS tested from `tests/functions/`
 - **`tests/`** — `domain/`, `auth/`, `scripts/` unit tests; `functions/` Edge Function logic; `db/` PGlite database tests;
-  `ui/` component tests (jsdom; `src/features/*/api.ts` replaced by test doubles)
+  `ui/` component tests (jsdom; `src/features/*/api.ts` replaced by test doubles; `vitest-axe` checks; a source test bans raw palette colours)
 - **`docs/`** — docs-first source of truth: `docs/product-roadmap.md`,
   `docs/prd/`, `docs/plan/`, `docs/reference/`, `docs/decisions/`. `docs/draft/` is the
   user's personal scratch space — never read or act on it unless explicitly referenced.
@@ -193,6 +194,18 @@ when structure, routes, schemas, or config change).
    the Admin AI log (`ask_log.feature`) for 7 days. Test cleanup deletes
    test orders (warnings and runs follow), `ask_log`, `insight_wordings`,
    and the order form files in Storage by hand.
+
+14. UI/UX (design system): `docs/0011-ui-ux-enhancement-workflow.md`.
+   Screens use only the named colours from `src/index.css` (light and dark
+   switch there; `tests/ui/design-tokens.test.ts` fails on raw palette
+   classes or hex colours). Each portal renders inside `AppShell` (one `nav`:
+   sidebar ≥ 1024 px, icon rail 768–1023 px, phone bottom bar) and uses the
+   kit in `src/components/` (`PageHeader`, `LoadingState`, `EmptyState`,
+   `ErrorState`, `Toast`, `ActionBar`, `FilterPanel`, `SegmentedTabs`,
+   `TABLE`, `BUTTON`). Success is a toast; errors stay inline. Keep button
+   names, labels and fixed texts: tests and the `live-check` robot read
+   them. The customer feedback page's words live in
+   `src/features/feedback/i18n.ts` (English and Malay).
 
 ## Environment And Secrets
 

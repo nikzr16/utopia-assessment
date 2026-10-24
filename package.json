@@ -12,7 +12,9 @@
     "live-check": "node scripts/live-check.ts"
   },
   "dependencies": {
+    "@fontsource/poppins": "^5.3.0",
     "@supabase/supabase-js": "^2.118.0",
+    "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-is": "19.3.1",
@@ -35,6 +37,7 @@
     "typescript": "^7.0.2",
     "vite": "^7.3.7",
     "vitest": "^3.2.7",
+    "vitest-axe": "^0.1.0",
     "yaml": "^2.9.1"
   }
 }

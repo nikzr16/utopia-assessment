@@ -1,13 +1,16 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Notice } from '../../components/Notice'
+import { ChevronRight, Clock, ClipboardList, Plus, Search, SearchX, UserRound, Wallet } from 'lucide-react'
+import { FilterPanel, type FilterChip } from '../../components/FilterPanel'
 import { Pager } from '../../components/Pager'
 import { StatusBadge } from '../../components/StatusBadge'
-import { BUTTON, CARD, INPUT, LINK } from '../../components/styles'
+import { BUTTON, INPUT, LINK, TABLE } from '../../components/styles'
+import { EmptyState, ErrorState, LoadingState, PageHeader } from '../../components/ui'
 import {
   ORDER_STATUSES,
   STATUS_LABELS,
   TERMINAL_STATUSES,
+  formatMYR,
   formatMalaysiaDate,
   formatMalaysiaDateTime,
   formatMyPhone,
@@ -51,6 +54,7 @@ export function OrderListPage() {
   const [state, reload] = useLoad(() => listOrders(query), params.toString())
   const [reference] = useLoad(fetchReferenceData, 'reference')
   const [search, setSearch] = useState(params.get('q') ?? '')
+  const ref = reference.status === 'ready' ? reference.data : null
 
   const update = (changes: Record<string, string>) => {
     const next = new URLSearchParams(params)
@@ -71,80 +75,158 @@ export function OrderListPage() {
   const page = query.offset / PAGE_SIZE + 1
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold">Orders</h2>
-        <Link to="/orders/new" className={BUTTON.primary}>
-          New order
-        </Link>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        row
+        title="Orders"
+        actions={
+          <Link to="/orders/new" className={BUTTON.primary}>
+            <Plus aria-hidden="true" />
+            New order
+          </Link>
+        }
+      />
 
-      <section className={CARD} aria-label="Search and filters">
-        <form role="search" onSubmit={onSearch} className="flex flex-col gap-2 sm:flex-row">
-          <label htmlFor="orders-search" className="sr-only">
-            Search orders
-          </label>
-          <input
-            id="orders-search"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Order number, customer name or phone"
-            className={INPUT}
-          />
-          <button type="submit" className={BUTTON.secondary}>
-            Search
-          </button>
-        </form>
-        <Filters params={params} reference={reference.status === 'ready' ? reference.data : null} update={update} />
-        {filtered ? (
-          <button
-            type="button"
-            onClick={() => {
-              setSearch('')
-              setParams(new URLSearchParams())
-            }}
-            className={`${LINK} mt-3 text-sm`}
-          >
-            Clear search and filters
-          </button>
-        ) : null}
+      <section aria-label="Search and filters">
+        <FilterPanel
+          chips={filterChips(params, ref, update)}
+          search={
+            <form role="search" onSubmit={onSearch} className="flex gap-2">
+              <label htmlFor="orders-search" className="sr-only">
+                Search orders
+              </label>
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint"
+                  aria-hidden="true"
+                />
+                <input
+                  id="orders-search"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Order number, customer name or phone"
+                  className={`${INPUT} pl-9 max-md:min-h-11`}
+                />
+              </div>
+              <button type="submit" className={`${BUTTON.secondary} shrink-0 max-md:min-h-11 max-sm:px-3`}>
+                <Search className="sm:hidden" aria-hidden="true" />
+                <span className="max-sm:sr-only">Search</span>
+              </button>
+            </form>
+          }
+        >
+          <Filters params={params} reference={ref} update={update} />
+        </FilterPanel>
       </section>
 
       {state.status === 'loading' ? (
-        <p className="text-sm text-slate-600" role="status">
-          Loading orders…
-        </p>
+        <LoadingState variant="rows" count={6} label="Loading orders…" />
       ) : state.status === 'error' ? (
-        <Notice tone="error" title="Could not load orders">
+        <ErrorState title="Could not load orders" onRetry={reload}>
           <p>{state.message}</p>
-          <button type="button" onClick={reload} className="mt-3 font-medium underline">
-            Try again
-          </button>
-        </Notice>
-      ) : state.data.rows.length === 0 ? (
-        <div className={`${CARD} text-center`}>
-          <p className="text-sm text-slate-700">{filtered ? 'No orders match your search and filters.' : 'No orders yet.'}</p>
-          {!filtered ? (
-            <Link to="/orders/new" className={`${BUTTON.primary} mt-3`}>
-              Create the first order
-            </Link>
-          ) : null}
-        </div>
+        </ErrorState>
       ) : (
         <>
-          <OrderTable rows={state.data.rows} />
-          <Pager
-            page={page}
-            pageSize={PAGE_SIZE}
-            total={state.data.total}
-            onPage={(p) => update({ page: p > 1 ? String(p) : '' })}
-          />
+          <div
+            className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm ${
+              state.data.total === 0 && !filtered ? 'hidden' : ''
+            }`}
+          >
+            <p className="text-ink-muted">
+              <span className="font-medium text-ink tabular">{state.data.total}</span>{' '}
+              {state.data.total === 1 ? 'order' : 'orders'}
+              {filtered ? ' found' : ''}
+            </p>
+            {filtered ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('')
+                  setParams(new URLSearchParams())
+                }}
+                className={`${LINK} max-md:min-h-11`}
+              >
+                Clear search and filters
+              </button>
+            ) : null}
+          </div>
+
+          {state.data.rows.length === 0 ? (
+            filtered ? (
+              <EmptyState title="No orders match your search and filters." icon={<SearchX className="size-5" />}>
+                Try another name, phone number or order number, or clear the filters.
+              </EmptyState>
+            ) : (
+              <EmptyState
+                title="No orders yet."
+                icon={<ClipboardList className="size-5" />}
+                action={
+                  <Link to="/orders/new" className={BUTTON.primary}>
+                    <Plus aria-hidden="true" />
+                    New order
+                  </Link>
+                }
+              >
+                New orders show up here, newest first.
+              </EmptyState>
+            )
+          ) : (
+            <>
+              <OrderTable rows={state.data.rows} />
+              <Pager
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={state.data.total}
+                onPage={(p) => update({ page: p > 1 ? String(p) : '' })}
+              />
+            </>
+          )}
         </>
       )}
     </div>
   )
 }
+
+/** The chosen filters as removable chips (phone, PRD 0011 Q12). */
+function filterChips(
+  params: URLSearchParams,
+  reference: ReferenceData | null,
+  update: (changes: Record<string, string>) => void,
+): FilterChip[] {
+  const chips: FilterChip[] = []
+  const status = params.get('status')
+  if (status) {
+    chips.push({
+      key: 'status',
+      label: status === 'open' ? 'Open orders' : (STATUS_LABELS[status as OrderStatus] ?? status),
+      onRemove: () => update({ status: '' }),
+    })
+  }
+  const branch = params.get('branch')
+  if (branch) {
+    chips.push({
+      key: 'branch',
+      label: reference?.branches.find((b) => b.id === branch)?.name ?? 'Branch',
+      onRemove: () => update({ branch: '' }),
+    })
+  }
+  const tech = params.get('tech')
+  if (tech) {
+    chips.push({
+      key: 'tech',
+      label: reference?.technicians.find((t) => t.id === tech)?.name ?? 'Technician',
+      onRemove: () => update({ tech: '' }),
+    })
+  }
+  const from = params.get('from')
+  if (from) chips.push({ key: 'from', label: `From ${from}`, onRemove: () => update({ from: '' }) })
+  const to = params.get('to')
+  if (to) chips.push({ key: 'to', label: `To ${to}`, onRemove: () => update({ to: '' }) })
+  return chips
+}
+
+const FILTER_LABEL = 'block text-xs font-medium text-ink-muted'
 
 function Filters({
   params,
@@ -157,10 +239,15 @@ function Filters({
 }) {
   const select = (id: string, label: string, key: string, options: { value: string; label: string }[], all: string) => (
     <div>
-      <label htmlFor={id} className="block text-xs font-medium text-slate-600">
+      <label htmlFor={id} className={FILTER_LABEL}>
         {label}
       </label>
-      <select id={id} value={params.get(key) ?? ''} onChange={(e) => update({ [key]: e.target.value })} className={`${INPUT} mt-1`}>
+      <select
+        id={id}
+        value={params.get(key) ?? ''}
+        onChange={(e) => update({ [key]: e.target.value })}
+        className={`${INPUT} mt-1 max-md:min-h-11`}
+      >
         <option value="">{all}</option>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -171,7 +258,7 @@ function Filters({
     </div>
   )
   return (
-    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {select(
         'filter-status',
         'Status',
@@ -188,16 +275,28 @@ function Filters({
         'All technicians',
       )}
       <div>
-        <label htmlFor="filter-from" className="block text-xs font-medium text-slate-600">
+        <label htmlFor="filter-from" className={FILTER_LABEL}>
           Scheduled from
         </label>
-        <input id="filter-from" type="date" value={params.get('from') ?? ''} onChange={(e) => update({ from: e.target.value })} className={`${INPUT} mt-1`} />
+        <input
+          id="filter-from"
+          type="date"
+          value={params.get('from') ?? ''}
+          onChange={(e) => update({ from: e.target.value })}
+          className={`${INPUT} mt-1 max-md:min-h-11`}
+        />
       </div>
       <div>
-        <label htmlFor="filter-to" className="block text-xs font-medium text-slate-600">
+        <label htmlFor="filter-to" className={FILTER_LABEL}>
           Scheduled to
         </label>
-        <input id="filter-to" type="date" value={params.get('to') ?? ''} onChange={(e) => update({ to: e.target.value })} className={`${INPUT} mt-1`} />
+        <input
+          id="filter-to"
+          type="date"
+          value={params.get('to') ?? ''}
+          onChange={(e) => update({ to: e.target.value })}
+          className={`${INPUT} mt-1 max-md:min-h-11`}
+        />
       </div>
     </div>
   )
@@ -208,68 +307,96 @@ function OrderTable({ rows }: { rows: OrderListRow[] }) {
   const link = (row: OrderListRow) => `/orders/${encodeURIComponent(row.order_no)}`
   return (
     <>
-      {/* Phone widths: cards. */}
+      {/* Phone widths: compact cards; the whole card opens the order (PRD 0011 Q11). */}
       <ul className="space-y-3 md:hidden" aria-label="Orders">
-        {rows.map((row) => (
-          <li key={row.id} className={CARD}>
-            <div className="flex items-start justify-between gap-3">
-              <Link to={link(row)} className={`${LINK} text-base`}>
-                {row.order_no}
+        {rows.map((row) => {
+          const technician = staffName(row.technician_name, row.assigned_technician_id)
+          return (
+            <li key={row.id}>
+              <Link
+                to={link(row)}
+                className="group block rounded-xl border border-line bg-surface p-4 shadow-card transition-colors hover:border-brand/40 active:bg-sunken"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-medium tracking-wide text-ink-faint">{row.order_no}</span>
+                  <StatusBadge status={row.status} />
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <p className="min-w-0 break-words text-base font-semibold text-ink">{row.customer_name}</p>
+                  <ChevronRight
+                    className="size-5 shrink-0 text-ink-faint transition-transform group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
+                </div>
+                <p className="mt-0.5 text-sm text-ink-muted">
+                  {row.service_type_name} · {row.branch_name}
+                </p>
+                <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-t border-line pt-2.5 text-sm text-ink-muted">
+                  <p className="flex min-w-0 items-center gap-2">
+                    <UserRound className="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+                    <span className={`truncate ${technician ? '' : 'text-ink-faint'}`}>{technician ?? 'Not assigned'}</span>
+                  </p>
+                  <p className="flex items-center justify-end gap-1.5 font-medium text-ink tabular">
+                    <Wallet className="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+                    {formatMYR(row.quoted_price)}
+                  </p>
+                  <p className="col-span-2 flex items-center gap-2">
+                    <Clock className="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+                    {row.scheduled_at ? formatMalaysiaDateTime(row.scheduled_at) : 'Not scheduled'}
+                  </p>
+                </div>
               </Link>
-              <StatusBadge status={row.status} />
-            </div>
-            <p className="mt-2 text-sm font-medium">{row.customer_name}</p>
-            <p className="text-sm text-slate-600">{formatMyPhone(row.customer_phone)}</p>
-            <p className="mt-1 text-sm text-slate-600">
-              {row.service_type_name} · {staffName(row.technician_name, row.assigned_technician_id) ?? 'Not assigned'} · {row.branch_name}
-            </p>
-            <p className="text-sm text-slate-600">
-              {row.scheduled_at ? formatMalaysiaDateTime(row.scheduled_at) : 'Not scheduled'}
-            </p>
-          </li>
-        ))}
+            </li>
+          )
+        })}
       </ul>
 
       {/* Wider screens: a table. */}
-      <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm md:block">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-600">
-            <tr>
-              <th scope="col" className="px-4 py-3">Order</th>
-              <th scope="col" className="px-4 py-3">Customer</th>
-              <th scope="col" className="px-4 py-3">Service</th>
-              <th scope="col" className="px-4 py-3">Technician</th>
-              <th scope="col" className="px-4 py-3">Status</th>
-              <th scope="col" className="px-4 py-3">Scheduled</th>
-              <th scope="col" className="px-4 py-3">Created</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((row) => (
-              <tr key={row.id} className="hover:bg-slate-50">
-                <td className="whitespace-nowrap px-4 py-3">
-                  <Link to={link(row)} className={LINK}>
-                    {row.order_no}
-                  </Link>
-                  <div className="text-xs text-slate-500">{row.branch_name}</div>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="font-medium">{row.customer_name}</div>
-                  <div className="whitespace-nowrap text-xs text-slate-500">{formatMyPhone(row.customer_phone)}</div>
-                </td>
-                <td className="px-4 py-3">{row.service_type_name}</td>
-                <td className="px-4 py-3">{staffName(row.technician_name, row.assigned_technician_id) ?? <span className="text-slate-500">Not assigned</span>}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={row.status} />
-                </td>
-                <td className="whitespace-nowrap px-4 py-3">
-                  {row.scheduled_at ? formatMalaysiaDateTime(row.scheduled_at) : <span className="text-slate-500">—</span>}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3">{formatMalaysiaDate(row.created_at)}</td>
+      <div className={`${TABLE.wrap} hidden md:block`}>
+        <div className="overflow-x-auto">
+          <table className={TABLE.table}>
+            <thead className={TABLE.head}>
+              <tr>
+                <th scope="col" className={TABLE.th}>Order</th>
+                <th scope="col" className={TABLE.th}>Customer</th>
+                <th scope="col" className={TABLE.th}>Service</th>
+                <th scope="col" className={TABLE.th}>Technician</th>
+                <th scope="col" className={TABLE.th}>Status</th>
+                <th scope="col" className={TABLE.th}>Scheduled</th>
+                <th scope="col" className={`${TABLE.th} hidden xl:table-cell`}>Created</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className={TABLE.row}>
+                  <td className={`${TABLE.td} whitespace-nowrap`}>
+                    <Link to={link(row)} className={LINK}>
+                      {row.order_no}
+                    </Link>
+                    <div className="mt-0.5 text-xs text-ink-faint">{row.branch_name}</div>
+                  </td>
+                  <td className={TABLE.td}>
+                    <div className="font-medium">{row.customer_name}</div>
+                    <div className="mt-0.5 whitespace-nowrap text-xs text-ink-faint tabular">{formatMyPhone(row.customer_phone)}</div>
+                  </td>
+                  <td className={TABLE.td}>{row.service_type_name}</td>
+                  <td className={TABLE.td}>
+                    {staffName(row.technician_name, row.assigned_technician_id) ?? <span className="text-ink-faint">Not assigned</span>}
+                  </td>
+                  <td className={TABLE.td}>
+                    <StatusBadge status={row.status} />
+                  </td>
+                  <td className={`${TABLE.td} tabular xl:whitespace-nowrap`}>
+                    {row.scheduled_at ? formatMalaysiaDateTime(row.scheduled_at) : <span className="text-ink-faint">—</span>}
+                  </td>
+                  <td className={`${TABLE.td} hidden whitespace-nowrap text-ink-muted tabular xl:table-cell`}>
+                    {formatMalaysiaDate(row.created_at)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   )

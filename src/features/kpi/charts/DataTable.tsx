@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { TABLE } from '../../../components/styles'
 
 export interface DataColumn<T> {
   header: string
@@ -20,28 +21,28 @@ export function DataTable<T>({
   rowKey: (row: T) => string
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
+    <div className="overflow-x-auto rounded-lg border border-line">
+      <table className={TABLE.table}>
         <caption className="sr-only">{caption}</caption>
-        <thead className="text-left text-xs font-medium text-slate-600">
+        <thead className={TABLE.head}>
           <tr>
             {columns.map((c) => (
-              <th key={c.header} scope="col" className={`px-3 py-2 ${c.numeric ? 'text-right' : ''}`}>
+              <th key={c.header} scope="col" className={`whitespace-nowrap px-3 py-2.5 font-medium ${c.numeric ? 'text-right' : ''}`}>
                 {c.header}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)}>
+            <tr key={rowKey(row)} className={TABLE.row}>
               {columns.map((c, i) =>
                 i === 0 ? (
-                  <th key={c.header} scope="row" className="px-3 py-2 text-left font-medium">
+                  <th key={c.header} scope="row" className="px-3 py-2.5 text-left font-medium text-ink">
                     {c.cell(row)}
                   </th>
                 ) : (
-                  <td key={c.header} className={`whitespace-nowrap px-3 py-2 ${c.numeric ? 'text-right tabular-nums' : ''}`}>
+                  <td key={c.header} className={`whitespace-nowrap px-3 py-2.5 text-ink ${c.numeric ? 'text-right tabular' : ''}`}>
                     {c.cell(row)}
                   </td>
                 ),

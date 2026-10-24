@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
+import { FileText, LoaderCircle, RefreshCw, Trash2, Upload } from 'lucide-react'
 import { BUTTON, CARD, LINK } from '../../components/styles'
+import { Toast } from '../../components/Toast'
 import { ORDER_FORM_ACCEPT, checkOrderFormFile, fileMimeType } from '../../domain'
 import { removeOrderForm, saveOrderForm } from '../attachments/api'
 import { useOrderForm } from '../attachments/OrderFormLink'
@@ -60,22 +62,32 @@ export function OrderFormEditor({ orderId }: { orderId: string }) {
 
   return (
     <section className={CARD} aria-labelledby="order-form-file">
-      <h3 id="order-form-file" className="text-base font-semibold">
-        Paper order form
-      </h3>
-      <p className="mt-1 text-sm text-slate-600">
-        {form ? (
-          url ? (
-            <a href={url} target="_blank" rel="noreferrer" className={LINK}>
-              {form.file_name ?? 'Order form'} ({form.kind === 'pdf' ? 'PDF' : 'photo'})
-            </a>
-          ) : (
-            (form.file_name ?? 'Order form')
-          )
-        ) : (
-          'No paper form is attached.'
-        )}
-      </p>
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"
+        >
+          <FileText className="size-4.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 id="order-form-file" className="text-base font-semibold text-ink">
+            Paper order form
+          </h3>
+          <p className="mt-0.5 break-words text-sm text-ink-muted">
+            {form ? (
+              url ? (
+                <a href={url} target="_blank" rel="noreferrer" className={LINK}>
+                  {form.file_name ?? 'Order form'} ({form.kind === 'pdf' ? 'PDF' : 'photo'})
+                </a>
+              ) : (
+                (form.file_name ?? 'Order form')
+              )
+            ) : (
+              'No paper form is attached.'
+            )}
+          </p>
+        </div>
+      </div>
       <input
         ref={input}
         type="file"
@@ -84,19 +96,34 @@ export function OrderFormEditor({ orderId }: { orderId: string }) {
         aria-label="New photo or PDF of the order form"
         onChange={(e) => void replace(e.target.files?.[0])}
       />
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" disabled={busy} onClick={() => input.current?.click()} className={`${BUTTON.secondary} min-h-11`}>
+          {form ? <RefreshCw aria-hidden="true" /> : <Upload aria-hidden="true" />}
           {form ? 'Replace' : 'Add photo or PDF'}
         </button>
         {form ? (
-          <button type="button" disabled={busy} onClick={() => void remove()} className={`${BUTTON.secondary} min-h-11`}>
+          <button type="button" disabled={busy} onClick={() => void remove()} className={`${BUTTON.dangerSoft} min-h-11`}>
+            <Trash2 aria-hidden="true" />
             Remove
           </button>
         ) : null}
       </div>
-      {busy ? <p role="status" className="mt-2 text-sm text-slate-600">Saving…</p> : null}
-      {done ? <p role="status" className="mt-2 text-sm text-green-800">{done}</p> : null}
-      {error ? <p role="alert" className="mt-2 text-sm text-red-700">{error}</p> : null}
+      {busy ? (
+        <p role="status" className="mt-3 flex items-center gap-2 text-sm text-ink-muted">
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+          Saving…
+        </p>
+      ) : null}
+      {done ? (
+        <Toast key={done} onDismiss={() => setDone(null)}>
+          {done}
+        </Toast>
+      ) : null}
+      {error ? (
+        <p role="alert" className="mt-3 rounded-lg border border-danger/35 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
+          {error}
+        </p>
+      ) : null}
     </section>
   )
 }

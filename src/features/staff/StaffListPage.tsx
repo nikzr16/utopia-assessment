@@ -1,8 +1,22 @@
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { Notice } from '../../components/Notice'
+import {
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  CircleCheck,
+  Phone,
+  Search,
+  TriangleAlert,
+  UserPlus,
+  UserRound,
+  Users,
+  UsersRound,
+} from 'lucide-react'
+import { FilterPanel, type FilterChip } from '../../components/FilterPanel'
 import { Pager } from '../../components/Pager'
-import { BUTTON, CARD, INPUT, LINK } from '../../components/styles'
+import { BUTTON, CARD, INPUT, LINK, TABLE } from '../../components/styles'
+import { EmptyState, ErrorState, LoadingState, PageHeader } from '../../components/ui'
 import {
   ROLE_LABELS,
   SIGN_IN_STATE_LABELS,
@@ -17,6 +31,7 @@ import {
 } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import { fetchBranchCover, fetchBranchOptions, listStaff, type BranchCoverRow, type StaffListQuery, type StaffRow } from './api'
+import { ActiveBadge, RoleBadge, StaffAvatar } from './StaffBits'
 
 /** URL search params → list query (`q`, `role`, `branch`, `status`, `page`). */
 export function toStaffQuery(params: URLSearchParams): StaffListQuery {
@@ -58,9 +73,29 @@ export function StaffListPage({ actorRole }: { actorRole: StaffRole }) {
 
   const filtered = ['q', 'role', 'branch', 'status'].some((k) => params.get(k))
   const page = query.offset / STAFF_PAGE_SIZE + 1
+  const branchName = (id: string) => (branches.status === 'ready' ? branches.data.find((b) => b.id === id)?.name : undefined)
+  const chips: FilterChip[] = []
+  if (params.get('q')) {
+    chips.push({
+      key: 'q',
+      label: `“${params.get('q')}”`,
+      onRemove: () => {
+        setSearch('')
+        update({ q: '' })
+      },
+    })
+  }
+  if (query.role) chips.push({ key: 'role', label: ROLE_LABELS[query.role], onRemove: () => update({ role: '' }) })
+  if (params.get('branch')) {
+    chips.push({ key: 'branch', label: branchName(params.get('branch')!) ?? 'Branch', onRemove: () => update({ branch: '' }) })
+  }
+  if (query.status !== 'active') {
+    chips.push({ key: 'status', label: STAFF_STATUS_FILTER_LABELS[query.status], onRemove: () => update({ status: '' }) })
+  }
+
   const select = (id: string, label: string, key: string, options: { value: string; label: string }[], all: string | null) => (
     <div>
-      <label htmlFor={id} className="block text-xs font-medium text-slate-600">
+      <label htmlFor={id} className="block text-xs font-medium text-ink-muted">
         {label}
       </label>
       <select
@@ -80,79 +115,93 @@ export function StaffListPage({ actorRole }: { actorRole: StaffRole }) {
   )
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold">Staff</h2>
-        <Link to="/staff/new" className={BUTTON.primary}>
-          {actorRole === 'manager' ? 'Add technician' : 'Add staff'}
-        </Link>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        row
+        title="Staff"
+        description={actorRole === 'manager' ? 'The branches you cover.' : 'Every branch.'}
+        actions={
+          <Link to="/staff/new" className={BUTTON.primary}>
+            <UserPlus aria-hidden="true" />
+            {actorRole === 'manager' ? 'Add technician' : 'Add staff'}
+          </Link>
+        }
+      />
 
       <BranchCoverPanel />
 
-      <section className={CARD} aria-label="Search and filters">
-        <form role="search" onSubmit={onSearch} className="flex flex-col gap-2 sm:flex-row">
-          <label htmlFor="staff-search" className="sr-only">
-            Search staff
-          </label>
-          <input
-            id="staff-search"
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Name, email or phone"
-            className={INPUT}
-          />
-          <button type="submit" className={BUTTON.secondary}>
-            Search
-          </button>
-        </form>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          {select('filter-role', 'Role', 'role', STAFF_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })), 'All roles')}
-          {select(
-            'filter-branch',
-            'Branch',
-            'branch',
-            (branches.status === 'ready' ? branches.data : []).map((b) => ({ value: b.id, label: b.name })),
-            'All branches',
-          )}
-          {select(
-            'filter-status',
-            'Status',
-            'status',
-            STAFF_STATUS_FILTERS.map((s) => ({ value: s, label: STAFF_STATUS_FILTER_LABELS[s] })),
-            null,
-          )}
-        </div>
-        {filtered ? (
-          <button
-            type="button"
-            onClick={() => {
-              setSearch('')
-              setParams(new URLSearchParams())
-            }}
-            className={`${LINK} mt-3 text-sm`}
-          >
-            Clear search and filters
-          </button>
-        ) : null}
+      <section aria-label="Search and filters">
+        <FilterPanel
+          chips={chips}
+          search={
+            <form role="search" onSubmit={onSearch} className="flex gap-2">
+              <label htmlFor="staff-search" className="sr-only">
+                Search staff
+              </label>
+              <div className="relative min-w-0 flex-1">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint"
+                  aria-hidden="true"
+                />
+                <input
+                  id="staff-search"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Name, email or phone"
+                  className={`${INPUT} pl-9`}
+                />
+              </div>
+              <button type="submit" className={`${BUTTON.secondary} shrink-0 max-md:min-h-11 max-sm:px-3`}>
+                <Search className="sm:hidden" aria-hidden="true" />
+                <span className="max-sm:sr-only">Search</span>
+              </button>
+            </form>
+          }
+        >
+          <div className="grid gap-3 md:grid-cols-3">
+            {select('filter-role', 'Role', 'role', STAFF_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] })), 'All roles')}
+            {select(
+              'filter-branch',
+              'Branch',
+              'branch',
+              (branches.status === 'ready' ? branches.data : []).map((b) => ({ value: b.id, label: b.name })),
+              'All branches',
+            )}
+            {select(
+              'filter-status',
+              'Status',
+              'status',
+              STAFF_STATUS_FILTERS.map((s) => ({ value: s, label: STAFF_STATUS_FILTER_LABELS[s] })),
+              null,
+            )}
+          </div>
+          {filtered ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('')
+                setParams(new URLSearchParams())
+              }}
+              className={`${LINK} mt-3 inline-flex min-h-11 items-center text-sm md:min-h-0`}
+            >
+              Clear search and filters
+            </button>
+          ) : null}
+        </FilterPanel>
       </section>
 
       {state.status === 'loading' ? (
-        <p className="text-sm text-slate-600" role="status">
-          Loading staff…
-        </p>
+        <LoadingState variant="rows" count={6} label="Loading staff…" />
       ) : state.status === 'error' ? (
-        <Notice tone="error" title="Could not load staff">
+        <ErrorState title="Could not load staff" onRetry={reload}>
           <p>{state.message}</p>
-          <button type="button" onClick={reload} className="mt-3 font-medium underline">
-            Try again
-          </button>
-        </Notice>
+        </ErrorState>
       ) : state.data.rows.length === 0 ? (
-        <div className={`${CARD} text-center`}>
-          <p className="text-sm text-slate-700">{filtered ? 'No staff match your search and filters.' : 'No staff yet.'}</p>
-        </div>
+        <EmptyState
+          title={filtered ? 'No staff match your search and filters.' : 'No staff yet.'}
+          icon={<UsersRound className="size-5" />}
+        />
       ) : (
         <>
           <StaffTable rows={state.data.rows} />
@@ -168,20 +217,12 @@ export function StaffListPage({ actorRole }: { actorRole: StaffRole }) {
   )
 }
 
-function StatusTag({ active }: { active: boolean }) {
-  return active ? (
-    <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Active</span>
-  ) : (
-    <span className="inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">Inactive</span>
-  )
-}
-
 function BranchLine({ row }: { row: StaffRow }) {
   return (
     <>
       {row.branch_name}
       {row.additional_branch_names.length > 0 ? (
-        <div className="text-xs text-slate-500">Also covers {row.additional_branch_names.join(', ')}</div>
+        <div className="text-xs text-ink-faint">Also covers {row.additional_branch_names.join(', ')}</div>
       ) : null}
     </>
   )
@@ -191,104 +232,181 @@ function StaffTable({ rows }: { rows: StaffRow[] }) {
   const link = (row: StaffRow) => `/staff/${row.id}`
   return (
     <>
-      {/* Phone widths: cards. */}
+      {/* Phone widths: compact cards, the whole card opens the person. */}
       <ul className="space-y-3 md:hidden" aria-label="Staff">
         {rows.map((row) => (
-          <li key={row.id} className={CARD}>
-            <div className="flex items-start justify-between gap-3">
-              <Link to={link(row)} className={`${LINK} text-base`}>
-                {row.name}
-              </Link>
-              <StatusTag active={row.active} />
-            </div>
-            <p className="mt-1 text-sm text-slate-700">
-              {ROLE_LABELS[row.role]} · <BranchLine row={row} />
-            </p>
-            <p className="text-sm text-slate-600">{formatMyPhone(row.phone)}</p>
-            <p className="break-words text-sm text-slate-600">{row.email}</p>
-            {row.active && row.sign_in_state !== 'ready' ? (
-              <p className="mt-1 text-xs text-amber-800">{SIGN_IN_STATE_LABELS[row.sign_in_state]}</p>
-            ) : null}
+          <li key={row.id}>
+            <Link
+              to={link(row)}
+              className="group flex gap-3 rounded-xl border border-line bg-surface p-4 shadow-card transition-colors hover:border-brand/40 active:bg-sunken"
+            >
+              <StaffAvatar name={row.name} active={row.active} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 break-words text-base font-semibold text-ink">{row.name}</p>
+                  <ActiveBadge active={row.active} />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+                  <RoleBadge role={row.role} />
+                  <span className="inline-flex items-center gap-1">
+                    <Building2 className="size-3.5 text-ink-faint" aria-hidden="true" />
+                    {row.branch_name}
+                  </span>
+                </div>
+                {row.additional_branch_names.length > 0 ? (
+                  <p className="mt-1 text-xs text-ink-faint">Also covers {row.additional_branch_names.join(', ')}</p>
+                ) : null}
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-muted tabular">
+                  <Phone className="size-3.5 text-ink-faint" aria-hidden="true" />
+                  {formatMyPhone(row.phone)}
+                </p>
+                {row.active && row.sign_in_state !== 'ready' ? (
+                  <p className="mt-1 text-xs font-medium text-warning-ink">{SIGN_IN_STATE_LABELS[row.sign_in_state]}</p>
+                ) : null}
+              </div>
+              <ChevronRight className="mt-2.5 size-5 shrink-0 self-start text-ink-faint" aria-hidden="true" />
+            </Link>
           </li>
         ))}
       </ul>
 
       {/* Wider screens: a table. */}
-      <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm md:block">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-600">
-            <tr>
-              <th scope="col" className="px-4 py-3">Name</th>
-              <th scope="col" className="px-4 py-3">Role</th>
-              <th scope="col" className="px-4 py-3">Branch</th>
-              <th scope="col" className="px-4 py-3">Phone</th>
-              <th scope="col" className="px-4 py-3">Sign-in</th>
-              <th scope="col" className="px-4 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.map((row) => (
-              <tr key={row.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3">
-                  <Link to={link(row)} className={LINK}>
-                    {row.name}
-                  </Link>
-                  <div className="text-xs text-slate-500">{row.email}</div>
-                </td>
-                <td className="px-4 py-3">{ROLE_LABELS[row.role]}</td>
-                <td className="px-4 py-3">
-                  <BranchLine row={row} />
-                </td>
-                <td className="whitespace-nowrap px-4 py-3">{formatMyPhone(row.phone)}</td>
-                <td className="px-4 py-3 text-xs">
-                  {row.active ? SIGN_IN_STATE_LABELS[row.sign_in_state] : <span className="text-slate-500">Blocked</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusTag active={row.active} />
-                  <div className="mt-1 whitespace-nowrap text-xs text-slate-500">
-                    {row.active ? `Joined ${formatMalaysiaDate(row.joined_at)}` : `Left ${formatMalaysiaDate(row.left_at!)}`}
-                  </div>
-                </td>
+      <div className={`${TABLE.wrap} hidden md:block`}>
+        <div className="overflow-x-auto">
+          <table className={TABLE.table}>
+            <thead className={TABLE.head}>
+              <tr>
+                <th scope="col" className={TABLE.th}>Name</th>
+                <th scope="col" className={TABLE.th}>Role</th>
+                <th scope="col" className={TABLE.th}>Branch</th>
+                <th scope="col" className={TABLE.th}>Phone</th>
+                <th scope="col" className={TABLE.th}>Sign-in</th>
+                <th scope="col" className={TABLE.th}>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className={TABLE.row}>
+                  <td className={TABLE.td}>
+                    <div className="flex items-center gap-3">
+                      <StaffAvatar name={row.name} active={row.active} />
+                      <div className="min-w-0">
+                        <Link to={link(row)} className={LINK}>
+                          {row.name}
+                        </Link>
+                        <div className="break-all text-xs text-ink-faint">{row.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className={TABLE.td}>
+                    <RoleBadge role={row.role} />
+                  </td>
+                  <td className={TABLE.td}>
+                    <BranchLine row={row} />
+                  </td>
+                  <td className={`${TABLE.td} tabular xl:whitespace-nowrap`}>{formatMyPhone(row.phone)}</td>
+                  <td className={`${TABLE.td} text-xs xl:whitespace-nowrap`}>
+                    {row.active ? (
+                      <span className={row.sign_in_state === 'ready' ? 'text-ink-muted' : 'font-medium text-warning-ink'}>
+                        {SIGN_IN_STATE_LABELS[row.sign_in_state]}
+                      </span>
+                    ) : (
+                      <span className="text-ink-faint">Blocked</span>
+                    )}
+                  </td>
+                  <td className={TABLE.td}>
+                    <ActiveBadge active={row.active} />
+                    <div className="mt-1 whitespace-nowrap text-xs text-ink-faint">
+                      {row.active ? `Joined ${formatMalaysiaDate(row.joined_at)}` : `Left ${formatMalaysiaDate(row.left_at!)}`}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   )
 }
 
-/** Each branch's covering Managers and active staff; branches with no Manager stand out (PRD Q6). */
+/**
+ * Each branch's covering Managers and active staff; branches with no Manager
+ * stand out (PRD Q6). A card with the summary always in view; the branches
+ * open on their own when one has no Manager.
+ */
 export function BranchCoverPanel() {
   const [state] = useLoad(fetchBranchCover, 'branch-cover')
+  const [toggled, setToggled] = useState<boolean | null>(null)
+  const titleId = useId()
+  const listId = useId()
   if (state.status !== 'ready') return null
   const rows: BranchCoverRow[] = state.data
   const missing = rows.filter((r) => !r.has_manager)
+  const open = toggled ?? missing.length > 0
   return (
-    <details className={CARD} open={missing.length > 0}>
-      <summary className="cursor-pointer text-sm font-medium">
-        Branch cover:{' '}
-        {missing.length === 0 ? (
-          <span>every branch has a Manager</span>
-        ) : (
-          <span className="text-red-700">
-            {missing.map((r) => r.branch_name).join(', ')} {missing.length === 1 ? 'has' : 'have'} no Manager
+    <section className={`${CARD} ${missing.length > 0 ? 'border-danger/35' : ''}`} aria-labelledby={titleId}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 gap-3">
+          <span
+            aria-hidden="true"
+            className={`inline-flex size-10 shrink-0 items-center justify-center rounded-full ${
+              missing.length > 0 ? 'bg-danger-soft text-danger' : 'bg-success-soft text-success'
+            }`}
+          >
+            {missing.length > 0 ? <TriangleAlert className="size-5" /> : <CircleCheck className="size-5" />}
           </span>
-        )}
-      </summary>
-      <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" aria-label="Branch cover">
-        {rows.map((r) => (
-          <li key={r.branch_id} className={`rounded-md border p-3 text-sm ${r.has_manager ? 'border-slate-200' : 'border-red-300 bg-red-50'}`}>
-            <p className="font-medium">{r.branch_name}</p>
-            <p className="text-slate-700">
-              {r.managers.length === 0
-                ? 'No Manager'
-                : r.managers.map((m) => (m.home ? m.name : `${m.name} (cover)`)).join(', ')}
-            </p>
-            <p className="text-xs text-slate-500">{r.active_staff} active staff</p>
-          </li>
-        ))}
-      </ul>
-    </details>
+          <div className="min-w-0">
+            <h3 id={titleId} className="text-base font-semibold text-ink">
+              Branch cover
+            </h3>
+            {missing.length === 0 ? (
+              <p className="text-sm text-ink-muted">Every branch has a Manager.</p>
+            ) : (
+              <p className="text-sm font-medium text-danger-ink">
+                {missing.map((r) => r.branch_name).join(', ')} {missing.length === 1 ? 'has' : 'have'} no Manager
+              </p>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setToggled(!open)}
+          aria-expanded={open}
+          aria-controls={listId}
+          className={`${BUTTON.ghost} max-md:min-h-11`}
+        >
+          {open ? 'Hide branches' : `Show ${rows.length} branches`}
+          <ChevronDown className={`transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
+      </div>
+      {open ? (
+        <ul id={listId} className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3" aria-label="Branch cover">
+          {rows.map((r) => (
+            <li
+              key={r.branch_id}
+              className={`rounded-lg border p-3 text-sm ${r.has_manager ? 'border-line bg-sunken/50' : 'border-danger/35 bg-danger-soft'}`}
+            >
+              <p className="flex items-center gap-1.5 font-medium text-ink">
+                <Building2 className="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+                {r.branch_name}
+              </p>
+              <p className={`mt-1 flex gap-1.5 ${r.has_manager ? 'text-ink-muted' : 'font-medium text-danger-ink'}`}>
+                <UserRound className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                <span className="min-w-0">
+                  {r.managers.length === 0
+                    ? 'No Manager'
+                    : r.managers.map((m) => (m.home ? m.name : `${m.name} (cover)`)).join(', ')}
+                </span>
+              </p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-faint">
+                <Users className="size-3.5 shrink-0" aria-hidden="true" />
+                {r.active_staff} active staff
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   )
 }

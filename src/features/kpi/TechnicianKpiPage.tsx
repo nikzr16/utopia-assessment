@@ -1,15 +1,15 @@
-import { Link, useParams } from 'react-router'
-import { Notice } from '../../components/Notice'
-import { CARD, LINK } from '../../components/styles'
+import { useParams } from 'react-router'
+import { UserRound } from 'lucide-react'
 import { KPI_TREND_COUNTS, emptyPeriodMessage, isEmptyPeriod, kpiAddress, periodRange, staffLabel, type KpiAddress } from '../../domain'
 import { useLoad } from '../../lib/useLoad'
 import { fetchKpiTechnicianEvents, fetchKpiTechnicians, fetchKpiTrend } from './api'
 import { TrendChart } from './charts/TrendChart'
 import { EventList } from './components/EventList'
-import { KpiError, KpiLoading } from './components/KpiState'
+import { EmptyPeriod, KpiError, KpiLoading } from './components/KpiState'
 import { PeriodPicker } from './components/PeriodPicker'
 import { SummaryCards } from './components/SummaryCards'
 import { addressKey, useKpiAddress } from './useKpiAddress'
+import { BackLink, Badge, EmptyState, PageHeader } from '../../components/ui'
 
 /**
  * One technician for the chosen period (PRD Q16): their cards, their trend and
@@ -23,9 +23,7 @@ export function TechnicianKpiPage({ orderPath }: { orderPath: (orderNo: string) 
 
   return (
     <div className="space-y-5">
-      <Link to={back} className={`${LINK} inline-block text-sm`}>
-        ← Back to the dashboard
-      </Link>
+      <BackLink to={back}>Back to the dashboard</BackLink>
       <PeriodPicker view={address.view} start={address.start} onChange={setAddress} />
       <TechnicianBody key={`${technicianId}|${addressKey(address)}`} technicianId={technicianId} address={address} orderPath={orderPath} />
     </div>
@@ -52,30 +50,39 @@ function TechnicianBody({
     return { row: technicians.find((t) => t.id === technicianId) ?? null, events, trend }
   }, `${technicianId}|${addressKey(address)}`)
 
-  if (state.status === 'loading') return <KpiLoading what="the technician" />
+  if (state.status === 'loading') return <KpiLoading what="the technician" tiles={5} />
   if (state.status === 'error') return <KpiError message={state.message} onRetry={reload} />
 
   const { row, events, trend } = state.data
   if (!row) {
     return (
-      <Notice title="No numbers for this technician">
-        <p>This person was not listed for this period and branch.</p>
-      </Notice>
+      <EmptyState title="No numbers for this technician" icon={<UserRound className="size-5" />}>
+        This person was not listed for this period and branch.
+      </EmptyState>
     )
   }
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-semibold">{staffLabel(row.name, row.active)}</h2>
-        <p className="text-sm text-slate-600">{row.branch_name}</p>
+      <div className="flex items-center gap-3 sm:gap-4">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand ring-1 ring-inset ring-brand/25"
+        >
+          <UserRound className="size-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <PageHeader
+            row
+            title={staffLabel(row.name, row.active)}
+            description={row.branch_name}
+            actions={row.needs_attention ? <Badge tone="warning">Needs attention</Badge> : null}
+          />
+        </div>
       </div>
       <SummaryCards figures={row} />
       {isEmptyPeriod(row) ? (
-        <div className={CARD} role="status">
-          <p className="font-medium">{emptyPeriodMessage(view)}</p>
-          <p className="mt-1 text-sm text-slate-600">Jobs are counted when a Manager approves them.</p>
-        </div>
+        <EmptyPeriod message={emptyPeriodMessage(view)}>Jobs are counted when a Manager approves them.</EmptyPeriod>
       ) : (
         <TrendChart points={trend} view={view} title="Jobs completed over time" />
       )}

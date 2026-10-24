@@ -2,7 +2,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRoutes } from '../../src/App'
 import type { CustomerMessage, FeedbackForm, OrderFeedback } from '../../src/domain'
 import * as auth from '../../src/features/auth'
@@ -371,5 +371,64 @@ describe('Feedback route', () => {
       </MemoryRouter>,
     )
     await waitFor(() => expect(m.fetchFeedbackForm).toHaveBeenCalledWith('abc'))
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 0011 Q19: English / Malay on the customer page
+// ---------------------------------------------------------------------------
+describe('Customer feedback page in English or Malay (0011 Q19)', () => {
+  beforeEach(() => window.localStorage.clear())
+  afterEach(() => window.localStorage.clear())
+
+  it('opens in English and switches every page word to Malay, remembered on the phone', async () => {
+    const user = userEvent.setup()
+    m.fetchFeedbackForm.mockResolvedValue(openForm())
+    const { unmount } = renderFeedbackPage()
+    expect(await screen.findByRole('heading', { name: 'How did we do?' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /EN/ }).getAttribute('aria-pressed')).toBe('true')
+
+    await user.click(screen.getByRole('button', { name: /BM/ }))
+    expect(screen.getByRole('heading', { name: 'Bagaimana servis kami?' })).toBeTruthy()
+    const facts = within(screen.getByRole('region', { name: 'Kerja anda' }))
+    expect(facts.getByText('Pesanan')).toBeTruthy()
+    expect(facts.getByText('ORDER1042')).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Apakah penilaian anda untuk kerja ini?' })).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Adakah aircond anda berfungsi dengan baik sekarang?' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: /4 – Baik/ })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'Ya' })).toBeTruthy()
+    expect(screen.getByLabelText(/Komen/)).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: 'Hantar maklum balas' }))
+    expect(screen.getByText('Pilih penilaian antara 1 hingga 5 bintang')).toBeTruthy()
+    expect(screen.getByText('Beritahu kami sama ada aircond anda berfungsi dengan baik sekarang')).toBeTruthy()
+
+    unmount()
+    renderFeedbackPage()
+    expect(await screen.findByRole('heading', { name: 'Bagaimana servis kami?' })).toBeTruthy()
+  })
+
+  it('sends the same answers in Malay as in English', async () => {
+    const user = userEvent.setup()
+    window.localStorage.setItem('sejuk.feedback.lang', 'ms')
+    m.fetchFeedbackForm.mockResolvedValue(openForm())
+    m.submitFeedback.mockResolvedValue()
+    renderFeedbackPage()
+    await user.click(await screen.findByRole('radio', { name: /2 – Lemah/ }))
+    await user.click(screen.getByRole('radio', { name: 'Tidak' }))
+    await user.type(screen.getByLabelText(/Komen/), '  Masih bocor  ')
+    await user.click(screen.getByRole('button', { name: 'Hantar maklum balas' }))
+    expect(await screen.findByRole('heading', { name: 'Terima kasih!' })).toBeTruthy()
+    expect(m.submitFeedback).toHaveBeenCalledWith(TOKEN, { rating: 2, workingWell: false, comment: 'Masih bocor' })
+  })
+
+  it.each([
+    ['submitted', 'Maklum balas diterima'],
+    ['expired', 'Pautan ini tidak boleh digunakan'],
+  ] as const)('shows the %s page in Malay', async (state, title) => {
+    window.localStorage.setItem('sejuk.feedback.lang', 'ms')
+    m.fetchFeedbackForm.mockResolvedValue(state === 'submitted' ? openForm({ state }) : closedForm(state))
+    renderFeedbackPage()
+    expect(await screen.findByRole('heading', { name: title })).toBeTruthy()
   })
 })

@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Dialog } from './Dialog'
 import { Field } from './Field'
+import { CalendarCheck, CalendarClock } from 'lucide-react'
 import { BUTTON, INPUT } from './styles'
 import {
   RESCHEDULE_PARTIES,
@@ -82,11 +83,14 @@ export function RescheduleDialog({
   return (
     <Dialog title={`Reschedule ${order.order_no}`} onClose={onClose}>
       <form noValidate onSubmit={submit} className="space-y-4">
-        <p className="text-sm text-slate-700">
-          Currently: {order.scheduled_at ? formatMalaysiaDateTime(order.scheduled_at) : 'not scheduled'}.
+        <p className="flex items-center gap-2.5 rounded-lg border border-line bg-sunken px-3 py-2.5 text-sm text-ink-muted">
+          <CalendarClock className="size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+          <span>
+            Currently: {order.scheduled_at ? formatMalaysiaDateTime(order.scheduled_at) : 'not scheduled'}.
+          </span>
         </p>
         {serverError ? (
-          <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
+          <p role="alert" className="rounded-lg border border-danger/35 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
             {serverError}
           </p>
         ) : null}
@@ -102,12 +106,16 @@ export function RescheduleDialog({
             />
           )}
         </Field>
-        <label className="flex items-center gap-2 text-sm text-slate-800">
+        <label
+          className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm text-ink transition-colors ${
+            postpone ? 'border-brand/40 bg-brand-soft' : 'border-line-strong bg-surface hover:bg-sunken'
+          }`}
+        >
           <input
             type="checkbox"
             checked={postpone}
             onChange={(e) => setPostpone(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300"
+            className="size-4 shrink-0 rounded border-line-strong accent-brand"
           />
           Postpone, no new date yet
         </label>
@@ -159,11 +167,12 @@ export function RescheduleDialog({
             />
           )}
         </Field>
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} className={BUTTON.secondary} disabled={saving}>
+        <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} className={`${BUTTON.secondary} min-h-11`} disabled={saving}>
             Back
           </button>
-          <button type="submit" className={BUTTON.primary} disabled={saving}>
+          <button type="submit" className={`${BUTTON.primary} min-h-11`} disabled={saving}>
+            <CalendarCheck aria-hidden="true" />
             {saving ? 'Saving…' : 'Save new date'}
           </button>
         </div>

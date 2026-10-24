@@ -1,4 +1,18 @@
 import { useId, useRef, useState } from 'react'
+import {
+  ChevronDown,
+  CircleCheck,
+  CircleX,
+  Link2,
+  MessageCircle,
+  MessageSquareText,
+  PencilLine,
+  Phone,
+  PhoneOff,
+  RotateCw,
+  Save,
+  TriangleAlert,
+} from 'lucide-react'
 import { Dialog } from '../../components/Dialog'
 import { Field } from '../../components/Field'
 import { BUTTON, CARD, INPUT } from '../../components/styles'
@@ -29,7 +43,8 @@ import { confirmCustomerMessage, editCustomerMessage, fetchLatestCustomerMessage
 /** The "Customer not told yet" flag, shown until the message is sent or the customer is told by phone. */
 export function CustomerNotToldBadge() {
   return (
-    <span className="inline-flex items-center whitespace-nowrap rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-200">
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning-ink ring-1 ring-inset ring-warning/35">
+      <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
       Customer not told yet
     </span>
   )
@@ -78,10 +93,12 @@ export function CustomerMessagePanel({
   if (state.status === 'error') {
     return (
       <section className={CARD} aria-label="Customer message">
-        <p role="alert" className="text-sm text-red-900">
-          Could not load the customer message. {state.message}
+        <p role="alert" className="flex gap-2 text-sm text-danger-ink">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">Could not load the customer message. {state.message}</span>
         </p>
-        <button type="button" onClick={reload} className="mt-2 min-h-11 text-sm font-medium underline">
+        <button type="button" onClick={reload} className={`${BUTTON.secondary} mt-3 min-h-11`}>
+          <RotateCw aria-hidden="true" />
           Try again
         </button>
       </section>
@@ -216,15 +233,17 @@ function MessageCard({
   const showEditor = editing && canManage && canEdit
   const showQuestion = asking && canManage && (canSend || canCall)
   const alert = error ? (
-    <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
-      {error}
+    <p role="alert" className="flex gap-2 rounded-lg border border-danger/35 bg-danger-soft px-3 py-2 text-sm text-danger-ink">
+      <CircleX className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span className="min-w-0">{error}</span>
     </p>
   ) : null
 
   return (
     <section className={CARD} aria-labelledby={headingId}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={headingId} className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+        <h3 id={headingId} className="flex items-center gap-2 text-base font-semibold text-ink">
+          <MessageSquareText className="size-4.5 text-brand" aria-hidden="true" />
           Customer message
         </h3>
         {customerNotTold(message, orderStatus) ? <CustomerNotToldBadge /> : null}
@@ -233,21 +252,22 @@ function MessageCard({
       <div className="mt-3 space-y-3">
         {isWhatsApp ? (
           <div>
-            <p className="text-sm font-medium text-slate-800">Message to the customer</p>
-            <p className="mt-1 whitespace-pre-line break-words rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Message to the customer</p>
+            <p className="mt-1.5 whitespace-pre-line break-words rounded-xl rounded-tl-sm border border-line bg-sunken px-3.5 py-2.5 text-sm text-ink">
               {body}
             </p>
             {message.feedback_url ? (
               <div className="mt-2">
-                <p className="text-sm font-medium text-slate-800">Last line, added automatically</p>
-                <p className="mt-1 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">
-                  Leave feedback: {message.feedback_url}
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">Last line, added automatically</p>
+                <p className="mt-1.5 flex gap-2 rounded-lg border border-dashed border-line-strong px-3 py-2 text-sm text-ink">
+                  <Link2 className="mt-0.5 size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+                  <span className="min-w-0 break-all">Leave feedback: {message.feedback_url}</span>
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-ink-faint">
                   The customer's private feedback link. Editing the message does not change it.
                 </p>
                 {feedbackLinkIsPlaceholder(message.feedback_url) ? (
-                  <p role="alert" className="mt-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                  <p role="alert" className="mt-2 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning-ink">
                     The feedback link address is not set, so this link will not open for the customer. Ask your
                     administrator to set it before sending.
                   </p>
@@ -255,23 +275,27 @@ function MessageCard({
               </div>
             ) : null}
             {onBehalf ? (
-              <p className="mt-1 text-sm text-slate-600">Sent in your name, on behalf of the technician.</p>
+              <p className="mt-1 text-sm text-ink-muted">Sent in your name, on behalf of the technician.</p>
             ) : null}
             {customerMessageEdited(message) && !onBehalf ? (
-              <div className="mt-2 text-sm text-slate-700">
+              <div className="mt-2 text-sm text-ink-muted">
                 <p>{editedLabel}</p>
                 <button
                   type="button"
                   aria-expanded={showOriginal}
                   onClick={() => setShowOriginal((v) => !v)}
-                  className="min-h-11 text-sm font-medium text-sky-700 underline"
+                  className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand hover:underline"
                 >
                   {showOriginal ? 'Hide original' : 'Show original'}
+                  <ChevronDown
+                    className={`size-4 transition-transform ${showOriginal ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  />
                 </button>
                 {showOriginal ? (
                   <div className="mt-1">
-                    <p className="text-sm font-medium text-slate-800">Original message</p>
-                    <p className="mt-1 whitespace-pre-line break-words rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-700">
+                    <p className="text-sm font-medium text-ink">Original message</p>
+                    <p className="mt-1 whitespace-pre-line break-words rounded-lg border border-dashed border-line-strong px-3 py-2 text-sm text-ink-muted">
                       {message.prepared_body}
                     </p>
                   </div>
@@ -280,11 +304,18 @@ function MessageCard({
             ) : null}
           </div>
         ) : (
-          <p className="text-sm text-slate-700">No WhatsApp number for this customer (landline). Call them instead.</p>
+          <p className="flex gap-2 text-sm text-ink-muted">
+            <PhoneOff className="mt-0.5 size-4 shrink-0 text-ink-faint" aria-hidden="true" />
+            <span className="min-w-0">No WhatsApp number for this customer (landline). Call them instead.</span>
+          </p>
         )}
 
         {stateLabel ? (
-          <p role="status" className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-900">
+          <p
+            role="status"
+            className="flex items-center gap-2 rounded-lg border border-success/35 bg-success-soft px-3 py-2 text-sm font-medium text-success-ink"
+          >
+            <CircleCheck className="size-4 shrink-0" aria-hidden="true" />
             {stateLabel}
           </p>
         ) : null}
@@ -326,6 +357,7 @@ function MessageCard({
                 Cancel
               </button>
               <button type="submit" disabled={pending === 'edit'} className={`${BUTTON.primary} min-h-11`}>
+                <Save aria-hidden="true" />
                 {pending === 'edit' ? 'Saving…' : 'Save message'}
               </button>
             </div>
@@ -343,11 +375,13 @@ function MessageCard({
                     onClick={openQuestion}
                     className={`${BUTTON.whatsapp} min-h-11 flex-1`}
                   >
+                    <MessageCircle aria-hidden="true" />
                     Send to customer on WhatsApp
                     <span className="sr-only"> (opens WhatsApp in a new tab)</span>
                   </a>
                 ) : (
                   <button type="button" disabled className={`${BUTTON.whatsapp} min-h-11 flex-1`}>
+                    <MessageCircle aria-hidden="true" />
                     Send to customer on WhatsApp
                   </button>
                 )}
@@ -358,6 +392,7 @@ function MessageCard({
                     onClick={startEdit}
                     className={`${BUTTON.secondary} min-h-11 flex-1`}
                   >
+                    <PencilLine aria-hidden="true" />
                     Edit message
                   </button>
                 ) : null}
@@ -367,10 +402,12 @@ function MessageCard({
               <div className="flex flex-col sm:flex-row">
                 {canCall && callUrl ? (
                   <a href={callUrl} onClick={openQuestion} className={`${BUTTON.primary} min-h-11 flex-1 sm:flex-none`}>
+                    <Phone aria-hidden="true" />
                     Call the customer
                   </a>
                 ) : (
                   <button type="button" disabled className={`${BUTTON.primary} min-h-11 flex-1 sm:flex-none`}>
+                    <Phone aria-hidden="true" />
                     Call the customer
                   </button>
                 )}
@@ -389,7 +426,7 @@ function MessageCard({
           }
           onClose={() => setAsking(false)}
         >
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-ink-muted">
             {isWhatsApp
               ? 'Tap Yes only after you pressed Send in WhatsApp. You cannot undo this.'
               : 'Tap Yes only if you spoke to the customer. You cannot undo this.'}
